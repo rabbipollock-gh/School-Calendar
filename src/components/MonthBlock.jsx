@@ -83,7 +83,7 @@ export default function MonthBlock({ year, month, onOpenModal, focusedDate, onRe
             key={h}
             className={`
               text-center text-[10px] font-bold py-1 uppercase tracking-tight
-              ${i === 6 && settings.shabbatHighlight ? 'text-[#2E86AB] dark:text-[#5ba8c7] bg-[#2E86AB]/5' : 'text-gray-400 dark:text-gray-500'}
+              ${i === 6 && settings.shabbatHighlight ? 'text-[#1e3a5f] dark:text-[#7ba4d4] bg-[#1e3a5f]/8' : 'text-gray-400 dark:text-gray-500'}
             `}
           >
             {h}

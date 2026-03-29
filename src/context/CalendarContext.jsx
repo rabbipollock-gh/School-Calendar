@@ -1,7 +1,6 @@
 import React, { createContext, useContext, useReducer, useEffect, useCallback } from 'react'
 import { DEFAULT_CATEGORIES } from '../data/defaultCategories.js'
 import { DEFAULT_EVENTS } from '../data/defaultEvents.js'
-import { ROSH_CHODESH_DATES } from '../data/hebrewCalendar.js'
 import { nanoid } from '../utils/nanoid.js'
 import { getSharedState } from '../utils/shareUrl.js'
 
@@ -63,15 +62,30 @@ function loadFromStorage() {
   return null
 }
 
-// Strip legacy Rosh Chodesh events injected by old versions
+// Strip legacy Rosh Chodesh events and remap old early-dismissal category ids
+const EARLY_LEGACY_IDS = new Set(['early-130', 'early-1200', 'early-1130'])
+const EARLY_DISMISSAL_DEFAULT = { id: 'early-dismissal', name: 'Early Dismissal', color: '#A8E6CF', icon: '🕐', visible: true, deletable: true }
+
 function migrateState(state) {
   if (!state?.events) return state
   const cleanEvents = {}
   Object.entries(state.events).forEach(([dk, evs]) => {
-    const filtered = (evs || []).filter(e => e.category !== 'rosh-chodesh')
+    const filtered = (evs || [])
+      .filter(e => e.category !== 'rosh-chodesh')
+      .map(e => EARLY_LEGACY_IDS.has(e.category) ? { ...e, category: 'early-dismissal' } : e)
     if (filtered.length > 0) cleanEvents[dk] = filtered
   })
-  return { ...state, events: cleanEvents }
+  const result = { ...state, events: cleanEvents }
+  if (Array.isArray(state.categories)) {
+    const filtered = state.categories.filter(c => !EARLY_LEGACY_IDS.has(c.id))
+    // Inject early-dismissal after no-school if it was removed by migration
+    if (!filtered.some(c => c.id === 'early-dismissal')) {
+      const noSchoolIdx = filtered.findIndex(c => c.id === 'no-school')
+      filtered.splice(noSchoolIdx >= 0 ? noSchoolIdx + 1 : 1, 0, EARLY_DISMISSAL_DEFAULT)
+    }
+    result.categories = filtered
+  }
+  return result
 }
 
 function saveToStorage(state) {
@@ -163,6 +177,15 @@ function reducer(state, action) {
       return { ...state, ...pushUndo(state), events: newEvents }
     }
 
+    case 'IMPORT_EVENTS': {
+      // action.items = [{ dateKey, event }]
+      const newEvents = { ...state.events }
+      action.items.forEach(({ dateKey, event }) => {
+        newEvents[dateKey] = [...(newEvents[dateKey] || []), { ...event, id: event.id || 'ev-' + nanoid() }]
+      })
+      return { ...state, ...pushUndo(state), events: newEvents }
+    }
+
     case 'RESET_MONTH': {
       const { year, month } = action
       const newEvents = { ...state.events }
@@ -231,6 +254,14 @@ function reducer(state, action) {
         ...state,
         hebrewEventToggles: { ...state.hebrewEventToggles, [eventId]: enabled },
       }
+    }
+
+    case 'REORDER_CATEGORIES': {
+      const { fromIndex, toIndex } = action
+      const cats = [...state.categories]
+      const [moved] = cats.splice(fromIndex, 1)
+      cats.splice(toIndex, 0, moved)
+      return { ...state, categories: cats }
     }
 
     case 'LOAD_STATE': {

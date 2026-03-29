@@ -47,7 +47,7 @@ export default function DayCell({ date, onOpenModal, focusedDate, settings }) {
       className={`
         day-cell relative flex flex-col items-start p-0.5 sm:p-1 min-h-[36px] sm:min-h-[44px]
         rounded transition-all duration-150 text-left w-full
-        ${!isFilled && isSha && settings.shabbatHighlight ? 'sha-col bg-[#2E86AB]/10 dark:bg-[#2E86AB]/20' : ''}
+        ${!isFilled && isSha && settings.shabbatHighlight ? 'sha-col bg-[#1e3a5f]/8 dark:bg-[#1e3a5f]/20' : ''}
         ${!isFilled ? 'bg-white dark:bg-gray-800' : ''}
         ${isFocused ? 'ring-2 ring-blue-500 ring-offset-1' : ''}
         ${hasConflict && !isFilled ? 'ring-1 ring-amber-400' : ''}

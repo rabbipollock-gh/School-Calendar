@@ -11,6 +11,7 @@ import CategoryManager from './components/CategoryManager.jsx'
 import ConflictPanel from './components/ConflictPanel.jsx'
 import HolidaySuggestionsPanel from './components/HolidaySuggestionsPanel.jsx'
 import TemplateSelector from './components/TemplateSelector.jsx'
+import PDFPreviewModal from './components/PDFPreviewModal.jsx'
 
 export default function App() {
   const { state, isSharedView } = useCalendar()
@@ -25,6 +26,7 @@ export default function App() {
   const [conflictOpen, setConflictOpen] = useState(false)
   const [holidaysOpen, setHolidaysOpen] = useState(false)
   const [templatesOpen, setTemplatesOpen] = useState(false)
+  const [pdfPreviewOpen, setPdfPreviewOpen] = useState(false)
   const [highlightDate, setHighlightDate] = useState(null)
 
   // Keyboard shortcut: Cmd+K opens search
@@ -68,6 +70,7 @@ export default function App() {
         onOpenSearch={() => setSearchOpen(true)}
         onOpenConflicts={() => setConflictOpen(true)}
         onOpenHolidays={() => setHolidaysOpen(true)}
+        onPreviewPDF={() => setPdfPreviewOpen(true)}
         conflictCount={conflictCount}
       />
 
@@ -136,7 +139,11 @@ export default function App() {
         </main>
 
         {/* Sidebar */}
-        <Sidebar onOpenCategories={() => setCategoriesOpen(true)} />
+        <Sidebar
+          onOpenCategories={() => setCategoriesOpen(true)}
+          onOpenSettings={() => setSettingsOpen(true)}
+          onOpenBulk={() => setBulkOpen(true)}
+        />
       </div>
 
       {/* ── Modals & Panels ── */}
@@ -183,6 +190,13 @@ export default function App() {
 
       {templatesOpen && (
         <TemplateSelector onClose={() => setTemplatesOpen(false)} />
+      )}
+
+      {pdfPreviewOpen && (
+        <PDFPreviewModal
+          state={state}
+          onClose={() => setPdfPreviewOpen(false)}
+        />
       )}
 
       {/* Shared view banner (mobile) */}

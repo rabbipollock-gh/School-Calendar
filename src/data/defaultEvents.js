@@ -23,7 +23,7 @@ export const DEFAULT_EVENTS = {
     { id: 'ev-' + Math.random().toString(36).slice(2), category: 'school-event', label: 'First Day Yesod–8' },
   ],
   '2026-08-27': [
-    { id: 'ev-' + Math.random().toString(36).slice(2), category: 'early-1130', label: 'Preschool Half Day' },
+    { id: 'ev-' + Math.random().toString(36).slice(2), category: 'early-dismissal', label: 'Preschool Half Day (11:30)' },
   ],
   '2026-08-28': [
     { id: 'ev-' + Math.random().toString(36).slice(2), category: 'school-event', label: 'Preschool First Full Day' },
@@ -40,7 +40,7 @@ export const DEFAULT_EVENTS = {
     { id: 'ev-' + Math.random().toString(36).slice(2), category: 'no-school', label: 'Erev Rosh Hashana' },
   ],
   '2026-09-14': [
-    { id: 'ev-' + Math.random().toString(36).slice(2), category: 'early-130', label: 'Tzom Gedalya / 9AM Start', time: '09:00' },
+    { id: 'ev-' + Math.random().toString(36).slice(2), category: 'early-dismissal', label: 'Tzom Gedalya / 9AM Start (1:30)', time: '09:00' },
   ],
   '2026-09-20': [
     { id: 'ev-' + Math.random().toString(36).slice(2), category: 'no-school', label: 'Yom Kippur' },
@@ -110,10 +110,10 @@ export const DEFAULT_EVENTS = {
     { id: 'ev-' + Math.random().toString(36).slice(2), category: 'rosh-chodesh', label: 'Rosh Chodesh Kislev' },
   ],
   '2026-11-26': [
-    { id: 'ev-' + Math.random().toString(36).slice(2), category: 'early-1200', label: 'Thanksgiving Hebrew Only' },
+    { id: 'ev-' + Math.random().toString(36).slice(2), category: 'early-dismissal', label: 'Thanksgiving Hebrew Only (12:00)' },
   ],
   '2026-11-27': [
-    { id: 'ev-' + Math.random().toString(36).slice(2), category: 'early-1130', label: 'Thanksgiving Hebrew Only' },
+    { id: 'ev-' + Math.random().toString(36).slice(2), category: 'early-dismissal', label: 'Thanksgiving Hebrew Only (11:30)' },
   ],
 
   // ── DECEMBER 2026 ────────────────────────────────────
@@ -139,7 +139,7 @@ export const DEFAULT_EVENTS = {
     { id: 'ev-' + Math.random().toString(36).slice(2), category: 'chanukah', label: 'Chanukah Dismissal', time: '15:45' },
   ],
   '2026-12-20': [
-    { id: 'ev-' + Math.random().toString(36).slice(2), category: 'early-130', label: 'Asara B\'Teves' },
+    { id: 'ev-' + Math.random().toString(36).slice(2), category: 'early-dismissal', label: 'Asara B\'Teves (1:30)' },
   ],
   '2026-12-21': [
     { id: 'ev-' + Math.random().toString(36).slice(2), category: 'rosh-chodesh', label: 'Rosh Chodesh Tevet' },
@@ -150,7 +150,7 @@ export const DEFAULT_EVENTS = {
 
   // ── JANUARY 2027 ─────────────────────────────────────
   '2027-01-01': [
-    { id: 'ev-' + Math.random().toString(36).slice(2), category: 'early-1130', label: "New Year's Hebrew Only" },
+    { id: 'ev-' + Math.random().toString(36).slice(2), category: 'early-dismissal', label: "New Year's Hebrew Only (11:30)" },
   ],
   '2027-01-20': [
     { id: 'ev-' + Math.random().toString(36).slice(2), category: 'rosh-chodesh', label: 'Rosh Chodesh Shvat' },
@@ -205,7 +205,7 @@ export const DEFAULT_EVENTS = {
     { id: 'ev-' + Math.random().toString(36).slice(2), category: 'rosh-chodesh', label: 'Rosh Chodesh Nissan' },
   ],
   '2027-03-22': [
-    { id: 'ev-' + Math.random().toString(36).slice(2), category: 'early-130', label: 'Taanis Esther' },
+    { id: 'ev-' + Math.random().toString(36).slice(2), category: 'early-dismissal', label: 'Taanis Esther (1:30)' },
   ],
   '2027-03-23': [
     { id: 'ev-' + Math.random().toString(36).slice(2), category: 'no-school', label: 'Purim' },
@@ -243,7 +243,7 @@ export const DEFAULT_EVENTS = {
 
   // ── JUNE 2027 ────────────────────────────────────────
   '2027-06-10': [
-    { id: 'ev-' + Math.random().toString(36).slice(2), category: 'early-1130', label: 'Erev Shavuos Boys' },
+    { id: 'ev-' + Math.random().toString(36).slice(2), category: 'early-dismissal', label: 'Erev Shavuos Boys (11:30)' },
   ],
   '2027-06-11': [
     { id: 'ev-' + Math.random().toString(36).slice(2), category: 'no-school', label: 'Shavuos' },

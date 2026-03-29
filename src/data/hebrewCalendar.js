@@ -19,9 +19,8 @@ export const ROSH_CHODESH_DATES = [
   // Tevet
   { date: '2026-12-10', month: 'Tevet',   id: 'rc-tevet-1' },
   { date: '2026-12-11', month: 'Tevet',   id: 'rc-tevet-2' },
-  // Shvat (Tevet has 29 days → single-day RC)
-  { date: '2027-01-08', month: 'Shvat',   id: 'rc-shvat-1' },
-  { date: '2027-01-09', month: 'Shvat',   id: 'rc-shvat-2' },
+  // Shvat (Tevet has 29 days → single-day RC: just 1 Shvat = Jan 9)
+  { date: '2027-01-09', month: 'Shvat',   id: 'rc-shvat' },
   // Adar I (leap year)
   { date: '2027-02-07', month: 'Adar I',  id: 'rc-adar1-1' },
   { date: '2027-02-08', month: 'Adar I',  id: 'rc-adar1-2' },
@@ -50,7 +49,7 @@ export const HOLIDAY_SUGGESTIONS = [
   { id: 'hs-rh1', date: '2026-09-11', label: 'Erev Rosh Hashana', category: 'no-school', hebrewDate: '29 Elul 5786' },
   { id: 'hs-rh2', date: '2026-09-12', label: 'Rosh Hashana', category: 'no-school', hebrewDate: '1 Tishrei 5787' },
   { id: 'hs-rh3', date: '2026-09-13', label: 'Rosh Hashana', category: 'no-school', hebrewDate: '2 Tishrei 5787' },
-  { id: 'hs-tzom', date: '2026-09-14', label: 'Tzom Gedalya', category: 'early-130', hebrewDate: '3 Tishrei 5787' },
+  { id: 'hs-tzom', date: '2026-09-14', label: 'Tzom Gedalya', category: 'early-dismissal', hebrewDate: '3 Tishrei 5787' },
   { id: 'hs-yk1', date: '2026-09-20', label: 'Erev Yom Kippur', category: 'no-school', hebrewDate: '9 Tishrei 5787' },
   { id: 'hs-yk2', date: '2026-09-21', label: 'Yom Kippur', category: 'no-school', hebrewDate: '10 Tishrei 5787' },
   { id: 'hs-suk1', date: '2026-09-25', label: 'Sukkos (1st Day)', category: 'no-school', hebrewDate: '15 Tishrei 5787' },
@@ -68,13 +67,13 @@ export const HOLIDAY_SUGGESTIONS = [
   { id: 'hs-chan6', date: '2026-12-06', label: 'Chanukah (6th Night)', category: 'chanukah', hebrewDate: '1 Tevet 5787' },
   { id: 'hs-chan7', date: '2026-12-07', label: 'Chanukah (7th Night)', category: 'chanukah', hebrewDate: '2 Tevet 5787' },
   { id: 'hs-chan8', date: '2026-12-08', label: 'Chanukah (8th Night)', category: 'chanukah', hebrewDate: '3 Tevet 5787' },
-  { id: 'hs-asara', date: '2026-12-20', label: 'Asara B\'Teves', category: 'early-130', hebrewDate: '10 Tevet 5787' },
+  { id: 'hs-asara', date: '2026-12-20', label: 'Asara B\'Teves', category: 'early-dismissal', hebrewDate: '10 Tevet 5787' },
 
   // Shvat
   { id: 'hs-tubshvat', date: '2027-02-01', label: 'Tu B\'Shvat', category: 'school-event', hebrewDate: '15 Shvat 5787' },
 
   // Adar
-  { id: 'hs-taanit', date: '2027-03-22', label: 'Taanis Esther', category: 'early-130', hebrewDate: '13 Adar 5787' },
+  { id: 'hs-taanit', date: '2027-03-22', label: 'Taanis Esther', category: 'early-dismissal', hebrewDate: '13 Adar 5787' },
   { id: 'hs-purim', date: '2027-03-23', label: 'Purim', category: 'no-school', hebrewDate: '14 Adar 5787' },
   { id: 'hs-shushan', date: '2027-03-24', label: 'Shushan Purim', category: 'no-school', hebrewDate: '15 Adar 5787' },
 
@@ -91,10 +90,10 @@ export const HOLIDAY_SUGGESTIONS = [
   { id: 'hs-lagbaomer', date: '2027-05-06', label: "Lag B'Omer", category: 'school-event', hebrewDate: '18 Iyar 5787' },
 
   // Sivan / Shavuot
-  { id: 'hs-erev-shavuos', date: '2027-06-10', label: 'Erev Shavuos', category: 'early-1130', hebrewDate: '5 Sivan 5787' },
+  { id: 'hs-erev-shavuos', date: '2027-06-10', label: 'Erev Shavuos', category: 'early-dismissal', hebrewDate: '5 Sivan 5787' },
   { id: 'hs-shavuos1', date: '2027-06-11', label: 'Shavuos (1st Day)', category: 'no-school', hebrewDate: '6 Sivan 5787' },
   { id: 'hs-shavuos2', date: '2027-06-12', label: 'Shavuos (2nd Day)', category: 'no-school', hebrewDate: '7 Sivan 5787' },
 
   // Tammuz
-  { id: 'hs-17tammuz', date: '2027-07-11', label: '17 B\'Tammuz', category: 'early-130', hebrewDate: '17 Tammuz 5787' },
+  { id: 'hs-17tammuz', date: '2027-07-11', label: '17 B\'Tammuz', category: 'early-dismissal', hebrewDate: '17 Tammuz 5787' },
 ]

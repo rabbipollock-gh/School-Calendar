@@ -1,17 +1,18 @@
-import React, { useState, useCallback } from 'react'
+import React, { useState, useCallback, useRef } from 'react'
 import { useCalendar } from '../context/CalendarContext.jsx'
 import { generateShareUrl, copyToClipboard } from '../utils/shareUrl.js'
-import { exportPDF } from '../utils/exportPDF.js'
 import { exportPPTX } from '../utils/exportPPTX.js'
 import { exportICS } from '../utils/exportICS.js'
 import { exportCSV } from '../utils/exportCSV.js'
 import { triggerPrint } from '../utils/printStyles.js'
+import { parseCSV } from '../utils/importCSV.js'
 
 export default function Header({
   onOpenSettings,
   onOpenSearch,
   onOpenConflicts,
   onOpenHolidays,
+  onPreviewPDF,
   conflictCount = 0,
 }) {
   const { state, dispatch, readOnly, isSharedView, canUndo, canRedo } = useCalendar()
@@ -21,6 +22,27 @@ export default function Header({
   const [icsMenuOpen, setIcsMenuOpen] = useState(false)
   const [shareToast, setShareToast] = useState(false)
   const [exporting, setExporting] = useState(false)
+  const [importToast, setImportToast] = useState(null)
+  const importInputRef = useRef(null)
+
+  const handleImportFile = (e) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    e.target.value = ''
+    const reader = new FileReader()
+    reader.onload = (ev) => {
+      const { events: items, errors } = parseCSV(ev.target.result, categories)
+      if (items.length > 0) {
+        dispatch({ type: 'IMPORT_EVENTS', items })
+      }
+      const msg = items.length > 0
+        ? `Imported ${items.length} event${items.length > 1 ? 's' : ''}${errors.length > 0 ? ` (${errors.length} skipped)` : ''}`
+        : `Nothing imported${errors.length > 0 ? ': ' + errors[0] : ''}`
+      setImportToast(msg)
+      setTimeout(() => setImportToast(null), 3500)
+    }
+    reader.readAsText(file)
+  }
 
   const handleShabbatToggle = () => {
     if (readOnly) return
@@ -47,7 +69,7 @@ export default function Header({
     setExportOpen(false)
     setIcsMenuOpen(false)
     try {
-      if (type === 'pdf') await exportPDF(state)
+      if (type === 'pdf') { onPreviewPDF?.(); return }
       else if (type === 'pptx') await exportPPTX(state)
       else if (type === 'ics') await exportICS(events, categories, icsFilter || 'all', schoolInfo.name)
       else if (type === 'csv') exportCSV(events, categories, schoolInfo.name)
@@ -174,8 +196,15 @@ export default function Header({
           </>
         )}
 
-        {/* Export dropdown */}
+        {/* Export / Import dropdown */}
         <div className="relative">
+          <input
+            ref={importInputRef}
+            type="file"
+            accept=".csv,.txt"
+            className="hidden"
+            onChange={handleImportFile}
+          />
           <button
             onClick={() => setExportOpen(o => !o)}
             className="flex items-center gap-1.5 bg-[#2E86AB] hover:bg-[#267a9c] transition px-3 py-1.5 rounded-full text-sm font-semibold"
@@ -184,7 +213,10 @@ export default function Header({
             {exporting ? '⏳' : '⬇️'} <span className="hidden sm:inline">Export</span>
           </button>
           {exportOpen && (
-            <div className="absolute right-0 top-full mt-1 w-52 bg-white text-gray-800 rounded-xl shadow-2xl border border-gray-100 overflow-hidden z-50">
+            <div className="absolute right-0 top-full mt-1 w-56 bg-white text-gray-800 rounded-xl shadow-2xl border border-gray-100 overflow-hidden z-50">
+              <div className="px-4 py-1.5 bg-gray-50 border-b border-gray-100">
+                <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Export</span>
+              </div>
               <button onClick={() => handleExport('pdf')} className="w-full text-left px-4 py-2.5 hover:bg-blue-50 text-sm flex items-center gap-2">📄 Download PDF</button>
               <button onClick={() => handleExport('pptx')} className="w-full text-left px-4 py-2.5 hover:bg-blue-50 text-sm flex items-center gap-2">📊 Download PPTX</button>
               <div className="relative">
@@ -203,13 +235,25 @@ export default function Header({
               </div>
               <button onClick={() => handleExport('csv')} className="w-full text-left px-4 py-2.5 hover:bg-blue-50 text-sm flex items-center gap-2">📋 Export CSV</button>
               <button onClick={() => handleExport('print')} className="w-full text-left px-4 py-2.5 hover:bg-blue-50 text-sm flex items-center gap-2">🖨️ Print / Save PDF</button>
+              <button onClick={() => handleExport('json')} className="w-full text-left px-4 py-2.5 hover:bg-gray-50 text-sm flex items-center gap-2 text-gray-500">💾 Export Backup JSON</button>
               <div className="border-t border-gray-100">
-                <button onClick={() => handleExport('json')} className="w-full text-left px-4 py-2.5 hover:bg-gray-50 text-sm flex items-center gap-2 text-gray-500">💾 Export Backup JSON</button>
-              </div>
-              <div className="px-4 py-2.5 border-t border-gray-100">
-                <button disabled className="w-full text-left text-xs text-gray-400 flex items-center gap-2">
-                  🔗 Shareable Link <span className="ml-auto bg-gray-100 text-gray-400 text-[10px] px-1.5 py-0.5 rounded">Phase 2</span>
+                <div className="px-4 py-1.5 bg-gray-50">
+                  <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Import</span>
+                </div>
+                <button
+                  onClick={() => { setExportOpen(false); importInputRef.current?.click() }}
+                  className="w-full text-left px-4 py-2.5 hover:bg-green-50 text-sm flex items-center gap-2"
+                >
+                  📂 Import CSV / Text File
                 </button>
+                <a
+                  href="/event-import-template.csv"
+                  download="yayoe-event-template.csv"
+                  onClick={() => setExportOpen(false)}
+                  className="w-full text-left px-4 py-2.5 hover:bg-green-50 text-sm flex items-center gap-2 text-gray-600"
+                >
+                  ⬇️ Download CSV Template
+                </a>
               </div>
             </div>
           )}
@@ -231,6 +275,13 @@ export default function Header({
           className="fixed inset-0 z-40"
           onClick={() => { setExportOpen(false); setIcsMenuOpen(false) }}
         />
+      )}
+
+      {/* Import result toast */}
+      {importToast && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 bg-gray-900 text-white text-sm px-4 py-2.5 rounded-xl shadow-xl z-50 pointer-events-none">
+          {importToast}
+        </div>
       )}
     </header>
   )

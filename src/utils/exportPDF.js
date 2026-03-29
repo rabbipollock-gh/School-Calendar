@@ -1,4 +1,5 @@
 import { jsPDF } from 'jspdf'
+import { loadMontserrat } from './pdfFonts.js'
 import { ACADEMIC_MONTHS } from '../hooks/useKeyboardNav.js'
 import { getDaysInMonth, getFirstDayOfWeek, formatDateKey, groupConsecutiveDates, formatRangeLabel } from './dateUtils.js'
 import { getHebrewMonthLabel } from '../data/hebrewMonthNames.js'
@@ -10,6 +11,8 @@ const PAGE_W = 297  // A4 landscape mm
 const PAGE_H = 210
 const MARGIN = 8
 const SIDEBAR_W = 52
+const HEADER_H = 18
+const BOTTOM_PANEL_H = 38
 
 function hexToRgb(hex) {
   const clean = (hex || '#999999').replace('#', '').padEnd(6, '9')
@@ -19,13 +22,25 @@ function hexToRgb(hex) {
   return [r, g, b]
 }
 
-// Lighter version of a color for subtle fills
-function lightenRgb([r, g, b], amount = 0.55) {
-  return [
-    Math.round(r + (255 - r) * amount),
-    Math.round(g + (255 - g) * amount),
-    Math.round(b + (255 - b) * amount),
-  ]
+// Crop an image to a circle using canvas (for round logo in PDF)
+async function circularCropImage(base64) {
+  return new Promise((resolve) => {
+    const img = new Image()
+    img.onload = () => {
+      const size = Math.min(img.width, img.height)
+      const canvas = document.createElement('canvas')
+      canvas.width = size
+      canvas.height = size
+      const ctx = canvas.getContext('2d')
+      ctx.beginPath()
+      ctx.arc(size / 2, size / 2, size / 2, 0, Math.PI * 2)
+      ctx.clip()
+      ctx.drawImage(img, 0, 0, size, size)
+      resolve(canvas.toDataURL('image/png'))
+    }
+    img.onerror = () => resolve(base64)
+    img.src = base64
+  })
 }
 
 function drawMonth(doc, { year, month }, events, categories, settings, x, y, w, h, shabbatLabel) {
@@ -33,29 +48,37 @@ function drawMonth(doc, { year, month }, events, categories, settings, x, y, w, 
   categories.forEach(c => { catMap[c.id] = c })
   const isFilled = settings.cellStyle === 'filled'
 
-  // Month header
+  // Month header — taller with larger text
   doc.setFillColor(30, 58, 95)
-  doc.roundedRect(x, y, w, 6, 1, 1, 'F')
+  doc.roundedRect(x, y, w, 8, 1, 1, 'F')
   doc.setTextColor(255, 255, 255)
-  doc.setFontSize(5.5)
+  doc.setFontSize(7)
   doc.setFont('helvetica', 'bold')
   const monthName = new Date(year, month, 1).toLocaleString('default', { month: 'long' })
   const hebrewLabel = getHebrewMonthLabel(year, month)
-  doc.text(`${monthName} ${year}`, x + 1, y + 2.5)
+  doc.text(monthName, x + 1.5, y + 3.8)
+  // Measure width at the same 7pt bold before switching style
+  const monthNameW = doc.getTextWidth(monthName)
+  // Year in gold — consistent 1mm gap after month name
+  doc.setTextColor(212, 175, 55)
+  doc.setFontSize(6.5)
+  doc.text(` ${String(year)}`, x + 1.5 + monthNameW, y + 3.8)
+  // Hebrew sub-label
+  doc.setTextColor(180, 210, 255)
   doc.setFont('helvetica', 'normal')
-  doc.setFontSize(4.5)
-  doc.text(hebrewLabel, x + 1, y + 4.8, { maxWidth: w - 2 })
+  doc.setFontSize(4)
+  doc.text(hebrewLabel, x + 1.5, y + 6.5, { maxWidth: w - 3 })
 
   // Day header row
-  const dayLabelY = y + 7.5
+  const dayLabelY = y + 9.5
   const cellW = w / 7
   DAYS.forEach((d, i) => {
     const labelStr = i === 6 ? shabbatLabel.slice(0, 3).toUpperCase() : d
     if (i === 6) {
-      doc.setFillColor(46, 134, 171, 0.15)
+      doc.setFillColor(210, 220, 236)  // same light tone as Shabbos cell shading
       doc.rect(x + i * cellW, dayLabelY - 2, cellW, 3, 'F')
     }
-    doc.setTextColor(i === 6 ? 46 : 80, i === 6 ? 134 : 80, i === 6 ? 171 : 80)
+    doc.setTextColor(i === 6 ? 30 : 80, i === 6 ? 58 : 80, i === 6 ? 95 : 80)
     doc.setFontSize(3.8)
     doc.setFont('helvetica', 'bold')
     doc.text(labelStr, x + i * cellW + cellW / 2, dayLabelY, { align: 'center' })
@@ -77,9 +100,9 @@ function drawMonth(doc, { year, month }, events, categories, settings, x, y, w, 
     const dayEvs = (events[dateKey] || []).filter(e => e.category !== 'rosh-chodesh')
     const rcMonth = ROSH_CHODESH_MAP[dateKey]
 
-    // Shabbat background (dot mode only)
-    if (dow === 6 && !isFilled) {
-      doc.setFillColor(232, 245, 250)
+    // Shabbat background — always apply light navy tint first, event fill paints over if needed
+    if (dow === 6) {
+      doc.setFillColor(225, 232, 242)
       doc.rect(cx, cy, cellW, cellH, 'F')
     }
 
@@ -110,6 +133,11 @@ function drawMonth(doc, { year, month }, events, categories, settings, x, y, w, 
         doc.circle(cx + 1 + idx * 1.6, cy + cellH - 1.5, 0.6, 'F')
       })
     }
+
+    // Cell border — thin faint line around every day cell
+    doc.setDrawColor(200, 200, 205)
+    doc.setLineWidth(0.15)
+    doc.rect(cx, cy, cellW, cellH, 'S')
 
     // Rosh Chodesh badge — shown in all modes
     if (rcMonth) {
@@ -155,17 +183,16 @@ function drawMonth(doc, { year, month }, events, categories, settings, x, y, w, 
   }
 }
 
-function drawBottomEventsPanel(doc, events, categories, y, pageW, margin) {
+function drawBottomEventsPanel(doc, events, categories, y, pageW, margin, sidebarW) {
   const catMap = {}
   categories.forEach(c => { catMap[c.id] = c })
 
-  const panelH = pageW  // will calculate based on content
   const panelY = y
-  const panelW = pageW - margin * 2
+  const panelW = pageW - margin * 2 - sidebarW - 2
 
   // Panel background
   doc.setFillColor(15, 45, 61)
-  doc.roundedRect(margin, panelY, panelW, 28, 2, 2, 'F')
+  doc.roundedRect(margin, panelY, panelW, BOTTOM_PANEL_H, 2, 2, 'F')
 
   // Header
   doc.setTextColor(255, 255, 255)
@@ -200,9 +227,8 @@ function drawBottomEventsPanel(doc, events, categories, y, pageW, margin) {
     })
 
     let evY = panelY + 11
-    doc.setFontSize(3)
     doc.setFont('helvetica', 'normal')
-    Object.values(monthEvs).sort((a, b) => a.dates[0].localeCompare(b.dates[0])).slice(0, 6).forEach(({ ev, dates }) => {
+    Object.values(monthEvs).sort((a, b) => a.dates[0].localeCompare(b.dates[0])).slice(0, 5).forEach(({ ev, dates }) => {
       const cat = catMap[ev.category]
       const color = ev.color || cat?.color || '#999999'
       const [r, g, b] = hexToRgb(color)
@@ -210,16 +236,31 @@ function drawBottomEventsPanel(doc, events, categories, y, pageW, margin) {
       doc.circle(colX + 1.2, evY - 0.5, 0.7, 'F')
       const groups = groupConsecutiveDates([...dates].sort())
       const rangeStr = groups.map(g => formatRangeLabel(g)).join(', ')
+      // Split label to know how many lines it wraps to
+      doc.setFontSize(3)
+      const fullText = `${rangeStr} ${ev.label}`
+      const labelLines = doc.splitTextToSize(fullText, colW - 3.5)
       doc.setTextColor(200, 220, 240)
-      doc.text(`${rangeStr} ${ev.label}`, colX + 2.5, evY, { maxWidth: colW - 3.5 })
+      doc.text(labelLines, colX + 2.5, evY)
+      // Line height at 3pt ≈ 1.2mm; extra lines push the sub-label down
+      const extraLinesMM = (labelLines.length - 1) * 1.2
+      const catName = cat?.name || ''
+      if (catName) {
+        doc.setFontSize(2.6)
+        doc.setTextColor(160, 185, 210)
+        doc.text(catName, colX + 2.5, evY + 1.7 + extraLinesMM, { maxWidth: colW - 3.5 })
+        evY += 1.7 + extraLinesMM
+      }
       evY += 3.2
     })
   })
 }
 
-export async function exportPDF(state) {
+export async function exportPDF(state, { preview = false } = {}) {
   const { events, categories, schoolInfo, settings } = state
   const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' })
+  const hasMontserrat = await loadMontserrat(doc)
+  const titleFont = hasMontserrat ? 'Montserrat' : 'helvetica'
   const shabbatLabel = settings.shabbatLabel || 'Shabbat'
   const showBottomPanel = settings.eventsPanel === 'bottom'
 
@@ -228,28 +269,44 @@ export async function exportPDF(state) {
   const MONTH_W = (GRID_W / COL_COUNT) - 2
   const MONTH_ROWS = 3
   const availH = showBottomPanel
-    ? PAGE_H - MARGIN * 2 - 20 - 32  // 32 = bottom panel height
-    : PAGE_H - MARGIN * 2 - 20
+    ? PAGE_H - (HEADER_H + 2) - MARGIN - BOTTOM_PANEL_H - 4
+    : PAGE_H - (HEADER_H + 2) - MARGIN - 2
   const MONTH_H = availH / MONTH_ROWS - 3
 
   // ── Header ──────────────────────────────────────────
+  // Left dark navy band (~60% width)
   doc.setFillColor(30, 58, 95)
-  doc.rect(0, 0, PAGE_W, 16, 'F')
+  doc.rect(0, 0, PAGE_W * 0.62, HEADER_H, 'F')
+  // Right slightly lighter blue band (~40% width)
+  doc.setFillColor(42, 74, 120)
+  doc.rect(PAGE_W * 0.62, 0, PAGE_W * 0.38, HEADER_H, 'F')
+  // Gold accent bar along the bottom of the header
+  doc.setFillColor(212, 175, 55)
+  doc.rect(0, HEADER_H - 1.5, PAGE_W, 1.5, 'F')
 
-  // Logo (circular mask via clipping)
+  // Logo — circular crop via canvas
   if (schoolInfo.logo) {
     try {
-      doc.addImage(schoolInfo.logo, 'PNG', MARGIN, 2, 12, 12)
+      const circularLogo = await circularCropImage(schoolInfo.logo)
+      doc.addImage(circularLogo, 'PNG', MARGIN, 2, 13, 13)
     } catch {}
   }
 
+  // Gold left accent bar before logo
+  doc.setFillColor(212, 175, 55)
+  doc.rect(0, 0, 3, HEADER_H - 1.5, 'F')
+
+  // School name — GOLD, prominent
+  doc.setTextColor(212, 175, 55)
+  doc.setFontSize(12)
+  doc.setFont(titleFont, 'bold')
+  doc.text(schoolInfo.name || 'YAYOE Calendar', MARGIN + 16, 9)
+  // Secondary line — all WHITE, all same size: "Academic Year  2026–2027  •  5787"
+  doc.setFontSize(7)
+  doc.setFont(titleFont, 'normal')
   doc.setTextColor(255, 255, 255)
-  doc.setFontSize(11)
-  doc.setFont('helvetica', 'bold')
-  doc.text(schoolInfo.name || 'YAYOE Calendar', MARGIN + 14, 8)
-  doc.setFontSize(6)
-  doc.setFont('helvetica', 'normal')
-  doc.text(`Academic Year ${settings.academicYear || '2026–2027'}  •  ${schoolInfo.phone || ''}`, MARGIN + 14, 12.5)
+  const hebrewYear = settings.hebrewYear || '5787'
+  doc.text(`Academic Year  ${settings.academicYear || '2026–2027'}  •  ${hebrewYear}`, MARGIN + 16, 14)
 
   // ── Draft Watermark ──────────────────────────────────
   if (settings.draftWatermark) {
@@ -262,7 +319,7 @@ export async function exportPDF(state) {
   }
 
   // ── Calendar Grid ──────────────────────────────────
-  const startY = 18
+  const startY = HEADER_H + 2
 
   ACADEMIC_MONTHS.forEach(({ year, month }, idx) => {
     const col = idx % COL_COUNT
@@ -275,59 +332,118 @@ export async function exportPDF(state) {
   // ── Bottom Events Panel ──────────────────────────────
   if (showBottomPanel) {
     const panelTop = startY + MONTH_ROWS * (MONTH_H + 3) + 2
-    drawBottomEventsPanel(doc, events, categories, panelTop, PAGE_W, MARGIN)
+    drawBottomEventsPanel(doc, events, categories, panelTop, PAGE_W, MARGIN, SIDEBAR_W)
   }
 
   // ── Sidebar ──────────────────────────────────────────
   const sbX = PAGE_W - MARGIN - SIDEBAR_W
-  doc.setFillColor(248, 249, 250)
-  doc.rect(sbX, 18, SIDEBAR_W, PAGE_H - 20, 'F')
-  doc.setDrawColor(220, 220, 220)
-  doc.rect(sbX, 18, SIDEBAR_W, PAGE_H - 20)
+  const sbTop = HEADER_H + 2
+  const sbH = PAGE_H - sbTop - MARGIN
+  const sbCx = sbX + SIDEBAR_W / 2  // horizontal center of sidebar
 
+  // White background + light border
+  doc.setFillColor(255, 255, 255)
+  doc.rect(sbX, sbTop, SIDEBAR_W, sbH, 'F')
+  doc.setDrawColor(210, 215, 225)
+  doc.setLineWidth(0.2)
+  doc.rect(sbX, sbTop, SIDEBAR_W, sbH, 'S')
+
+  // ── Title strip ──
+  const titleStripH = 32
+  doc.setFillColor(30, 58, 95)
+  doc.rect(sbX, sbTop, SIDEBAR_W, titleStripH, 'F')
+  // Gold accent bar along bottom of strip
+  doc.setFillColor(212, 175, 55)
+  doc.rect(sbX, sbTop + titleStripH - 2, SIDEBAR_W, 2, 'F')
+  // "YAYOE" — large bold white, centered
+  doc.setTextColor(255, 255, 255)
+  doc.setFontSize(20)
+  doc.setFont(titleFont, 'bold')
+  doc.text('YAYOE', sbCx, sbTop + 12, { align: 'center' })
+  // Thin gold decorative rule below YAYOE
+  doc.setDrawColor(212, 175, 55)
+  doc.setLineWidth(0.4)
+  const stripRuleW = SIDEBAR_W * 0.6
+  doc.line(sbCx - stripRuleW / 2, sbTop + 15, sbCx + stripRuleW / 2, sbTop + 15)
+  // "Academic Year" label — gold, centered
+  doc.setTextColor(212, 175, 55)
+  doc.setFontSize(6)
+  doc.setFont(titleFont, 'normal')
+  doc.text('Academic Year', sbCx, sbTop + 20, { align: 'center' })
+  // Year value — white, bigger, centered
+  doc.setTextColor(255, 255, 255)
+  doc.setFontSize(9)
+  doc.setFont(titleFont, 'bold')
+  doc.text(settings.academicYear || '2026–2027', sbCx, sbTop + 27, { align: 'center' })
+
+  // ── SCHOOL HOURS section ──
+  const hoursY = sbTop + titleStripH + 7
   doc.setTextColor(30, 58, 95)
-  doc.setFontSize(5.5)
+  doc.setFontSize(7)
   doc.setFont('helvetica', 'bold')
-  doc.text('SCHOOL HOURS', sbX + 2, 23)
+  doc.text('SCHOOL HOURS', sbCx, hoursY, { align: 'center' })
+  // Gold underline rule
+  const ruleW = SIDEBAR_W * 0.78
+  doc.setDrawColor(212, 175, 55)
+  doc.setLineWidth(0.5)
+  doc.line(sbCx - ruleW / 2, hoursY + 1.8, sbCx + ruleW / 2, hoursY + 1.8)
+
+  const hourLines = (schoolInfo.hours || 'Boys: 8:30 AM – 4:30 PM\nGirls: 8:30 AM – 3:30 PM\nFriday: 8:30 AM – 1:30 PM').split('\n')
   doc.setFont('helvetica', 'normal')
-  doc.setFontSize(4.5)
-  doc.setTextColor(60, 60, 60)
-  if (schoolInfo.hours) {
-    doc.text(schoolInfo.hours, sbX + 2, 27, { maxWidth: SIDEBAR_W - 4 })
-  }
-
-  // Legend
-  let legendY = 55
-  doc.setTextColor(30, 58, 95)
-  doc.setFontSize(5.5)
-  doc.setFont('helvetica', 'bold')
-  doc.text('LEGEND', sbX + 2, legendY)
-  legendY += 3
-
-  categories.filter(c => c.visible && c.id !== 'rosh-chodesh').forEach(cat => {
-    const [r, g, b] = hexToRgb(cat.color)
-    doc.setFillColor(r, g, b)
-    doc.roundedRect(sbX + 2, legendY - 1.5, 3, 3, 0.5, 0.5, 'F')
-    doc.setTextColor(40, 40, 40)
-    doc.setFontSize(4)
-    doc.setFont('helvetica', 'normal')
-    doc.text(cat.name, sbX + 6.5, legendY + 0.5, { maxWidth: SIDEBAR_W - 8 })
-    legendY += 4.5
+  doc.setFontSize(5)
+  doc.setTextColor(50, 60, 80)
+  hourLines.forEach((line, i) => {
+    doc.text(line.trim(), sbCx, hoursY + 7 + i * 5.5, { align: 'center' })
   })
 
-  // RC legend note
-  doc.setFontSize(3.5)
-  doc.setTextColor(120, 100, 180)
-  doc.text('🌙 = Rosh Chodesh (informational)', sbX + 2, legendY + 1, { maxWidth: SIDEBAR_W - 4 })
+  // ── Full-width gold divider ──
+  const midDivY = hoursY + 7 + hourLines.length * 5.5 + 4
+  doc.setDrawColor(212, 175, 55)
+  doc.setLineWidth(0.5)
+  doc.line(sbX + 3, midDivY, sbX + SIDEBAR_W - 3, midDivY)
 
-  // Address block
-  const addrY = PAGE_H - 20
-  doc.setTextColor(80, 80, 80)
-  doc.setFontSize(4)
+  // ── LEGEND section ──
+  const legendHeadY = midDivY + 6
+  doc.setTextColor(30, 58, 95)
+  doc.setFontSize(7)
+  doc.setFont('helvetica', 'bold')
+  doc.text('LEGEND', sbCx, legendHeadY, { align: 'center' })
+  // Gold underline rule
+  doc.setDrawColor(212, 175, 55)
+  doc.setLineWidth(0.5)
+  doc.line(sbCx - ruleW / 2, legendHeadY + 1.8, sbCx + ruleW / 2, legendHeadY + 1.8)
+
+  const addrBlockH = 26
+  const legendStartY = legendHeadY + 6
+  const visibleCats = categories.filter(c => c.visible && c.id !== 'rosh-chodesh')
+  const legendItemH = 5.5
+  visibleCats.forEach((cat, idx) => {
+    const [r, g, b] = hexToRgb(cat.color)
+    const itemY = legendStartY + idx * legendItemH
+    // Rectangular swatch (matches reference PDF style)
+    doc.setFillColor(r, g, b)
+    doc.rect(sbX + 5, itemY - 2.5, 5, 3.2, 'F')
+    doc.setTextColor(40, 50, 70)
+    doc.setFontSize(5)
+    doc.setFont('helvetica', 'normal')
+    doc.text(cat.name, sbX + 12, itemY, { maxWidth: SIDEBAR_W - 14 })
+  })
+
+
+  // ── Contact block (anchored to bottom) ──
+  const addrY = sbTop + sbH - addrBlockH + 3
+  doc.setDrawColor(212, 175, 55)
+  doc.setLineWidth(0.5)
+  doc.line(sbX + 3, addrY - 4, sbX + SIDEBAR_W - 3, addrY - 4)
   doc.setFont('helvetica', 'normal')
-  if (schoolInfo.address) doc.text(schoolInfo.address, sbX + 2, addrY, { maxWidth: SIDEBAR_W - 4 })
-  if (schoolInfo.phone) doc.text(`Tel: ${schoolInfo.phone}`, sbX + 2, addrY + 3)
-  if (schoolInfo.fax) doc.text(`Fax: ${schoolInfo.fax}`, sbX + 2, addrY + 6)
+  doc.setFontSize(4.5)
+  doc.setTextColor(60, 70, 90)
+  doc.text(schoolInfo.address || '241 S. Detroit St., Los Angeles, CA 90036', sbCx, addrY, { align: 'center', maxWidth: SIDEBAR_W - 6 })
+  doc.text(`Tel: ${schoolInfo.phone || '323-556-6900'}`, sbCx, addrY + 5, { align: 'center' })
+  doc.text(`Fax: ${schoolInfo.fax || '323-556-6901'}`, sbCx, addrY + 10, { align: 'center' })
+  doc.setTextColor(42, 100, 180)
+  doc.text(schoolInfo.website || 'www.yayoe.org', sbCx, addrY + 15, { align: 'center' })
 
+  if (preview) return doc.output('bloburl')
   doc.save(`${(schoolInfo.name || 'YAYOE').replace(/\s+/g, '-')}-Calendar-${settings.academicYear || '2026-27'}.pdf`)
 }
