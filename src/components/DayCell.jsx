@@ -1,6 +1,7 @@
 import React, { useState } from 'react'
 import { useCalendar } from '../context/CalendarContext.jsx'
 import { formatDateKey, isShabbat, parseDateKey } from '../utils/dateUtils.js'
+import { ROSH_CHODESH_MAP } from '../data/hebrewCalendar.js'
 
 const TOOLTIP_DELAY = 500
 
@@ -10,11 +11,13 @@ export default function DayCell({ date, onOpenModal, focusedDate, settings }) {
 
   const dateKey = formatDateKey(date)
   const dayNum = date.getDate()
-  const dow = date.getDay() // 0=Sun, 6=Sat
+  const dow = date.getDay()
   const isSha = dow === 6
   const dayEvents = events[dateKey] || []
-  const hasConflict = dayEvents.length > 1
+  const nonRCEvents = dayEvents.filter(e => e.category !== 'rosh-chodesh')
+  const hasConflict = nonRCEvents.length > 1
   const isFocused = focusedDate === dateKey
+  const rcMonth = ROSH_CHODESH_MAP[dateKey]
 
   const catMap = {}
   categories.forEach(c => { catMap[c.id] = c })
@@ -94,6 +97,16 @@ export default function DayCell({ date, onOpenModal, focusedDate, settings }) {
       {/* Multi-event badge — filled mode */}
       {isFilled && visibleEvents.length > 1 && (
         <span className="text-[8px] text-white/80 leading-none mt-0.5">+{visibleEvents.length - 1}</span>
+      )}
+
+      {/* Rosh Chodesh badge — shown for all RC days, never causes conflict */}
+      {rcMonth && (
+        <span className={`
+          text-[7px] leading-none font-medium mt-auto truncate max-w-full
+          ${isFilled ? 'text-white/80' : 'text-purple-500/70 dark:text-purple-400/60'}
+        `}>
+          🌙 {rcMonth}
+        </span>
       )}
 
       {/* Conflict badge */}

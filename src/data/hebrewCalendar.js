@@ -1,23 +1,47 @@
 // Hardcoded Hebrew calendar data for 5787 (Aug 2026 – Jun 2027)
 // Rosh Chodesh dates and major holiday suggestions
 
-// Rosh Chodesh dates (exact Gregorian dates for 5787)
+// ── Corrected Rosh Chodesh dates for 5787 ────────────────────────────────
+// Anchored on: 1 Tishrei = Sept 12; Asara B'Tevet Dec 20; Purim Mar 23; Shavuos Jun 11
+// 5787 is a LEAP YEAR — contains both Adar I and Adar II
+// Tishrei RC is skipped (= Rosh Hashana, already a major holiday)
+// Tammuz RC (Jul 5-6) is after the school year — omitted from badge map
 export const ROSH_CHODESH_DATES = [
-  { date: '2026-08-25', month: 'Elul', enabled: true, id: 'rc-elul' },
-  { date: '2026-09-23', month: 'Tishrei', enabled: true, id: 'rc-tishrei', note: 'Rosh Hashana' },
-  { date: '2026-10-23', month: 'Cheshvan', enabled: true, id: 'rc-cheshvan' },
-  { date: '2026-11-21', month: 'Kislev', enabled: true, id: 'rc-kislev' },
-  { date: '2026-12-21', month: 'Tevet', enabled: true, id: 'rc-tevet-1' },
-  { date: '2026-12-22', month: 'Tevet', enabled: true, id: 'rc-tevet-2' },
-  { date: '2027-01-20', month: 'Shvat', enabled: true, id: 'rc-shvat' },
-  { date: '2027-02-18', month: 'Adar', enabled: true, id: 'rc-adar' },
-  { date: '2027-03-19', month: 'Nissan', enabled: true, id: 'rc-nissan-1' },
-  { date: '2027-03-20', month: 'Nissan', enabled: true, id: 'rc-nissan-2' },
-  { date: '2027-04-18', month: 'Iyar', enabled: true, id: 'rc-iyar' },
-  { date: '2027-05-17', month: 'Sivan', enabled: true, id: 'rc-sivan' },
-  { date: '2027-06-16', month: 'Tammuz', enabled: true, id: 'rc-tammuz-1' },
-  { date: '2027-06-17', month: 'Tammuz', enabled: true, id: 'rc-tammuz-2' },
+  // Elul 5786 — just before the academic year begins
+  { date: '2026-08-13', month: 'Elul',    id: 'rc-elul-1' },
+  { date: '2026-08-14', month: 'Elul',    id: 'rc-elul-2' },
+  // Cheshvan
+  { date: '2026-10-11', month: 'Cheshvan', id: 'rc-cheshvan-1' },
+  { date: '2026-10-12', month: 'Cheshvan', id: 'rc-cheshvan-2' },
+  // Kislev
+  { date: '2026-11-10', month: 'Kislev',  id: 'rc-kislev-1' },
+  { date: '2026-11-11', month: 'Kislev',  id: 'rc-kislev-2' },
+  // Tevet
+  { date: '2026-12-10', month: 'Tevet',   id: 'rc-tevet-1' },
+  { date: '2026-12-11', month: 'Tevet',   id: 'rc-tevet-2' },
+  // Shvat (Tevet has 29 days → single-day RC)
+  { date: '2027-01-08', month: 'Shvat',   id: 'rc-shvat-1' },
+  { date: '2027-01-09', month: 'Shvat',   id: 'rc-shvat-2' },
+  // Adar I (leap year)
+  { date: '2027-02-07', month: 'Adar I',  id: 'rc-adar1-1' },
+  { date: '2027-02-08', month: 'Adar I',  id: 'rc-adar1-2' },
+  // Adar II (leap year)
+  { date: '2027-03-09', month: 'Adar II', id: 'rc-adar2-1' },
+  { date: '2027-03-10', month: 'Adar II', id: 'rc-adar2-2' },
+  // Nissan (Adar II has 29 days → single-day RC)
+  { date: '2027-04-08', month: 'Nissan',  id: 'rc-nissan' },
+  // Iyar
+  { date: '2027-05-07', month: 'Iyar',    id: 'rc-iyar-1' },
+  { date: '2027-05-08', month: 'Iyar',    id: 'rc-iyar-2' },
+  // Sivan
+  { date: '2027-06-05', month: 'Sivan',   id: 'rc-sivan-1' },
+  { date: '2027-06-06', month: 'Sivan',   id: 'rc-sivan-2' },
 ]
+
+// Fast lookup map: dateKey → Hebrew month name (for DayCell badge)
+export const ROSH_CHODESH_MAP = {}
+ROSH_CHODESH_DATES.forEach(rc => { ROSH_CHODESH_MAP[rc.date] = rc.month })
+
 
 // Major holiday suggestions — shown as "suggestions" (grayed out) in Holiday Suggestions Panel
 // User clicks "Add to calendar" to activate them

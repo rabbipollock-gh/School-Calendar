@@ -53,7 +53,11 @@ export default function App() {
 
   // Count conflicts
   const conflictCount = useMemo(() => {
-    return Object.values(events).filter(evs => Array.isArray(evs) && evs.length > 1).length
+    return Object.values(events).filter(evs => {
+      if (!Array.isArray(evs)) return false
+      const nonRC = evs.filter(e => e.category !== 'rosh-chodesh')
+      return nonRC.length > 1
+    }).length
   }, [events])
 
   return (

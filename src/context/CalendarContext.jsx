@@ -42,27 +42,12 @@ function normalizeEvents(rawEvents) {
 
 // ── Build initial state ───────────────────────────────────────────────────
 function buildInitialState() {
-  const events = normalizeEvents(DEFAULT_EVENTS)
-  // Add Rosh Chodesh events that aren't already in default events
-  ROSH_CHODESH_DATES.forEach(rc => {
-    if (!events[rc.date]) events[rc.date] = []
-    const alreadyHas = events[rc.date].some(e => e.label.includes('Rosh Chodesh') && e.label.includes(rc.month))
-    if (!alreadyHas && rc.id !== 'rc-elul') { // Skip Elul (in summer before school)
-      events[rc.date].push({
-        id: 'rc-' + nanoid(),
-        category: 'rosh-chodesh',
-        label: `Rosh Chodesh ${rc.month}`,
-        hebrewEventId: rc.id,
-      })
-    }
-  })
-
   return {
     events,
     categories: DEFAULT_CATEGORIES,
     schoolInfo: DEFAULT_SCHOOL_INFO,
     settings: DEFAULT_SETTINGS,
-    hebrewEventToggles: {},  // { [hebrewEventId]: boolean } — true = enabled
+    hebrewEventToggles: {},
     undoPast: [],
     undoFuture: [],
   }
@@ -75,6 +60,17 @@ function loadFromStorage() {
     if (raw) return JSON.parse(raw)
   } catch {}
   return null
+}
+
+// Strip legacy Rosh Chodesh events injected by old versions
+function migrateState(state) {
+  if (!state?.events) return state
+  const cleanEvents = {}
+  Object.entries(state.events).forEach(([dk, evs]) => {
+    const filtered = (evs || []).filter(e => e.category !== 'rosh-chodesh')
+    if (filtered.length > 0) cleanEvents[dk] = filtered
+  })
+  return { ...state, events: cleanEvents }
 }
 
 function saveToStorage(state) {
@@ -259,9 +255,9 @@ export function CalendarProvider({ children, readOnly = false }) {
     reducer,
     null,
     () => {
-      if (sharedState) return { ...buildInitialState(), ...sharedState, undoPast: [], undoFuture: [] }
+      if (sharedState) return { ...buildInitialState(), ...migrateState(sharedState), undoPast: [], undoFuture: [] }
       const stored = loadFromStorage()
-      if (stored) return { ...buildInitialState(), ...stored, undoPast: [], undoFuture: [] }
+      if (stored) return { ...buildInitialState(), ...migrateState(stored), undoPast: [], undoFuture: [] }
       return buildInitialState()
     }
   )
