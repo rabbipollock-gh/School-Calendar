@@ -2,7 +2,9 @@ import React, { useMemo, useState } from 'react'
 import { formatDateKey, groupConsecutiveDates, formatRangeLabel, parseDateKey } from '../utils/dateUtils.js'
 import { useCalendar } from '../context/CalendarContext.jsx'
 
-export default function NotesStrip({ year, month }) {
+const MONTH_NAMES = ['January','February','March','April','May','June','July','August','September','October','November','December']
+
+export default function NotesStrip({ year, month, onOpenModal }) {
   const { state, dispatch, readOnly } = useCalendar()
   const { events, categories, settings } = state
   const [collapsed, setCollapsed] = useState(false)
@@ -12,6 +14,7 @@ export default function NotesStrip({ year, month }) {
 
   const monthKey = `${year}-${String(month + 1).padStart(2, '0')}`
   const monthNote = settings.monthNotes?.[monthKey] || ''
+  const monthName = MONTH_NAMES[month]
 
   // Build notes from events — group by label+category, then group consecutive dates
   const noteGroups = useMemo(() => {
@@ -32,13 +35,22 @@ export default function NotesStrip({ year, month }) {
         const groups = groupConsecutiveDates(sorted)
         const rangeStr = groups.map(g => formatRangeLabel(g)).join(', ')
         const cat = catMap[ev.category]
-        return { ev, cat, rangeStr }
+        // Use the first date for clicking
+        const firstDateKey = sorted[0]
+        return { ev, cat, rangeStr, firstDateKey }
       })
   }, [events, monthKey, categories])
 
   const handleMonthNoteChange = (e) => {
     if (readOnly) return
     dispatch({ type: 'SET_MONTH_NOTE', monthKey, note: e.target.value })
+  }
+
+  // Open modal for first day of this month to add a new event
+  const handleAddEvent = () => {
+    if (!onOpenModal) return
+    const firstDay = `${year}-${String(month + 1).padStart(2, '0')}-01`
+    onOpenModal(firstDay)
   }
 
   if (noteGroups.length === 0 && !monthNote) return null
@@ -49,24 +61,38 @@ export default function NotesStrip({ year, month }) {
         onClick={() => setCollapsed(c => !c)}
         className="w-full flex items-center justify-between text-[10px] text-gray-400 dark:text-gray-500 hover:text-gray-600 mb-0.5"
       >
-        <span className="font-semibold uppercase tracking-wide">Notes</span>
-        <span>{collapsed ? '▸' : '▾'}</span>
+        <span className="font-semibold uppercase tracking-wide">{monthName}</span>
+        <div className="flex items-center gap-1">
+          {!readOnly && onOpenModal && (
+            <span
+              onClick={e => { e.stopPropagation(); handleAddEvent() }}
+              className="text-[10px] text-blue-400 hover:text-blue-600 font-bold px-1 rounded transition"
+              title={`Add event to ${monthName}`}
+            >＋</span>
+          )}
+          <span>{collapsed ? '▸' : '▾'}</span>
+        </div>
       </button>
 
       {!collapsed && (
         <div className="space-y-0.5">
           {noteGroups.map((group, i) => (
-            <div key={i} className="flex items-start gap-1 text-[10px] leading-snug">
+            <button
+              key={i}
+              className="flex items-start gap-1 text-[10px] leading-snug w-full text-left hover:bg-blue-50 dark:hover:bg-gray-700 rounded px-0.5 transition group"
+              onClick={() => onOpenModal && group.firstDateKey && onOpenModal(group.firstDateKey)}
+              title={`Open ${group.firstDateKey}`}
+            >
               <span
                 className="inline-block w-2 h-2 rounded-full mt-0.5 shrink-0"
                 style={{ background: group.ev.color || group.cat?.color || '#999' }}
               />
-              <span className="text-gray-600 dark:text-gray-400">
+              <span className="text-gray-600 dark:text-gray-400 group-hover:text-blue-700 dark:group-hover:text-blue-300 transition">
                 <span className="font-medium">{group.rangeStr}</span>
                 {' | '}
                 {group.ev.label}
               </span>
-            </div>
+            </button>
           ))}
 
           {/* Free-text month note */}
@@ -74,7 +100,7 @@ export default function NotesStrip({ year, month }) {
             <textarea
               value={monthNote}
               onChange={handleMonthNoteChange}
-              placeholder="Add a note for this month..."
+              placeholder={`Add a note for ${monthName}...`}
               rows={monthNote ? undefined : 1}
               className="w-full text-[10px] text-gray-500 dark:text-gray-400 bg-transparent border border-dashed border-gray-200 dark:border-gray-700 rounded px-1.5 py-1 resize-none outline-none focus:border-blue-300 mt-1 placeholder-gray-300"
             />

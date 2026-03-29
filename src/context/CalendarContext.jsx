@@ -24,6 +24,8 @@ const DEFAULT_SETTINGS = {
   draftWatermark: false,
   monthNotes: {},
   template: 'classic',
+  cellStyle: 'dots',      // 'dots' | 'filled'
+  eventsPanel: 'inline', // 'inline' | 'bottom'
 }
 
 // ── ID normalizer for default events ────────────────────────────────────

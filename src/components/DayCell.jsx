@@ -34,17 +34,24 @@ export default function DayCell({ date, onOpenModal, focusedDate, settings }) {
   const visibleCats = categories.filter(c => !c.visible).map(c => c.id)
   const visibleEvents = dayEvents.filter(e => !visibleCats.includes(e.category))
 
+  const isFilled = settings.cellStyle === 'filled' && visibleEvents.length > 0
+  const fillColor = isFilled
+    ? (visibleEvents[0].color || catMap[visibleEvents[0].category]?.color || '#999')
+    : null
+
   return (
     <button
       className={`
         day-cell relative flex flex-col items-start p-0.5 sm:p-1 min-h-[36px] sm:min-h-[44px]
         rounded transition-all duration-150 text-left w-full
-        ${isSha && settings.shabbatHighlight ? 'sha-col bg-[#2E86AB]/10 dark:bg-[#2E86AB]/20' : 'bg-white dark:bg-gray-800'}
+        ${!isFilled && isSha && settings.shabbatHighlight ? 'sha-col bg-[#2E86AB]/10 dark:bg-[#2E86AB]/20' : ''}
+        ${!isFilled ? 'bg-white dark:bg-gray-800' : ''}
         ${isFocused ? 'ring-2 ring-blue-500 ring-offset-1' : ''}
-        ${hasConflict ? 'ring-1 ring-amber-400' : ''}
-        hover:bg-blue-50 dark:hover:bg-gray-700 hover:shadow-sm
+        ${hasConflict && !isFilled ? 'ring-1 ring-amber-400' : ''}
+        hover:opacity-90 hover:shadow-sm
         focus:outline-none focus:ring-2 focus:ring-blue-500
       `}
+      style={isFilled ? { backgroundColor: fillColor } : undefined}
       onClick={() => onOpenModal(dateKey)}
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
@@ -55,31 +62,42 @@ export default function DayCell({ date, onOpenModal, focusedDate, settings }) {
       {/* Day number */}
       <span className={`
         text-[11px] sm:text-xs font-semibold leading-none
-        ${isSha && settings.shabbatHighlight ? 'text-[#2E86AB] dark:text-[#5ba8c7]' : 'text-gray-700 dark:text-gray-300'}
+        ${isFilled
+          ? 'text-white drop-shadow-sm'
+          : isSha && settings.shabbatHighlight
+            ? 'text-[#2E86AB] dark:text-[#5ba8c7]'
+            : 'text-gray-700 dark:text-gray-300'}
       `}>
         {dayNum}
       </span>
 
-      {/* Event dots */}
-      <div className="flex flex-wrap gap-0.5 mt-0.5">
-        {visibleEvents.slice(0, 3).map((ev, i) => {
-          const cat = catMap[ev.category]
-          const color = ev.color || cat?.color || '#999'
-          return (
-            <span
-              key={ev.id || i}
-              className="event-dot inline-block w-1.5 h-1.5 rounded-full"
-              style={{ background: color }}
-            />
-          )
-        })}
-        {visibleEvents.length > 3 && (
-          <span className="text-[8px] text-gray-400 leading-none">+{visibleEvents.length - 3}</span>
-        )}
-      </div>
+      {/* Event dots — dot mode only */}
+      {!isFilled && (
+        <div className="flex flex-wrap gap-0.5 mt-0.5">
+          {visibleEvents.slice(0, 3).map((ev, i) => {
+            const cat = catMap[ev.category]
+            const color = ev.color || cat?.color || '#999'
+            return (
+              <span
+                key={ev.id || i}
+                className="event-dot inline-block w-1.5 h-1.5 rounded-full"
+                style={{ background: color }}
+              />
+            )
+          })}
+          {visibleEvents.length > 3 && (
+            <span className="text-[8px] text-gray-400 leading-none">+{visibleEvents.length - 3}</span>
+          )}
+        </div>
+      )}
+
+      {/* Multi-event badge — filled mode */}
+      {isFilled && visibleEvents.length > 1 && (
+        <span className="text-[8px] text-white/80 leading-none mt-0.5">+{visibleEvents.length - 1}</span>
+      )}
 
       {/* Conflict badge */}
-      {hasConflict && (
+      {hasConflict && !isFilled && (
         <span className="absolute top-0.5 right-0.5 w-2 h-2 bg-amber-400 rounded-full" title="Multiple events" />
       )}
 

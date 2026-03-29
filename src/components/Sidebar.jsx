@@ -16,7 +16,7 @@ export default function Sidebar({ isOpen, onOpenCategories }) {
       {/* School Info */}
       <div className="p-4 border-b border-gray-100 dark:border-gray-700">
         {schoolInfo.logo && (
-          <img src={schoolInfo.logo} alt="Logo" className="h-14 w-full object-contain mb-2 rounded" />
+          <img src={schoolInfo.logo} alt="Logo" className="h-14 w-14 object-cover rounded-full border-2 border-gray-200 shadow-sm mx-auto mb-2 block" />
         )}
         <h2 className="font-bold text-[#1e3a5f] dark:text-blue-300 text-sm leading-snug">{schoolInfo.name}</h2>
         {schoolInfo.address && <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{schoolInfo.address}</p>}

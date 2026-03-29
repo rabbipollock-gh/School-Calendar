@@ -114,10 +114,12 @@ export default function MonthBlock({ year, month, onOpenModal, focusedDate, onRe
         )}
       </div>
 
-      {/* Notes strip */}
-      <div className="px-2 pb-2">
-        <NotesStrip year={year} month={month} />
-      </div>
+      {/* Notes strip — hidden when events panel is at bottom of page */}
+      {settings.eventsPanel !== 'bottom' && (
+        <div className="px-2 pb-2">
+          <NotesStrip year={year} month={month} onOpenModal={onOpenModal} />
+        </div>
+      )}
     </div>
   )
 }

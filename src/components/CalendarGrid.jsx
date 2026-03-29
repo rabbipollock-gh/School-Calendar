@@ -1,6 +1,7 @@
 import React, { useRef, useState } from 'react'
 import { useCalendar } from '../context/CalendarContext.jsx'
 import MonthBlock from './MonthBlock.jsx'
+import MonthEventsPanel from './MonthEventsPanel.jsx'
 import { ACADEMIC_MONTHS } from '../hooks/useKeyboardNav.js'
 
 export default function CalendarGrid({ onOpenModal, focusedDate, highlightDate }) {
@@ -44,6 +45,11 @@ export default function CalendarGrid({ onOpenModal, focusedDate, highlightDate }
           />
         ))}
       </div>
+
+      {/* Bottom events panel (desktop) */}
+      {settings.eventsPanel === 'bottom' && (
+        <MonthEventsPanel onOpenModal={onOpenModal} />
+      )}
 
       {/* Mobile: single-month with prev/next nav */}
       <div className="md:hidden flex flex-col h-full">

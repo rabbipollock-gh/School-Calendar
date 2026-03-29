@@ -101,9 +101,9 @@ export default function SettingsDrawer({ isOpen, onClose, onOpenCategories, onOp
             <h3 className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-widest mb-3">School Logo</h3>
             <div className="flex items-center gap-4">
               {schoolInfo.logo ? (
-                <img src={schoolInfo.logo} alt="Logo" className="h-16 w-16 object-contain rounded-lg border border-gray-200 bg-gray-50" />
+                <img src={schoolInfo.logo} alt="Logo" className="h-16 w-16 object-cover rounded-full border-2 border-gray-200 shadow-sm" />
               ) : (
-                <div className="h-16 w-16 rounded-lg border-2 border-dashed border-gray-300 flex items-center justify-center text-gray-400 text-2xl">✡</div>
+                <div className="h-16 w-16 rounded-full border-2 border-dashed border-gray-300 flex items-center justify-center text-gray-400 text-2xl">✡</div>
               )}
               <div className="flex flex-col gap-2">
                 {!readOnly && (
@@ -144,6 +144,47 @@ export default function SettingsDrawer({ isOpen, onClose, onOpenCategories, onOp
                   <span className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-all ${settings.draftWatermark ? 'left-5' : 'left-0.5'}`} />
                 </button>
               </div>
+
+              {/* Date Box Style */}
+              <div>
+                <label className="text-xs font-medium text-gray-500 dark:text-gray-400 block mb-1.5">Date Box Style</label>
+                <div className="flex gap-2">
+                  {['dots', 'filled'].map(style => (
+                    <button
+                      key={style}
+                      onClick={() => updateSettings('cellStyle', style)}
+                      className={`flex-1 py-1.5 rounded-lg border-2 text-xs font-semibold capitalize transition ${
+                        settings.cellStyle === style
+                          ? 'border-blue-500 bg-blue-50 text-blue-700 dark:bg-blue-900/20 dark:text-blue-300'
+                          : 'border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:border-gray-300'
+                      }`}
+                    >
+                      {style === 'dots' ? '● Dots' : '■ Filled'}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Events Panel Position */}
+              <div>
+                <label className="text-xs font-medium text-gray-500 dark:text-gray-400 block mb-1.5">Events List Position</label>
+                <div className="flex gap-2">
+                  {[['inline', '↑ Inside Month'], ['bottom', '↓ Bottom of Page']].map(([val, label]) => (
+                    <button
+                      key={val}
+                      onClick={() => updateSettings('eventsPanel', val)}
+                      className={`flex-1 py-1.5 rounded-lg border-2 text-xs font-semibold transition ${
+                        settings.eventsPanel === val
+                          ? 'border-blue-500 bg-blue-50 text-blue-700 dark:bg-blue-900/20 dark:text-blue-300'
+                          : 'border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:border-gray-300'
+                      }`}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
             </div>
           </section>
 
