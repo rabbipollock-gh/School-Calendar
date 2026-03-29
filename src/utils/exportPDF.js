@@ -183,16 +183,30 @@ function drawMonth(doc, { year, month }, events, categories, settings, x, y, w, 
   }
 }
 
-function drawBottomEventsPanel(doc, events, categories, y, pageW, margin, sidebarW) {
+// Pre-scan events to find max unique events in any single month (for dynamic panel height)
+function computeMaxEventsPerMonth(events) {
+  return Math.max(...ACADEMIC_MONTHS.map(({ year, month }) => {
+    const monthKey = `${year}-${String(month + 1).padStart(2, '0')}`
+    const seen = new Set()
+    Object.entries(events).forEach(([dk, evs]) => {
+      if (!dk.startsWith(monthKey)) return
+      ;(evs || []).filter(e => e.category !== 'rosh-chodesh').forEach(ev => seen.add(`${ev.category}::${ev.label}`))
+    })
+    return seen.size
+  }), 0)
+}
+
+function drawBottomEventsPanel(doc, events, categories, y, pageW, margin, sidebarW, panelH) {
   const catMap = {}
   categories.forEach(c => { catMap[c.id] = c })
 
   const panelY = y
   const panelW = pageW - margin * 2 - sidebarW - 2
+  const eventsBottom = panelY + panelH - 2  // clip events to stay inside panel
 
   // Panel background
   doc.setFillColor(15, 45, 61)
-  doc.roundedRect(margin, panelY, panelW, BOTTOM_PANEL_H, 2, 2, 'F')
+  doc.roundedRect(margin, panelY, panelW, panelH, 2, 2, 'F')
 
   // Header
   doc.setTextColor(255, 255, 255)
@@ -209,7 +223,6 @@ function drawBottomEventsPanel(doc, events, categories, y, pageW, margin, sideba
     const monthKey = `${year}-${String(month + 1).padStart(2, '0')}`
 
     // Column header
-    doc.setFillColor(255, 255, 255, 0.1)
     doc.setTextColor(180, 210, 255)
     doc.setFontSize(4.5)
     doc.setFont('helvetica', 'bold')
@@ -228,7 +241,10 @@ function drawBottomEventsPanel(doc, events, categories, y, pageW, margin, sideba
 
     let evY = panelY + 11
     doc.setFont('helvetica', 'normal')
-    Object.values(monthEvs).sort((a, b) => a.dates[0].localeCompare(b.dates[0])).slice(0, 5).forEach(({ ev, dates }) => {
+    Object.values(monthEvs).sort((a, b) => a.dates[0].localeCompare(b.dates[0])).forEach(({ ev, dates }) => {
+      // Stop rendering if we'd overflow the panel
+      if (evY > eventsBottom) return
+
       const cat = catMap[ev.category]
       const color = ev.color || cat?.color || '#999999'
       const [r, g, b] = hexToRgb(color)
@@ -236,13 +252,11 @@ function drawBottomEventsPanel(doc, events, categories, y, pageW, margin, sideba
       doc.circle(colX + 1.2, evY - 0.5, 0.7, 'F')
       const groups = groupConsecutiveDates([...dates].sort())
       const rangeStr = groups.map(g => formatRangeLabel(g)).join(', ')
-      // Split label to know how many lines it wraps to
       doc.setFontSize(3)
       const fullText = `${rangeStr} ${ev.label}`
       const labelLines = doc.splitTextToSize(fullText, colW - 3.5)
       doc.setTextColor(200, 220, 240)
       doc.text(labelLines, colX + 2.5, evY)
-      // Line height at 3pt ≈ 1.2mm; extra lines push the sub-label down
       const extraLinesMM = (labelLines.length - 1) * 1.2
       const catName = cat?.name || ''
       if (catName) {
@@ -268,8 +282,13 @@ export async function exportPDF(state, { preview = false } = {}) {
   const GRID_W = PAGE_W - MARGIN * 2 - SIDEBAR_W
   const MONTH_W = (GRID_W / COL_COUNT) - 2
   const MONTH_ROWS = 3
+  // Dynamic panel height: grows to fit the busiest month (capped at 72mm)
+  const maxEvPerMonth = showBottomPanel ? computeMaxEventsPerMonth(events) : 0
+  const dynamicPanelH = showBottomPanel
+    ? Math.min(Math.max(BOTTOM_PANEL_H, 11 + maxEvPerMonth * 5 + 4), 72)
+    : 0
   const availH = showBottomPanel
-    ? PAGE_H - (HEADER_H + 2) - MARGIN - BOTTOM_PANEL_H - 4
+    ? PAGE_H - (HEADER_H + 2) - MARGIN - dynamicPanelH - 4
     : PAGE_H - (HEADER_H + 2) - MARGIN - 2
   const MONTH_H = availH / MONTH_ROWS - 3
 
@@ -332,7 +351,7 @@ export async function exportPDF(state, { preview = false } = {}) {
   // ── Bottom Events Panel ──────────────────────────────
   if (showBottomPanel) {
     const panelTop = startY + MONTH_ROWS * (MONTH_H + 3) + 2
-    drawBottomEventsPanel(doc, events, categories, panelTop, PAGE_W, MARGIN, SIDEBAR_W)
+    drawBottomEventsPanel(doc, events, categories, panelTop, PAGE_W, MARGIN, SIDEBAR_W, dynamicPanelH)
   }
 
   // ── Sidebar ──────────────────────────────────────────
