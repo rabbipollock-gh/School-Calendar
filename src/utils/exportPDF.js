@@ -87,7 +87,8 @@ function drawMonth(doc, { year, month }, events, categories, settings, x, y, w, 
   // Day cells
   const days = getDaysInMonth(year, month)
   const startDow = getFirstDayOfWeek(year, month)
-  const cellH = (h - 11) / 6
+  const notesStripH = settings.eventsPanel !== 'bottom' ? 10 : 0
+  const cellH = (h - 11 - notesStripH) / 6
   doc.setFont('helvetica', 'normal')
 
   days.forEach(date => {
@@ -151,8 +152,13 @@ function drawMonth(doc, { year, month }, events, categories, settings, x, y, w, 
 
   // Notes strip (when eventsPanel === 'inline')
   if (settings.eventsPanel !== 'bottom') {
-    const notesY = y + h - 6
-    doc.setDrawColor(220, 220, 220)
+    const stripH = 10
+    const notesY = y + h - stripH
+    // Light background so text is readable over cell colors
+    doc.setFillColor(248, 249, 251)
+    doc.rect(x, notesY, w, stripH, 'F')
+    doc.setDrawColor(200, 205, 215)
+    doc.setLineWidth(0.2)
     doc.line(x, notesY, x + w, notesY)
 
     const notesEvents = {}
@@ -166,9 +172,11 @@ function drawMonth(doc, { year, month }, events, categories, settings, x, y, w, 
       })
     })
 
-    let noteLineY = notesY + 2
+    const maxNoteY = y + h - 0.5
+    let noteLineY = notesY + 2.5
     doc.setFontSize(3.2)
-    Object.values(notesEvents).slice(0, 4).forEach(({ ev, dates }) => {
+    for (const { ev, dates } of Object.values(notesEvents)) {
+      if (noteLineY > maxNoteY) break
       const cat = catMap[ev.category]
       const color = ev.color || cat?.color || '#999999'
       const [r, g, b] = hexToRgb(color)
@@ -176,10 +184,12 @@ function drawMonth(doc, { year, month }, events, categories, settings, x, y, w, 
       doc.circle(x + 1, noteLineY - 0.5, 0.5, 'F')
       const groups = groupConsecutiveDates(dates)
       const rangeStr = groups.map(g => formatRangeLabel(g)).join(', ')
+      const lineText = `${rangeStr} | ${ev.label}`
+      const wrappedLines = doc.splitTextToSize(lineText, w - 3.5)
       doc.setTextColor(60, 60, 60)
-      doc.text(`${rangeStr} | ${ev.label}`, x + 2.5, noteLineY, { maxWidth: w - 3 })
-      noteLineY += 1.8
-    })
+      doc.text(wrappedLines, x + 2.5, noteLineY, { maxWidth: w - 3.5 })
+      noteLineY += wrappedLines.length * 1.5 + 0.6
+    }
   }
 }
 
