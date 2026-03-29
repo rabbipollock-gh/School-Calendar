@@ -42,6 +42,7 @@ function normalizeEvents(rawEvents) {
 
 // ── Build initial state ───────────────────────────────────────────────────
 function buildInitialState() {
+  const events = normalizeEvents(DEFAULT_EVENTS)
   return {
     events,
     categories: DEFAULT_CATEGORIES,
