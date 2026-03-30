@@ -47,39 +47,39 @@ function drawMonth(doc, { year, month }, events, categories, settings, x, y, w, 
   const catMap = {}
   categories.forEach(c => { catMap[c.id] = c })
   const isFilled = settings.cellStyle === 'filled'
+  const isCompact = settings.template === 'compact'
+  const s = isCompact ? 0.82 : 1  // scale factor for compact mode
 
-  // Month header — taller with larger text
+  // Month header
+  const headerH = 8 * s
   doc.setFillColor(30, 58, 95)
-  doc.roundedRect(x, y, w, 8, 1, 1, 'F')
+  doc.roundedRect(x, y, w, headerH, 1, 1, 'F')
   doc.setTextColor(255, 255, 255)
-  doc.setFontSize(7)
+  doc.setFontSize(7 * s)
   doc.setFont('helvetica', 'bold')
   const monthName = new Date(year, month, 1).toLocaleString('default', { month: 'long' })
   const hebrewLabel = getHebrewMonthLabel(year, month)
-  doc.text(monthName, x + 1.5, y + 3.8)
-  // Measure width at the same 7pt bold before switching style
+  doc.text(monthName, x + 1.5, y + 3.8 * s)
   const monthNameW = doc.getTextWidth(monthName)
-  // Year in gold — consistent 1mm gap after month name
   doc.setTextColor(212, 175, 55)
-  doc.setFontSize(6.5)
-  doc.text(` ${String(year)}`, x + 1.5 + monthNameW, y + 3.8)
-  // Hebrew sub-label
+  doc.setFontSize(6.5 * s)
+  doc.text(` ${String(year)}`, x + 1.5 + monthNameW, y + 3.8 * s)
   doc.setTextColor(180, 210, 255)
   doc.setFont('helvetica', 'normal')
-  doc.setFontSize(4)
-  doc.text(hebrewLabel, x + 1.5, y + 6.5, { maxWidth: w - 3 })
+  doc.setFontSize(4 * s)
+  if (!isCompact) doc.text(hebrewLabel, x + 1.5, y + 6.5, { maxWidth: w - 3 })
 
   // Day header row
-  const dayLabelY = y + 9.5
+  const dayLabelY = y + (isCompact ? 7.5 : 9.5)
   const cellW = w / 7
   DAYS.forEach((d, i) => {
     const labelStr = i === 6 ? shabbatLabel.slice(0, 3).toUpperCase() : d
     if (i === 6) {
-      doc.setFillColor(210, 220, 236)  // same light tone as Shabbos cell shading
-      doc.rect(x + i * cellW, dayLabelY - 2, cellW, 3, 'F')
+      doc.setFillColor(210, 220, 236)
+      doc.rect(x + i * cellW, dayLabelY - 2, cellW, 3 * s, 'F')
     }
     doc.setTextColor(i === 6 ? 30 : 80, i === 6 ? 58 : 80, i === 6 ? 95 : 80)
-    doc.setFontSize(3.8)
+    doc.setFontSize(3.8 * s)
     doc.setFont('helvetica', 'bold')
     doc.text(labelStr, x + i * cellW + cellW / 2, dayLabelY, { align: 'center' })
   })
@@ -87,8 +87,9 @@ function drawMonth(doc, { year, month }, events, categories, settings, x, y, w, 
   // Day cells
   const days = getDaysInMonth(year, month)
   const startDow = getFirstDayOfWeek(year, month)
-  const notesStripH = settings.eventsPanel !== 'bottom' ? 10 : 0
-  const cellH = (h - 11 - notesStripH) / 6
+  const notesStripH = (settings.eventsPanel !== 'bottom' && !isCompact) ? 10 : 0
+  const headerOffset = isCompact ? 9 : 11
+  const cellH = (h - headerOffset - notesStripH) / 6
   doc.setFont('helvetica', 'normal')
 
   days.forEach(date => {
@@ -117,21 +118,21 @@ function drawMonth(doc, { year, month }, events, categories, settings, x, y, w, 
       doc.roundedRect(cx + 0.2, cy + 0.2, cellW - 0.4, cellH - 0.4, 0.5, 0.5, 'F')
       // Day number in white
       doc.setTextColor(255, 255, 255)
-      doc.setFontSize(4)
+      doc.setFontSize(4 * s)
       doc.setFont('helvetica', 'bold')
-      doc.text(String(dayNum), cx + 0.8, cy + 2.5)
+      doc.text(String(dayNum), cx + 0.8, cy + 2.5 * s)
       doc.setFont('helvetica', 'normal')
     } else {
       // Dot mode — day number + dots
       doc.setTextColor(50, 50, 50)
-      doc.setFontSize(4)
-      doc.text(String(dayNum), cx + 0.8, cy + 2.5)
+      doc.setFontSize(4 * s)
+      doc.text(String(dayNum), cx + 0.8, cy + 2.5 * s)
       dayEvs.slice(0, 3).forEach((ev, idx) => {
         const cat = catMap[ev.category]
         const color = ev.color || cat?.color || '#999999'
         const [r, g, b] = hexToRgb(color)
         doc.setFillColor(r, g, b)
-        doc.circle(cx + 1 + idx * 1.6, cy + cellH - 1.5, 0.6, 'F')
+        doc.circle(cx + 1 + idx * 1.6, cy + cellH - 1.5, 0.6 * s, 'F')
       })
     }
 
@@ -287,6 +288,7 @@ export async function exportPDF(state, { preview = false } = {}) {
   const titleFont = hasMontserrat ? 'Montserrat' : 'helvetica'
   const shabbatLabel = settings.shabbatLabel || 'Shabbat'
   const showBottomPanel = settings.eventsPanel === 'bottom'
+  const isCompact = settings.template === 'compact'
 
   // Layout measurements
   const GRID_W = PAGE_W - MARGIN * 2 - SIDEBAR_W
@@ -300,7 +302,7 @@ export async function exportPDF(state, { preview = false } = {}) {
   const availH = showBottomPanel
     ? PAGE_H - (HEADER_H + 2) - MARGIN - dynamicPanelH - 4
     : PAGE_H - (HEADER_H + 2) - MARGIN - 2
-  const MONTH_H = availH / MONTH_ROWS - 3
+  const MONTH_H = (availH / MONTH_ROWS - 3) * (isCompact ? 0.85 : 1)
 
   // ── Header ──────────────────────────────────────────
   // Left dark navy band (~60% width)

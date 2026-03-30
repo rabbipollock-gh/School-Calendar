@@ -1,6 +1,6 @@
-import React, { useState } from 'react'
+import React, { useState, useRef, useCallback } from 'react'
 import { useCalendar } from '../context/CalendarContext.jsx'
-import { formatDateKey, isShabbat, parseDateKey } from '../utils/dateUtils.js'
+import { formatDateKey } from '../utils/dateUtils.js'
 import { ROSH_CHODESH_MAP } from '../data/hebrewCalendar.js'
 
 const TOOLTIP_DELAY = 500
@@ -23,29 +23,44 @@ export default function DayCell({ date, onOpenModal, focusedDate, settings }) {
   categories.forEach(c => { catMap[c.id] = c })
 
   const [showTooltip, setShowTooltip] = useState(false)
-  let tooltipTimer = null
+  const [flipX, setFlipX] = useState(false)
+  const [flipY, setFlipY] = useState(false)
+  const cellRef = useRef(null)
+  const tooltipTimerRef = useRef(null)
 
-  const handleMouseEnter = () => {
+  const handleMouseEnter = useCallback(() => {
     if (dayEvents.length === 0) return
-    tooltipTimer = setTimeout(() => setShowTooltip(true), TOOLTIP_DELAY)
-  }
-  const handleMouseLeave = () => {
-    clearTimeout(tooltipTimer)
+    // Detect if tooltip would clip off-screen
+    if (cellRef.current) {
+      const rect = cellRef.current.getBoundingClientRect()
+      setFlipX(rect.right > window.innerWidth * 0.6)
+      setFlipY(rect.bottom > window.innerHeight * 0.7)
+    }
+    tooltipTimerRef.current = setTimeout(() => setShowTooltip(true), TOOLTIP_DELAY)
+  }, [dayEvents.length])
+
+  const handleMouseLeave = useCallback(() => {
+    clearTimeout(tooltipTimerRef.current)
     setShowTooltip(false)
-  }
+  }, [])
 
   const visibleCats = categories.filter(c => !c.visible).map(c => c.id)
   const visibleEvents = dayEvents.filter(e => !visibleCats.includes(e.category))
+  const nonBannerEvents = visibleEvents.filter(e => !e.banner)
 
-  const isFilled = settings.cellStyle === 'filled' && visibleEvents.length > 0
+  const isFilled = settings.cellStyle === 'filled' && nonBannerEvents.length > 0
   const fillColor = isFilled
-    ? (visibleEvents[0].color || catMap[visibleEvents[0].category]?.color || '#999')
+    ? (nonBannerEvents[0].color || catMap[nonBannerEvents[0].category]?.color || '#999')
     : null
+
+  const isCompact = settings.template === 'compact'
 
   return (
     <button
+      ref={cellRef}
       className={`
-        day-cell relative flex flex-col items-start p-0.5 sm:p-1 min-h-[36px] sm:min-h-[44px]
+        day-cell relative flex flex-col items-start p-0.5 sm:p-1
+        ${isCompact ? 'min-h-[28px] sm:min-h-[34px]' : 'min-h-[36px] sm:min-h-[44px]'}
         rounded transition-all duration-150 text-left w-full
         ${!isFilled && isSha && settings.shabbatHighlight ? 'sha-col bg-[#1e3a5f]/8 dark:bg-[#1e3a5f]/20' : ''}
         ${!isFilled ? 'bg-white dark:bg-gray-800' : ''}
@@ -64,7 +79,7 @@ export default function DayCell({ date, onOpenModal, focusedDate, settings }) {
     >
       {/* Day number */}
       <span className={`
-        text-[11px] sm:text-xs font-semibold leading-none
+        ${isCompact ? 'text-[9px] sm:text-[10px]' : 'text-[11px] sm:text-xs'} font-semibold leading-none
         ${isFilled
           ? 'text-white drop-shadow-sm'
           : isSha && settings.shabbatHighlight
@@ -74,32 +89,32 @@ export default function DayCell({ date, onOpenModal, focusedDate, settings }) {
         {dayNum}
       </span>
 
-      {/* Event dots — dot mode only */}
+      {/* Event dots — dot mode, non-banner events only */}
       {!isFilled && (
         <div className="flex flex-wrap gap-0.5 mt-0.5">
-          {visibleEvents.slice(0, 3).map((ev, i) => {
+          {nonBannerEvents.slice(0, 3).map((ev, i) => {
             const cat = catMap[ev.category]
             const color = ev.color || cat?.color || '#999'
             return (
               <span
                 key={ev.id || i}
-                className="event-dot inline-block w-1.5 h-1.5 rounded-full"
+                className={`event-dot inline-block rounded-full ${isCompact ? 'w-1 h-1' : 'w-1.5 h-1.5'}`}
                 style={{ background: color }}
               />
             )
           })}
-          {visibleEvents.length > 3 && (
-            <span className="text-[8px] text-gray-400 leading-none">+{visibleEvents.length - 3}</span>
+          {nonBannerEvents.length > 3 && (
+            <span className="text-[8px] text-gray-400 leading-none">+{nonBannerEvents.length - 3}</span>
           )}
         </div>
       )}
 
       {/* Multi-event badge — filled mode */}
-      {isFilled && visibleEvents.length > 1 && (
-        <span className="text-[8px] text-white/80 leading-none mt-0.5">+{visibleEvents.length - 1}</span>
+      {isFilled && nonBannerEvents.length > 1 && (
+        <span className="text-[8px] text-white/80 leading-none mt-0.5">+{nonBannerEvents.length - 1}</span>
       )}
 
-      {/* Rosh Chodesh badge — shown for all RC days, never causes conflict */}
+      {/* Rosh Chodesh badge */}
       {rcMonth && (
         <span className={`
           text-[7px] leading-none font-medium mt-auto truncate max-w-full
@@ -114,9 +129,13 @@ export default function DayCell({ date, onOpenModal, focusedDate, settings }) {
         <span className="absolute top-0.5 right-0.5 w-2 h-2 bg-amber-400 rounded-full" title="Multiple events" />
       )}
 
-      {/* Hover tooltip */}
+      {/* Hover tooltip — smart positioning */}
       {showTooltip && dayEvents.length > 0 && (
-        <div className="absolute bottom-full left-0 z-30 mb-1 w-48 bg-gray-900 text-white text-xs rounded-lg shadow-xl p-2 space-y-1 pointer-events-none">
+        <div className={`
+          absolute z-30 mb-1 mt-1 w-48 bg-gray-900 text-white text-xs rounded-lg shadow-xl p-2 space-y-1 pointer-events-none
+          ${flipY ? 'top-full bottom-auto' : 'bottom-full top-auto'}
+          ${flipX ? 'right-0 left-auto' : 'left-0 right-auto'}
+        `}>
           {dayEvents.map((ev, i) => {
             const cat = catMap[ev.category]
             const color = ev.color || cat?.color || '#999'

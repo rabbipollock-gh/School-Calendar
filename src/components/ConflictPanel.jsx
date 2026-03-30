@@ -1,20 +1,40 @@
-import React, { useMemo } from 'react'
+import React, { useMemo, useState } from 'react'
 import { useCalendar } from '../context/CalendarContext.jsx'
 import { parseDateKey } from '../utils/dateUtils.js'
 
 export default function ConflictPanel({ isOpen, onClose, onJumpToDate }) {
-  const { state } = useCalendar()
-  const { events, categories } = state
+  const { state, dispatch } = useCalendar()
+  const { events, categories, settings } = state
+  const [resolvingDate, setResolvingDate] = useState(null)
 
   const catMap = {}
   categories.forEach(c => { catMap[c.id] = c })
 
+  const acknowledged = new Set(settings.acknowledgedConflicts || [])
+
   const conflicts = useMemo(() => {
     return Object.entries(events)
-      .filter(([, evs]) => Array.isArray(evs) && evs.length > 1)
-      .map(([dateKey, evs]) => ({ dateKey, events: evs }))
+      .filter(([dateKey, evs]) => {
+        if (acknowledged.has(dateKey)) return false
+        const nonRC = (evs || []).filter(e => e.category !== 'rosh-chodesh')
+        return nonRC.length > 1
+      })
+      .map(([dateKey, evs]) => ({ dateKey, events: evs.filter(e => e.category !== 'rosh-chodesh') }))
       .sort((a, b) => a.dateKey.localeCompare(b.dateKey))
-  }, [events])
+  }, [events, settings.acknowledgedConflicts])
+
+  const handleAcknowledge = (dateKey) => {
+    dispatch({ type: 'ACKNOWLEDGE_CONFLICT', dateKey })
+    if (resolvingDate === dateKey) setResolvingDate(null)
+  }
+
+  const handleKeep = (dateKey, keepId) => {
+    const dayEvs = events[dateKey] || []
+    dayEvs.forEach(ev => {
+      if (ev.id !== keepId) dispatch({ type: 'DELETE_EVENT', dateKey, eventId: ev.id })
+    })
+    setResolvingDate(null)
+  }
 
   if (!isOpen) return null
 
@@ -40,30 +60,69 @@ export default function ConflictPanel({ isOpen, onClose, onJumpToDate }) {
           {conflicts.map(({ dateKey, events: dayEvs }) => {
             const date = parseDateKey(dateKey)
             const dateStr = date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
+            const isResolving = resolvingDate === dateKey
             return (
-              <button
+              <div
                 key={dateKey}
-                onClick={() => { onJumpToDate?.(dateKey); onClose() }}
-                className="w-full text-left p-3 rounded-xl border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/20 hover:bg-amber-100 transition"
+                className="rounded-xl border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/20 overflow-hidden"
               >
-                <div className="flex items-center justify-between mb-1.5">
-                  <span className="text-sm font-semibold text-amber-800 dark:text-amber-300">{dateStr}</span>
-                  <span className="text-xs bg-amber-200 dark:bg-amber-800 text-amber-800 dark:text-amber-200 px-2 py-0.5 rounded-full">{dayEvs.length} events</span>
+                {/* Date header + actions */}
+                <div className="flex items-center justify-between px-3 pt-3 pb-2">
+                  <button
+                    onClick={() => { onJumpToDate?.(dateKey); onClose() }}
+                    className="text-sm font-semibold text-amber-800 dark:text-amber-300 hover:underline text-left"
+                  >
+                    {dateStr}
+                  </button>
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-xs bg-amber-200 dark:bg-amber-800 text-amber-800 dark:text-amber-200 px-2 py-0.5 rounded-full">{dayEvs.length} events</span>
+                    <button
+                      onClick={() => setResolvingDate(isResolving ? null : dateKey)}
+                      className="text-xs px-2 py-0.5 rounded-full bg-[#1e3a5f] text-white hover:bg-[#2a4d7a] transition"
+                      title="Pick which event to keep"
+                    >
+                      Resolve
+                    </button>
+                    <button
+                      onClick={() => handleAcknowledge(dateKey)}
+                      className="text-xs px-2 py-0.5 rounded-full bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-300 transition"
+                      title="Keep both events and dismiss this warning"
+                    >
+                      Ignore
+                    </button>
+                  </div>
                 </div>
-                <div className="space-y-1">
-                  {dayEvs.map((ev, i) => {
+
+                {/* Event list */}
+                <div className="px-3 pb-2 space-y-1">
+                  {dayEvs.map((ev) => {
                     const cat = catMap[ev.category]
                     const color = ev.color || cat?.color || '#999'
                     return (
-                      <div key={i} className="flex items-center gap-2 text-xs text-gray-700 dark:text-gray-300">
+                      <div key={ev.id} className="flex items-center gap-2 text-xs text-gray-700 dark:text-gray-300">
                         <span className="w-2 h-2 rounded-full shrink-0" style={{ background: color }} />
-                        {ev.label}
-                        <span className="text-gray-400 ml-auto">{cat?.name || ev.category}</span>
+                        <span className="flex-1 truncate">{ev.label}</span>
+                        <span className="text-gray-400">{cat?.name || ev.category}</span>
+                        {isResolving && (
+                          <button
+                            onClick={() => handleKeep(dateKey, ev.id)}
+                            className="ml-1 text-[10px] px-1.5 py-0.5 rounded bg-green-500 text-white hover:bg-green-600 transition shrink-0"
+                          >
+                            Keep
+                          </button>
+                        )}
                       </div>
                     )
                   })}
                 </div>
-              </button>
+
+                {/* Resolve hint */}
+                {isResolving && (
+                  <div className="px-3 pb-2.5 text-[10px] text-amber-700 dark:text-amber-400">
+                    Click "Keep" next to the event you want to keep — the others will be removed.
+                  </div>
+                )}
+              </div>
             )
           })}
         </div>

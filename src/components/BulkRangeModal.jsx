@@ -17,6 +17,7 @@ export default function BulkRangeModal({ onClose }) {
   const [category, setCategory] = useState(categories.find(c => c.visible)?.id || '')
   const [label, setLabel] = useState('')
   const [time, setTime] = useState('')
+  const [asBanner, setAsBanner] = useState(false)
 
   const fromKey = `${fromMonth.year}-${String(fromMonth.month + 1).padStart(2, '0')}-${String(fromDay).padStart(2, '0')}`
   const toKey = `${toMonth.year}-${String(toMonth.month + 1).padStart(2, '0')}-${String(toDay).padStart(2, '0')}`
@@ -31,7 +32,7 @@ export default function BulkRangeModal({ onClose }) {
     dispatch({
       type: 'ADD_RANGE',
       dateKeys: dateRange,
-      event: { category, label: label.trim(), time: time || undefined },
+      event: { category, label: label.trim(), time: time || undefined, banner: asBanner || undefined },
     })
     onClose()
   }
@@ -130,6 +131,19 @@ export default function BulkRangeModal({ onClose }) {
               />
             </div>
           </div>
+
+          {/* Banner toggle */}
+          <label className="flex items-center gap-2.5 cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={asBanner}
+              onChange={e => setAsBanner(e.target.checked)}
+              className="w-4 h-4 rounded accent-[#1e3a5f]"
+            />
+            <span className="text-sm text-gray-700 dark:text-gray-300">
+              Show as banner <span className="text-xs text-gray-400">(colored bar across cells)</span>
+            </span>
+          </label>
 
           {dateRange.length > 0 && (
             <div className="bg-blue-50 rounded-lg px-3 py-2 text-sm text-blue-800">

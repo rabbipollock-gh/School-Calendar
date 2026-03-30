@@ -9,7 +9,7 @@ export default function TemplateSelector({ onClose }) {
     {
       id: 'classic',
       name: 'YAYOE Classic',
-      description: '4-column grid, sidebar with hours/legend, bottom notes strip',
+      description: '4-column grid, sidebar with hours/legend, inline notes strip',
       preview: '📅',
     },
     {
@@ -17,6 +17,12 @@ export default function TemplateSelector({ onClose }) {
       name: 'Modern Minimal',
       description: 'Cleaner layout, larger day cells, legend at top',
       preview: '🗓',
+    },
+    {
+      id: 'compact',
+      name: 'Compact / Print',
+      description: 'Smaller cells and tighter spacing — optimized for printing or sharing as a condensed PDF',
+      preview: '🗜',
     },
   ]
 

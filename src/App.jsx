@@ -1,5 +1,6 @@
 import React, { useState, useCallback, useMemo } from 'react'
 import { useCalendar } from './context/CalendarContext.jsx'
+import SchoolCodeGate from './components/SchoolCodeGate.jsx'
 import Header from './components/Header.jsx'
 import CalendarGrid from './components/CalendarGrid.jsx'
 import Sidebar from './components/Sidebar.jsx'
@@ -53,16 +54,19 @@ export default function App() {
     if (dateKey) setTimeout(() => setModalDate(dateKey), 300)
   }, [])
 
-  // Count conflicts
+  // Count conflicts (excluding acknowledged ones)
   const conflictCount = useMemo(() => {
-    return Object.values(events).filter(evs => {
+    const acknowledged = new Set(state.settings.acknowledgedConflicts || [])
+    return Object.entries(events).filter(([dateKey, evs]) => {
       if (!Array.isArray(evs)) return false
+      if (acknowledged.has(dateKey)) return false
       const nonRC = evs.filter(e => e.category !== 'rosh-chodesh')
       return nonRC.length > 1
     }).length
-  }, [events])
+  }, [events, state.settings.acknowledgedConflicts])
 
   return (
+    <SchoolCodeGate>
     <div className="flex flex-col h-screen bg-gray-50 dark:bg-gray-900 overflow-hidden">
       {/* Header */}
       <Header
@@ -206,5 +210,6 @@ export default function App() {
         </div>
       )}
     </div>
+    </SchoolCodeGate>
   )
 }

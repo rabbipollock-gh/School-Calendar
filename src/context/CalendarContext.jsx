@@ -3,6 +3,9 @@ import { DEFAULT_CATEGORIES } from '../data/defaultCategories.js'
 import { DEFAULT_EVENTS } from '../data/defaultEvents.js'
 import { nanoid } from '../utils/nanoid.js'
 import { getSharedState } from '../utils/shareUrl.js'
+import { getSchoolCode } from '../utils/schoolCode.js'
+
+const STORAGE_KEY = `yayoe-calendar-v1-${getSchoolCode() || 'default'}`
 
 // ── Default school info ───────────────────────────────────────────────────
 const DEFAULT_SCHOOL_INFO = {
@@ -56,7 +59,7 @@ function buildInitialState() {
 // ── Load from localStorage ───────────────────────────────────────────────
 function loadFromStorage() {
   try {
-    const raw = localStorage.getItem('yayoe-calendar-v1')
+    const raw = localStorage.getItem(STORAGE_KEY)
     if (raw) return JSON.parse(raw)
   } catch {}
   return null
@@ -91,7 +94,7 @@ function migrateState(state) {
 function saveToStorage(state) {
   try {
     const { undoPast, undoFuture, ...toSave } = state
-    localStorage.setItem('yayoe-calendar-v1', JSON.stringify(toSave))
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(toSave))
   } catch {}
 }
 
@@ -232,6 +235,15 @@ function reducer(state, action) {
 
     case 'UPDATE_SETTINGS': {
       return { ...state, settings: { ...state.settings, ...action.settings } }
+    }
+
+    case 'ACKNOWLEDGE_CONFLICT': {
+      const existing = state.settings.acknowledgedConflicts || []
+      if (existing.includes(action.dateKey)) return state
+      return {
+        ...state,
+        settings: { ...state.settings, acknowledgedConflicts: [...existing, action.dateKey] },
+      }
     }
 
     case 'SET_MONTH_NOTE': {
