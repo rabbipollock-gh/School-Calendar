@@ -30,11 +30,11 @@ export default function DayCell({ date, onOpenModal, focusedDate, settings }) {
 
   const handleMouseEnter = useCallback(() => {
     if (dayEvents.length === 0) return
-    // Detect if tooltip would clip off-screen
+    // Detect if tooltip would clip off-screen (tooltip is w-48 = 192px wide)
     if (cellRef.current) {
       const rect = cellRef.current.getBoundingClientRect()
-      setFlipX(rect.right > window.innerWidth * 0.6)
-      setFlipY(rect.bottom > window.innerHeight * 0.7)
+      setFlipX(rect.right + 200 > window.innerWidth)
+      setFlipY(rect.bottom + 120 > window.innerHeight)
     }
     tooltipTimerRef.current = setTimeout(() => setShowTooltip(true), TOOLTIP_DELAY)
   }, [dayEvents.length])

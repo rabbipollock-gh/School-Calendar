@@ -2,25 +2,22 @@ import React, { useState, useEffect } from 'react'
 import { getSchoolCode, slugify } from '../utils/schoolCode.js'
 
 export default function SchoolCodeGate({ children }) {
-  const [hasCode, setHasCode] = useState(() => !!getSchoolCode())
+  const [hasCode] = useState(() => !!getSchoolCode())
   const [name, setName] = useState('')
   const [error, setError] = useState('')
 
   // Also allow arriving via a ?cal= share link (read-only shared view — no code needed)
   const isSharedUrl = new URLSearchParams(window.location.search).has('cal')
 
-  useEffect(() => {
-    const onHashChange = () => setHasCode(!!getSchoolCode())
-    window.addEventListener('hashchange', onHashChange)
-    return () => window.removeEventListener('hashchange', onHashChange)
-  }, [])
-
+  // If there's a hash code in the URL, render the calendar directly
   if (hasCode || isSharedUrl) return children
 
   const handleStart = () => {
     const slug = slugify(name)
     if (!slug) { setError('Please enter a school name.'); return }
-    window.location.hash = slug
+    // Force a full reload so the storage key re-evaluates with the new hash
+    window.location.href = window.location.pathname + '#' + slug
+    window.location.reload()
   }
 
   return (

@@ -5,7 +5,9 @@ import { nanoid } from '../utils/nanoid.js'
 import { getSharedState } from '../utils/shareUrl.js'
 import { getSchoolCode } from '../utils/schoolCode.js'
 
-const STORAGE_KEY = `yayoe-calendar-v1-${getSchoolCode() || 'default'}`
+function getStorageKey() {
+  return `yayoe-calendar-v1-${getSchoolCode() || 'default'}`
+}
 
 // ── Default school info ───────────────────────────────────────────────────
 const DEFAULT_SCHOOL_INFO = {
@@ -59,7 +61,7 @@ function buildInitialState() {
 // ── Load from localStorage ───────────────────────────────────────────────
 function loadFromStorage() {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY)
+    const raw = localStorage.getItem(getStorageKey())
     if (raw) return JSON.parse(raw)
   } catch {}
   return null
@@ -94,7 +96,7 @@ function migrateState(state) {
 function saveToStorage(state) {
   try {
     const { undoPast, undoFuture, ...toSave } = state
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(toSave))
+    localStorage.setItem(getStorageKey(), JSON.stringify(toSave))
   } catch {}
 }
 
