@@ -43,7 +43,7 @@ function resolveCategory(categoryStr, categories) {
 // Parse CSV text → array of { dateKey, event } objects
 // Supported columns: Date, Label/Event/Name, Category (all optional header row)
 export function parseCSV(text, categories) {
-  const lines = text.split(/\r?\n/).filter(l => l.trim())
+  const lines = text.split(/\r?\n/).filter(l => l.trim() && !l.trim().startsWith('#'))
   if (lines.length === 0) return { events: [], errors: [] }
 
   // Detect if first row is a header
@@ -60,7 +60,7 @@ export function parseCSV(text, categories) {
       c.trim().replace(/^"|"$/g, '').trim()
     ) || line.split(',').map(c => c.trim())
 
-    const [dateStr, labelStr, categoryStr] = cols
+    const [dateStr, labelStr, categoryStr, timeStr] = cols
     const date = parseDate(dateStr)
 
     if (!date) {
@@ -80,6 +80,7 @@ export function parseCSV(text, categories) {
         id: 'ev-' + nanoid(),
         label,
         category: resolveCategory(categoryStr, categories),
+        time: timeStr?.trim() || undefined,
       },
     })
   })

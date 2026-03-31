@@ -1,1 +1,26 @@
-Date,Label,Category
+# YAYOE Calendar Import Template
+# ─────────────────────────────────────────────────────────────────────────────
+# HOW TO USE:
+#   1. Fill in event rows below the header line (Date,Label,Category,Time)
+#   2. Save the file and import it using the "Import CSV" button
+#   3. These comment lines (starting with #) are automatically ignored
+#
+# COLUMN GUIDE:
+#   Date      — Required. Formats accepted: M/D/YYYY or YYYY-MM-DD
+#               Examples: 9/1/2026   or   2026-09-01
+#
+#   Label     — Required. The event name shown on the calendar.
+#               Examples: First Day of School, No School – Rosh Hashana
+#
+#   Category  — Optional. Use one of the IDs below, or type the name
+#               (it will be matched automatically — defaults to school-event):
+#                 school-event     → School Event
+#                 no-school        → No School
+#                 early-dismissal  → Early Dismissal
+#                 staff            → Staff Development
+#                 chanukah         → Chanukah
+#                 rosh-chodesh     → Rosh Chodesh
+#
+#   Time      — Optional. 24-hour format: HH:MM  (e.g. 12:30 for 12:30 PM)
+# ─────────────────────────────────────────────────────────────────────────────
+Date,Label,Category,Time
