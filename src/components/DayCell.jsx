@@ -54,13 +54,14 @@ export default function DayCell({ date, onOpenModal, focusedDate, settings }) {
     : null
 
   const isCompact = settings.template === 'compact'
+  const isMinimal = settings.template === 'minimal'
 
   return (
     <button
       ref={cellRef}
       className={`
         day-cell relative flex flex-col items-start p-0.5 sm:p-1
-        ${isCompact ? 'min-h-[28px] sm:min-h-[34px]' : 'min-h-[36px] sm:min-h-[44px]'}
+        ${isCompact ? 'min-h-[28px] sm:min-h-[34px]' : isMinimal ? 'min-h-[48px] sm:min-h-[60px]' : 'min-h-[36px] sm:min-h-[44px]'}
         rounded transition-all duration-150 text-left w-full
         ${!isFilled && isSha && settings.shabbatHighlight ? 'sha-col bg-[#1e3a5f]/8 dark:bg-[#1e3a5f]/20' : ''}
         ${!isFilled ? 'bg-white dark:bg-gray-800' : ''}

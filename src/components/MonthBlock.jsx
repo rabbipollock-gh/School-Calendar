@@ -123,15 +123,23 @@ export default function MonthBlock({ year, month, onOpenModal, focusedDate, onRe
   // Track week row DOM refs for banner positioning
   const weekRefs = useRef([])
 
+  const isCompact = settings.template === 'compact'
+  const isMinimal = settings.template === 'minimal'
+
   return (
     <div className="month-block bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
       {/* Month header */}
-      <div className="bg-[#1e3a5f] dark:bg-[#0f2744] px-3 py-2 flex items-center justify-between">
+      <div className={`px-3 flex items-center justify-between
+        ${isCompact ? 'py-1' : 'py-2'}
+        ${isMinimal
+          ? 'bg-slate-500 dark:bg-slate-600'
+          : 'bg-[#1e3a5f] dark:bg-[#0f2744]'}
+      `}>
         <div>
           <h3 className="text-white font-bold text-sm leading-tight">
             {MONTH_NAMES[month]} <span className="font-normal opacity-80">{year}</span>
           </h3>
-          {hebrewLabel && (
+          {hebrewLabel && !isMinimal && (
             <p className="text-[#93c5fd] text-[10px] leading-none">{hebrewLabel}</p>
           )}
         </div>

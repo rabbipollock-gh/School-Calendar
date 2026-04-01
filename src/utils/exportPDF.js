@@ -268,15 +268,7 @@ function drawBottomEventsPanel(doc, events, categories, y, pageW, margin, sideba
       const labelLines = doc.splitTextToSize(fullText, colW - 3.5)
       doc.setTextColor(200, 220, 240)
       doc.text(labelLines, colX + 2.5, evY)
-      const extraLinesMM = (labelLines.length - 1) * 1.2
-      const catName = cat?.name || ''
-      if (catName) {
-        doc.setFontSize(2.6)
-        doc.setTextColor(160, 185, 210)
-        doc.text(catName, colX + 2.5, evY + 1.7 + extraLinesMM, { maxWidth: colW - 3.5 })
-        evY += 1.7 + extraLinesMM
-      }
-      evY += 3.2
+      evY += labelLines.length * 1.2 + 1.8
     })
   })
 }
@@ -297,7 +289,7 @@ export async function exportPDF(state, { preview = false } = {}) {
   // Dynamic panel height: grows to fit the busiest month (capped at 72mm)
   const maxEvPerMonth = showBottomPanel ? computeMaxEventsPerMonth(events) : 0
   const dynamicPanelH = showBottomPanel
-    ? Math.min(Math.max(BOTTOM_PANEL_H, 11 + maxEvPerMonth * 5 + 4), 72)
+    ? Math.min(Math.max(BOTTOM_PANEL_H, 11 + maxEvPerMonth * 4 + 4), 90)
     : 0
   const availH = showBottomPanel
     ? PAGE_H - (HEADER_H + 2) - MARGIN - dynamicPanelH - 4
