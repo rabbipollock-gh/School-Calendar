@@ -43,7 +43,7 @@ async function circularCropImage(base64) {
   })
 }
 
-function drawMonth(doc, { year, month }, events, categories, settings, x, y, w, h, shabbatLabel) {
+function drawMonth(doc, { year, month }, events, categories, settings, x, y, w, h, shabbatLabel, notesStripH) {
   const catMap = {}
   categories.forEach(c => { catMap[c.id] = c })
   const isFilled = settings.cellStyle === 'filled'
@@ -87,9 +87,8 @@ function drawMonth(doc, { year, month }, events, categories, settings, x, y, w, 
   // Day cells
   const days = getDaysInMonth(year, month)
   const startDow = getFirstDayOfWeek(year, month)
-  const notesStripH = (settings.eventsPanel !== 'bottom' && !isCompact) ? 10 : 0
   const headerOffset = isCompact ? 9 : 11
-  const cellH = (h - headerOffset - notesStripH) / 6
+  const cellH = (h - headerOffset - (notesStripH || 0)) / 6
   doc.setFont('helvetica', 'normal')
 
   days.forEach(date => {
@@ -152,8 +151,8 @@ function drawMonth(doc, { year, month }, events, categories, settings, x, y, w, 
   })
 
   // Notes strip (when eventsPanel === 'inline')
-  if (settings.eventsPanel !== 'bottom') {
-    const stripH = 10
+  if (settings.eventsPanel !== 'bottom' && notesStripH > 0) {
+    const stripH = notesStripH
     const notesY = y + h - stripH
     // Light background so text is readable over cell colors
     doc.setFillColor(248, 249, 251)
@@ -286,10 +285,16 @@ export async function exportPDF(state, { preview = false } = {}) {
   const GRID_W = PAGE_W - MARGIN * 2 - SIDEBAR_W
   const MONTH_W = (GRID_W / COL_COUNT) - 2
   const MONTH_ROWS = 3
-  // Dynamic panel height: grows to fit the busiest month (capped at 72mm)
+  // Dynamic bottom panel height: grows to fit the busiest month (capped at 90mm)
   const maxEvPerMonth = showBottomPanel ? computeMaxEventsPerMonth(events) : 0
   const dynamicPanelH = showBottomPanel
     ? Math.min(Math.max(BOTTOM_PANEL_H, 11 + maxEvPerMonth * 4 + 4), 90)
+    : 0
+  // Dynamic inline notes strip height: grows per-event count, capped at 20mm
+  // Each event line ≈ 2.1mm + 3mm header. Cells need at least 4mm each (24mm for 6 rows).
+  const maxInlineEvents = !showBottomPanel && !isCompact ? computeMaxEventsPerMonth(events) : 0
+  const globalNotesStripH = maxInlineEvents > 0
+    ? Math.min(Math.max(12, maxInlineEvents * 2.2 + 3), 20)
     : 0
   const availH = showBottomPanel
     ? PAGE_H - (HEADER_H + 2) - MARGIN - dynamicPanelH - 4
@@ -349,7 +354,7 @@ export async function exportPDF(state, { preview = false } = {}) {
     const row = Math.floor(idx / COL_COUNT)
     const x = MARGIN + col * (MONTH_W + 2)
     const y = startY + row * (MONTH_H + 3)
-    drawMonth(doc, { year, month }, events, categories, settings, x, y, MONTH_W, MONTH_H, shabbatLabel)
+    drawMonth(doc, { year, month }, events, categories, settings, x, y, MONTH_W, MONTH_H, shabbatLabel, globalNotesStripH)
   })
 
   // ── Bottom Events Panel ──────────────────────────────
