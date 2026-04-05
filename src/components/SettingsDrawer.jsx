@@ -1,11 +1,13 @@
-import React, { useRef } from 'react'
+import React, { useRef, useState } from 'react'
 import { useCalendar } from '../context/CalendarContext.jsx'
+import { THEME_MAP } from '../utils/themeUtils.js'
 
-const THEMES = [
-  { id: 'navy-gold', name: 'Navy & Gold', primary: '#1e3a5f', accent: '#D4AF37' },
-  { id: 'blue-white', name: 'Blue & White', primary: '#1a56db', accent: '#FFFFFF' },
-  { id: 'green-gold', name: 'Green & Gold', primary: '#1a5e3a', accent: '#D4AF37' },
-  { id: 'custom', name: 'Custom', primary: '#333333', accent: '#AAAAAA' },
+// Group themes for display
+const THEME_GROUPS = [
+  { label: 'Classic', ids: ['navy-gold', 'blue-white', 'green-gold'] },
+  { label: 'Bold', ids: ['crimson-gray', 'purple-silver'] },
+  { label: 'Modern', ids: ['teal-gold', 'charcoal-orange', 'slate-rose'] },
+  { label: 'Warm / Dark', ids: ['olive-cream', 'midnight-sky'] },
 ]
 
 export default function SettingsDrawer({ isOpen, onClose, onOpenCategories, onOpenTemplates }) {
@@ -65,7 +67,7 @@ export default function SettingsDrawer({ isOpen, onClose, onOpenCategories, onOp
         className={`fixed top-0 right-0 z-50 h-full w-full sm:w-96 bg-white dark:bg-gray-900 shadow-2xl transform transition-transform duration-300 ease-in-out flex flex-col ${isOpen ? 'translate-x-0' : 'translate-x-full'}`}
       >
         {/* Header */}
-        <div className="px-5 py-4 bg-[#1e3a5f] flex items-center justify-between shrink-0">
+        <div className="px-5 py-4 flex items-center justify-between shrink-0" style={{ backgroundColor: 'var(--color-primary)' }}>
           <h2 className="text-white font-bold text-lg">Settings</h2>
           <button onClick={onClose} className="text-white/60 hover:text-white text-2xl">×</button>
         </div>
@@ -191,20 +193,112 @@ export default function SettingsDrawer({ isOpen, onClose, onOpenCategories, onOp
           {/* Theme */}
           <section>
             <h3 className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-widest mb-3">Color Theme</h3>
-            <div className="grid grid-cols-2 gap-2">
-              {THEMES.map(theme => (
-                <button
-                  key={theme.id}
-                  onClick={() => updateSettings('theme', theme.id)}
-                  className={`flex items-center gap-2 p-2.5 rounded-xl border-2 transition text-left ${settings.theme === theme.id ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20' : 'border-gray-200 dark:border-gray-700 hover:border-gray-300'}`}
-                >
-                  <div className="flex gap-1">
-                    <div className="w-4 h-4 rounded" style={{ background: theme.primary }} />
-                    <div className="w-4 h-4 rounded border border-gray-200" style={{ background: theme.accent }} />
+
+            {THEME_GROUPS.map(group => (
+              <div key={group.label} className="mb-3">
+                <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-widest mb-1.5">{group.label}</p>
+                <div className="grid grid-cols-3 gap-1.5">
+                  {group.ids.map(id => {
+                    const t = THEME_MAP[id]
+                    const isActive = settings.theme === id
+                    return (
+                      <button
+                        key={id}
+                        onClick={() => updateSettings('theme', id)}
+                        title={t.name}
+                        className={`relative flex flex-col items-center gap-1 p-2 rounded-xl border-2 transition ${
+                          isActive ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20' : 'border-gray-200 dark:border-gray-700 hover:border-gray-300'
+                        }`}
+                      >
+                        <div className="flex gap-0.5">
+                          <div className="w-5 h-5 rounded-l-md" style={{ background: t.primary }} />
+                          <div className="w-5 h-5 rounded-r-md border border-gray-200" style={{ background: t.accent }} />
+                        </div>
+                        <span className="text-[9px] font-medium text-gray-600 dark:text-gray-300 leading-tight text-center">{t.name}</span>
+                        {isActive && (
+                          <span className="absolute top-0.5 right-0.5 w-3 h-3 bg-blue-500 rounded-full flex items-center justify-center">
+                            <span className="text-white text-[7px] font-bold">✓</span>
+                          </span>
+                        )}
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+            ))}
+
+            {/* Custom theme */}
+            <div className="mt-1">
+              <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-widest mb-1.5">Custom</p>
+              <button
+                onClick={() => updateSettings('theme', 'custom')}
+                className={`w-full flex items-center gap-2 p-2.5 rounded-xl border-2 transition ${
+                  settings.theme === 'custom' ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20' : 'border-gray-200 dark:border-gray-700 hover:border-gray-300'
+                }`}
+              >
+                <span className="text-sm">🎨</span>
+                <span className="text-xs font-medium text-gray-700 dark:text-gray-300">Custom Colors</span>
+                {settings.theme === 'custom' && <span className="ml-auto text-blue-500 text-xs font-semibold">Active</span>}
+              </button>
+              {settings.theme === 'custom' && (
+                <div className="mt-2 p-3 bg-gray-50 dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 space-y-3">
+                  <div>
+                    <label className="text-xs font-medium text-gray-500 dark:text-gray-400 block mb-1">Primary Color (header/months)</label>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="color"
+                        value={settings.customPrimary || '#1e3a5f'}
+                        onChange={e => !readOnly && updateSettings('customPrimary', e.target.value)}
+                        className="w-10 h-10 rounded-lg border border-gray-200 cursor-pointer p-0.5 bg-white"
+                      />
+                      <input
+                        type="text"
+                        value={settings.customPrimary || '#1e3a5f'}
+                        onChange={e => !readOnly && /^#[0-9a-fA-F]{0,6}$/.test(e.target.value) && updateSettings('customPrimary', e.target.value)}
+                        className="flex-1 text-xs border border-gray-200 dark:border-gray-600 rounded-lg px-2 py-1.5 font-mono bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200"
+                        placeholder="#1e3a5f"
+                      />
+                    </div>
+                    {/* Complementary color suggestions */}
+                    <div className="mt-1.5 flex flex-wrap gap-1">
+                      {['#1e3a5f','#1a56db','#1a5e3a','#9B2335','#4B0082','#006d6d','#2C2C2C','#3d5a80','#4a5c2c','#0a0e2a'].map(c => (
+                        <button key={c} onClick={() => !readOnly && updateSettings('customPrimary', c)}
+                          className="w-6 h-6 rounded-md border-2 border-white shadow-sm hover:scale-110 transition"
+                          style={{ background: c }}
+                          title={c}
+                        />
+                      ))}
+                    </div>
                   </div>
-                  <span className="text-xs font-medium text-gray-700 dark:text-gray-300">{theme.name}</span>
-                </button>
-              ))}
+                  <div>
+                    <label className="text-xs font-medium text-gray-500 dark:text-gray-400 block mb-1">Accent Color (highlights)</label>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="color"
+                        value={settings.customAccent || '#D4AF37'}
+                        onChange={e => !readOnly && updateSettings('customAccent', e.target.value)}
+                        className="w-10 h-10 rounded-lg border border-gray-200 cursor-pointer p-0.5 bg-white"
+                      />
+                      <input
+                        type="text"
+                        value={settings.customAccent || '#D4AF37'}
+                        onChange={e => !readOnly && /^#[0-9a-fA-F]{0,6}$/.test(e.target.value) && updateSettings('customAccent', e.target.value)}
+                        className="flex-1 text-xs border border-gray-200 dark:border-gray-600 rounded-lg px-2 py-1.5 font-mono bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200"
+                        placeholder="#D4AF37"
+                      />
+                    </div>
+                    <div className="mt-1.5 flex flex-wrap gap-1">
+                      {['#D4AF37','#ffffff','#FF6B35','#E07A5F','#9DB5FF','#C0C0C0','#86efac','#fbbf24','#f472b6','#5eead4'].map(c => (
+                        <button key={c} onClick={() => !readOnly && updateSettings('customAccent', c)}
+                          className="w-6 h-6 rounded-md border-2 border-gray-200 shadow-sm hover:scale-110 transition"
+                          style={{ background: c }}
+                          title={c}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           </section>
 

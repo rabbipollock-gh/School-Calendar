@@ -1,9 +1,10 @@
 import React, { createContext, useContext, useReducer, useEffect, useCallback } from 'react'
 import { DEFAULT_CATEGORIES } from '../data/defaultCategories.js'
-import { DEFAULT_EVENTS } from '../data/defaultEvents.js'
+import { DEFAULT_EVENTS, YAYOE_EVENTS } from '../data/defaultEvents.js'
 import { nanoid } from '../utils/nanoid.js'
 import { getSharedState } from '../utils/shareUrl.js'
 import { getSchoolCode } from '../utils/schoolCode.js'
+import { getTheme, applyThemeToCss } from '../utils/themeUtils.js'
 
 function getStorageKey() {
   return `yayoe-calendar-v1-${getSchoolCode() || 'default'}`
@@ -46,7 +47,10 @@ function normalizeEvents(rawEvents) {
 
 // ── Build initial state ───────────────────────────────────────────────────
 function buildInitialState() {
-  const events = normalizeEvents(DEFAULT_EVENTS)
+  // YAYOE gets its pre-loaded events; every other school starts blank
+  const isYayoe = (getSchoolCode() || '').toLowerCase().includes('yayoe')
+  const sourceEvents = isYayoe ? YAYOE_EVENTS : DEFAULT_EVENTS
+  const events = normalizeEvents(sourceEvents)
   return {
     events,
     categories: DEFAULT_CATEGORIES,
@@ -307,6 +311,16 @@ export function CalendarProvider({ children, readOnly = false }) {
       return buildInitialState()
     }
   )
+
+  // Apply theme CSS variables whenever theme changes
+  useEffect(() => {
+    const theme = getTheme(
+      state.settings.theme,
+      state.settings.customPrimary,
+      state.settings.customAccent
+    )
+    applyThemeToCss(theme)
+  }, [state.settings.theme, state.settings.customPrimary, state.settings.customAccent])
 
   // Auto-save to localStorage on every state change (skip undo stacks)
   useEffect(() => {

@@ -4,6 +4,7 @@ import { ACADEMIC_MONTHS } from '../hooks/useKeyboardNav.js'
 import { getDaysInMonth, getFirstDayOfWeek, formatDateKey, groupConsecutiveDates, formatRangeLabel } from './dateUtils.js'
 import { getHebrewMonthLabel } from '../data/hebrewMonthNames.js'
 import { ROSH_CHODESH_MAP } from '../data/hebrewCalendar.js'
+import { getTheme, hexToRgb } from './themeUtils.js'
 
 const DAYS = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SHA']
 const COL_COUNT = 4
@@ -14,12 +15,8 @@ const SIDEBAR_W = 52
 const HEADER_H = 18
 const BOTTOM_PANEL_H = 38
 
-function hexToRgb(hex) {
-  const clean = (hex || '#999999').replace('#', '').padEnd(6, '9')
-  const r = parseInt(clean.slice(0, 2), 16) || 153
-  const g = parseInt(clean.slice(2, 4), 16) || 153
-  const b = parseInt(clean.slice(4, 6), 16) || 153
-  return [r, g, b]
+function hexToRgbLocal(hex) {
+  return hexToRgb(hex)
 }
 
 // Crop an image to a circle using canvas (for round logo in PDF)
@@ -43,16 +40,19 @@ async function circularCropImage(base64) {
   })
 }
 
-function drawMonth(doc, { year, month }, events, categories, settings, x, y, w, h, shabbatLabel, notesStripH) {
+function drawMonth(doc, { year, month }, events, categories, settings, x, y, w, h, shabbatLabel, notesStripH, theme) {
   const catMap = {}
   categories.forEach(c => { catMap[c.id] = c })
   const isFilled = settings.cellStyle === 'filled'
   const isCompact = settings.template === 'compact'
   const s = isCompact ? 0.82 : 1  // scale factor for compact mode
+  const [pr, pg, pb] = hexToRgbLocal(theme.primary)
+  const [ar, ag, ab] = hexToRgbLocal(theme.accent)
+  const [sr, sg, sb] = hexToRgbLocal(theme.shabbatBg || '#e1e8f2')
 
   // Month header
   const headerH = 8 * s
-  doc.setFillColor(30, 58, 95)
+  doc.setFillColor(pr, pg, pb)
   doc.roundedRect(x, y, w, headerH, 1, 1, 'F')
   doc.setTextColor(255, 255, 255)
   doc.setFontSize(7 * s)
@@ -61,7 +61,7 @@ function drawMonth(doc, { year, month }, events, categories, settings, x, y, w, 
   const hebrewLabel = getHebrewMonthLabel(year, month)
   doc.text(monthName, x + 1.5, y + 3.8 * s)
   const monthNameW = doc.getTextWidth(monthName)
-  doc.setTextColor(212, 175, 55)
+  doc.setTextColor(ar, ag, ab)
   doc.setFontSize(6.5 * s)
   doc.text(` ${String(year)}`, x + 1.5 + monthNameW, y + 3.8 * s)
   doc.setTextColor(180, 210, 255)
@@ -75,10 +75,10 @@ function drawMonth(doc, { year, month }, events, categories, settings, x, y, w, 
   DAYS.forEach((d, i) => {
     const labelStr = i === 6 ? shabbatLabel.slice(0, 3).toUpperCase() : d
     if (i === 6) {
-      doc.setFillColor(210, 220, 236)
+      doc.setFillColor(sr, sg, sb)
       doc.rect(x + i * cellW, dayLabelY - 2, cellW, 3 * s, 'F')
     }
-    doc.setTextColor(i === 6 ? 30 : 80, i === 6 ? 58 : 80, i === 6 ? 95 : 80)
+    doc.setTextColor(i === 6 ? pr : 80, i === 6 ? pg : 80, i === 6 ? pb : 80)
     doc.setFontSize(3.8 * s)
     doc.setFont('helvetica', 'bold')
     doc.text(labelStr, x + i * cellW + cellW / 2, dayLabelY, { align: 'center' })
@@ -101,9 +101,9 @@ function drawMonth(doc, { year, month }, events, categories, settings, x, y, w, 
     const dayEvs = (events[dateKey] || []).filter(e => e.category !== 'rosh-chodesh')
     const rcMonth = ROSH_CHODESH_MAP[dateKey]
 
-    // Shabbat background — always apply light navy tint first, event fill paints over if needed
+    // Shabbat background — always apply theme tint first
     if (dow === 6) {
-      doc.setFillColor(225, 232, 242)
+      doc.setFillColor(sr, sg, sb)
       doc.rect(cx, cy, cellW, cellH, 'F')
     }
 
@@ -272,8 +272,11 @@ function drawBottomEventsPanel(doc, events, categories, y, pageW, margin, sideba
   })
 }
 
-export async function exportPDF(state, { preview = false } = {}) {
+export async function exportPDF(state, { preview = false, pdfStyle = 'classic' } = {}) {
   const { events, categories, schoolInfo, settings } = state
+  const theme = getTheme(settings.theme, settings.customPrimary, settings.customAccent)
+  const [pr, pg, pb] = hexToRgbLocal(theme.primary)
+  const [ar, ag, ab] = hexToRgbLocal(theme.accent)
   const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' })
   const hasMontserrat = await loadMontserrat(doc)
   const titleFont = hasMontserrat ? 'Montserrat' : 'helvetica'
@@ -302,14 +305,14 @@ export async function exportPDF(state, { preview = false } = {}) {
   const MONTH_H = (availH / MONTH_ROWS - 3) * (isCompact ? 0.85 : 1)
 
   // ── Header ──────────────────────────────────────────
-  // Left dark navy band (~60% width)
-  doc.setFillColor(30, 58, 95)
+  // Left dark band (~60% width)
+  doc.setFillColor(pr, pg, pb)
   doc.rect(0, 0, PAGE_W * 0.62, HEADER_H, 'F')
-  // Right slightly lighter blue band (~40% width)
-  doc.setFillColor(42, 74, 120)
+  // Right slightly lighter band (~40% width)
+  doc.setFillColor(Math.min(255,pr+12), Math.min(255,pg+16), Math.min(255,pb+25))
   doc.rect(PAGE_W * 0.62, 0, PAGE_W * 0.38, HEADER_H, 'F')
-  // Gold accent bar along the bottom of the header
-  doc.setFillColor(212, 175, 55)
+  // Accent bar along the bottom of the header
+  doc.setFillColor(ar, ag, ab)
   doc.rect(0, HEADER_H - 1.5, PAGE_W, 1.5, 'F')
 
   // Logo — circular crop via canvas
@@ -321,11 +324,11 @@ export async function exportPDF(state, { preview = false } = {}) {
   }
 
   // Gold left accent bar before logo
-  doc.setFillColor(212, 175, 55)
+  doc.setFillColor(ar, ag, ab)
   doc.rect(0, 0, 3, HEADER_H - 1.5, 'F')
 
-  // School name — GOLD, prominent
-  doc.setTextColor(212, 175, 55)
+  // School name — ACCENT color, prominent
+  doc.setTextColor(ar, ag, ab)
   doc.setFontSize(12)
   doc.setFont(titleFont, 'bold')
   doc.text(schoolInfo.name || 'YAYOE Calendar', MARGIN + 16, 9)
@@ -354,7 +357,7 @@ export async function exportPDF(state, { preview = false } = {}) {
     const row = Math.floor(idx / COL_COUNT)
     const x = MARGIN + col * (MONTH_W + 2)
     const y = startY + row * (MONTH_H + 3)
-    drawMonth(doc, { year, month }, events, categories, settings, x, y, MONTH_W, MONTH_H, shabbatLabel, globalNotesStripH)
+    drawMonth(doc, { year, month }, events, categories, settings, x, y, MONTH_W, MONTH_H, shabbatLabel, globalNotesStripH, theme)
   })
 
   // ── Bottom Events Panel ──────────────────────────────
@@ -378,23 +381,23 @@ export async function exportPDF(state, { preview = false } = {}) {
 
   // ── Title strip ──
   const titleStripH = 32
-  doc.setFillColor(30, 58, 95)
+  doc.setFillColor(pr, pg, pb)
   doc.rect(sbX, sbTop, SIDEBAR_W, titleStripH, 'F')
-  // Gold accent bar along bottom of strip
-  doc.setFillColor(212, 175, 55)
+  // Accent bar along bottom of strip
+  doc.setFillColor(ar, ag, ab)
   doc.rect(sbX, sbTop + titleStripH - 2, SIDEBAR_W, 2, 'F')
   // "YAYOE" — large bold white, centered
   doc.setTextColor(255, 255, 255)
   doc.setFontSize(20)
   doc.setFont(titleFont, 'bold')
   doc.text('YAYOE', sbCx, sbTop + 12, { align: 'center' })
-  // Thin gold decorative rule below YAYOE
-  doc.setDrawColor(212, 175, 55)
+  // Thin accent decorative rule below YAYOE
+  doc.setDrawColor(ar, ag, ab)
   doc.setLineWidth(0.4)
   const stripRuleW = SIDEBAR_W * 0.6
   doc.line(sbCx - stripRuleW / 2, sbTop + 15, sbCx + stripRuleW / 2, sbTop + 15)
-  // "Academic Year" label — gold, centered
-  doc.setTextColor(212, 175, 55)
+  // "Academic Year" label — accent, centered
+  doc.setTextColor(ar, ag, ab)
   doc.setFontSize(6)
   doc.setFont(titleFont, 'normal')
   doc.text('Academic Year', sbCx, sbTop + 20, { align: 'center' })
@@ -406,13 +409,13 @@ export async function exportPDF(state, { preview = false } = {}) {
 
   // ── SCHOOL HOURS section ──
   const hoursY = sbTop + titleStripH + 7
-  doc.setTextColor(30, 58, 95)
+  doc.setTextColor(pr, pg, pb)
   doc.setFontSize(7)
   doc.setFont('helvetica', 'bold')
   doc.text('SCHOOL HOURS', sbCx, hoursY, { align: 'center' })
-  // Gold underline rule
+  // Accent underline rule
   const ruleW = SIDEBAR_W * 0.78
-  doc.setDrawColor(212, 175, 55)
+  doc.setDrawColor(ar, ag, ab)
   doc.setLineWidth(0.5)
   doc.line(sbCx - ruleW / 2, hoursY + 1.8, sbCx + ruleW / 2, hoursY + 1.8)
 
@@ -424,20 +427,20 @@ export async function exportPDF(state, { preview = false } = {}) {
     doc.text(line.trim(), sbCx, hoursY + 7 + i * 5.5, { align: 'center' })
   })
 
-  // ── Full-width gold divider ──
+  // ── Full-width accent divider ──
   const midDivY = hoursY + 7 + hourLines.length * 5.5 + 4
-  doc.setDrawColor(212, 175, 55)
+  doc.setDrawColor(ar, ag, ab)
   doc.setLineWidth(0.5)
   doc.line(sbX + 3, midDivY, sbX + SIDEBAR_W - 3, midDivY)
 
   // ── LEGEND section ──
   const legendHeadY = midDivY + 6
-  doc.setTextColor(30, 58, 95)
+  doc.setTextColor(pr, pg, pb)
   doc.setFontSize(7)
   doc.setFont('helvetica', 'bold')
   doc.text('LEGEND', sbCx, legendHeadY, { align: 'center' })
-  // Gold underline rule
-  doc.setDrawColor(212, 175, 55)
+  // Accent underline rule
+  doc.setDrawColor(ar, ag, ab)
   doc.setLineWidth(0.5)
   doc.line(sbCx - ruleW / 2, legendHeadY + 1.8, sbCx + ruleW / 2, legendHeadY + 1.8)
 
@@ -460,7 +463,7 @@ export async function exportPDF(state, { preview = false } = {}) {
 
   // ── Contact block (anchored to bottom) ──
   const addrY = sbTop + sbH - addrBlockH + 3
-  doc.setDrawColor(212, 175, 55)
+  doc.setDrawColor(ar, ag, ab)
   doc.setLineWidth(0.5)
   doc.line(sbX + 3, addrY - 4, sbX + SIDEBAR_W - 3, addrY - 4)
   doc.setFont('helvetica', 'normal')

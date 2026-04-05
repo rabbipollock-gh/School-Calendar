@@ -1,8 +1,13 @@
 import { nanoid } from '../utils/nanoid.js'
 
-// Pre-loaded school events for Yeshiva Aharon Yaakov Ohr Eliyahu
+// Empty default — new schools start with a blank calendar.
+// Jewish holidays are available via the Holiday Suggestions Panel.
+export const DEFAULT_EVENTS = {}
+
+// Pre-loaded school events for Yeshiva Aharon Yaakov Ohr Eliyahu (YAYOE).
+// Only used when the school code resolves to the YAYOE slug.
 // Academic Year 2026–2027
-export const DEFAULT_EVENTS = {
+export const YAYOE_EVENTS = {
   // ── AUGUST 2026 ──────────────────────────────────────
   '2026-08-19': [
     { id: 'ev-' + Math.random().toString(36).slice(2), category: 'staff', label: 'New Staff In-Service' },

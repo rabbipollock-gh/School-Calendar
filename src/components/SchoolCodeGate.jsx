@@ -44,7 +44,7 @@ export default function SchoolCodeGate({ children }) {
               onChange={e => { setName(e.target.value); setError('') }}
               onKeyDown={e => e.key === 'Enter' && handleStart()}
               placeholder="e.g. Hillel Academy"
-              className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-[#1e3a5f]"
+              className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm text-gray-900 placeholder-gray-400 outline-none focus:ring-2 focus:ring-[#1e3a5f] bg-white"
               autoFocus
             />
             {name && (

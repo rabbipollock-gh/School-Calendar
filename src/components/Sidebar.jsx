@@ -38,7 +38,7 @@ export default function Sidebar({ onOpenCategories, onOpenSettings, onOpenBulk }
     <aside className="hidden lg:flex flex-col w-60 shrink-0 bg-white dark:bg-gray-800 border-l border-gray-100 dark:border-gray-700 overflow-y-auto">
 
       {/* ── School branding header ── */}
-      <div className="bg-[#1e3a5f] px-4 pt-5 pb-4 relative shrink-0">
+      <div className="px-4 pt-5 pb-4 relative shrink-0" style={{ backgroundColor: 'var(--color-primary)' }}>
         {onOpenSettings && (
           <button
             onClick={onOpenSettings}
@@ -142,7 +142,8 @@ export default function Sidebar({ onOpenCategories, onOpenSettings, onOpenBulk }
 
         <button
           onClick={onOpenBulk}
-          className="w-full flex items-center gap-2 px-3 py-2 rounded-xl bg-[#1e3a5f]/8 hover:bg-[#1e3a5f]/15 dark:bg-white/5 dark:hover:bg-white/10 text-[#1e3a5f] dark:text-gray-200 text-xs font-medium transition"
+          className="w-full flex items-center gap-2 px-3 py-2 rounded-xl dark:bg-white/5 dark:hover:bg-white/10 dark:text-gray-200 text-xs font-medium transition"
+          style={{ backgroundColor: 'var(--color-primary, #1e3a5f)' + '12', color: 'var(--color-primary)' }}
         >
           <span className="text-base">📅</span>
           <span>Add Date Range</span>
@@ -157,7 +158,8 @@ export default function Sidebar({ onOpenCategories, onOpenSettings, onOpenBulk }
         />
         <button
           onClick={() => importRef.current?.click()}
-          className="w-full flex items-center gap-2 px-3 py-2 rounded-xl bg-[#1e3a5f]/8 hover:bg-[#1e3a5f]/15 dark:bg-white/5 dark:hover:bg-white/10 text-[#1e3a5f] dark:text-gray-200 text-xs font-medium transition"
+          className="w-full flex items-center gap-2 px-3 py-2 rounded-xl dark:bg-white/5 dark:hover:bg-white/10 dark:text-gray-200 text-xs font-medium transition"
+          style={{ backgroundColor: 'var(--color-primary, #1e3a5f)' + '12', color: 'var(--color-primary)' }}
         >
           <span className="text-base">📂</span>
           <span>Import CSV / Text</span>

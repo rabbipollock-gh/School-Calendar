@@ -91,7 +91,8 @@ export default function Header({
   return (
     <header
       id="app-header"
-      className="sticky top-0 z-40 flex items-center gap-3 px-4 py-2 bg-[#1e3a5f] text-white shadow-xl"
+      className="sticky top-0 z-40 flex items-center gap-3 px-4 py-2 text-white shadow-xl"
+      style={{ backgroundColor: 'var(--color-primary)' }}
     >
       {/* Logo + School Name */}
       <div className="flex items-center gap-3 flex-1 min-w-0">
@@ -104,7 +105,7 @@ export default function Header({
         )}
         <div className="min-w-0">
           <h1 className="font-bold text-base leading-tight truncate">{schoolInfo.name || 'YAYOE Calendar Builder'}</h1>
-          <p className="text-[#93c5fd] text-xs">Academic Year {settings.academicYear}</p>
+          <p className="text-xs" style={{ color: 'var(--color-header-sub)' }}>Academic Year {settings.academicYear}</p>
         </div>
       </div>
 
