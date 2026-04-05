@@ -43,6 +43,12 @@ export default function EventModal({ dateKey, onClose }) {
   // ── Edit state ──
   const [editingId, setEditingId] = useState(null)
   const [editLabel, setEditLabel] = useState('')
+  const [savedId, setSavedId] = useState(null)  // shows "✓ Saved" feedback
+
+  const flashSaved = (id) => {
+    setSavedId(id)
+    setTimeout(() => setSavedId(null), 1500)
+  }
 
   const date = parseDateKey(dateKey)
   const dateStr = date.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })
@@ -80,12 +86,21 @@ export default function EventModal({ dateKey, onClose }) {
 
   const handleEditStart = (ev) => { if (!readOnly) { setEditingId(ev.id); setEditLabel(ev.label) } }
   const handleEditSave = (eventId) => {
-    if (editLabel.trim()) dispatch({ type: 'EDIT_EVENT', dateKey, eventId, changes: { label: editLabel.trim() } })
+    if (editLabel.trim()) {
+      dispatch({ type: 'EDIT_EVENT', dateKey, eventId, changes: { label: editLabel.trim() } })
+      flashSaved(eventId)
+    }
     setEditingId(null)
   }
-  const handleColorChange = (eventId, color) => { if (!readOnly) dispatch({ type: 'EDIT_EVENT', dateKey, eventId, changes: { color } }) }
-  const handleTimeChange = (eventId, time) => { if (!readOnly) dispatch({ type: 'EDIT_EVENT', dateKey, eventId, changes: { time: time || undefined } }) }
-  const handleCategoryChange = (eventId, category) => { if (!readOnly) dispatch({ type: 'EDIT_EVENT', dateKey, eventId, changes: { category, color: undefined } }) }
+  const handleColorChange = (eventId, color) => {
+    if (!readOnly) { dispatch({ type: 'EDIT_EVENT', dateKey, eventId, changes: { color } }); flashSaved(eventId) }
+  }
+  const handleTimeChange = (eventId, time) => {
+    if (!readOnly) { dispatch({ type: 'EDIT_EVENT', dateKey, eventId, changes: { time: time || undefined } }); flashSaved(eventId) }
+  }
+  const handleCategoryChange = (eventId, category) => {
+    if (!readOnly) { dispatch({ type: 'EDIT_EVENT', dateKey, eventId, changes: { category, color: undefined } }); flashSaved(eventId) }
+  }
 
   const handleRangeSubmit = () => {
     if (!rangeLabel.trim() || dateRange.length === 0 || readOnly) return
@@ -102,7 +117,7 @@ export default function EventModal({ dateKey, onClose }) {
       <div className="relative w-full max-w-md bg-white dark:bg-gray-900 rounded-2xl shadow-2xl overflow-hidden">
 
         {/* ── Header ── */}
-        <div className="px-5 py-4 flex items-start justify-between" style={{ background: isSha ? '#2E86AB' : '#1e3a5f' }}>
+        <div className="px-5 py-4 flex items-start justify-between" style={{ background: isSha ? '#2E86AB' : 'var(--color-primary)' }}>
           <div>
             <p className="text-white/70 text-xs font-medium uppercase tracking-wide">
               {isSha ? `${settings.shabbatLabel} ✡` : ''}
@@ -143,13 +158,24 @@ export default function EventModal({ dateKey, onClose }) {
                 {/* Label + meta */}
                 <div className="flex-1 min-w-0">
                   {editingId === ev.id && !readOnly ? (
-                    <input
-                      autoFocus value={editLabel}
-                      onChange={e => setEditLabel(e.target.value)}
-                      onBlur={() => handleEditSave(ev.id)}
-                      onKeyDown={e => { if (e.key === 'Enter') handleEditSave(ev.id); if (e.key === 'Escape') setEditingId(null) }}
-                      className="w-full text-sm border-b border-blue-400 outline-none bg-transparent dark:text-white"
-                    />
+                    <div className="space-y-1">
+                      <input
+                        autoFocus value={editLabel}
+                        onChange={e => setEditLabel(e.target.value)}
+                        onKeyDown={e => { if (e.key === 'Enter') handleEditSave(ev.id); if (e.key === 'Escape') setEditingId(null) }}
+                        className="w-full text-sm border border-blue-400 rounded-md px-2 py-1 outline-none bg-white dark:bg-gray-800 dark:text-white focus:ring-2 focus:ring-blue-400"
+                      />
+                      <div className="flex gap-1.5">
+                        <button
+                          onClick={() => handleEditSave(ev.id)}
+                          className="flex-1 text-[11px] font-bold bg-blue-500 hover:bg-blue-600 text-white py-1 rounded-md transition"
+                        >✓ Save</button>
+                        <button
+                          onClick={() => setEditingId(null)}
+                          className="flex-1 text-[11px] font-medium bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-600 dark:text-gray-300 py-1 rounded-md transition"
+                        >Cancel</button>
+                      </div>
+                    </div>
                   ) : (
                     <button
                       className="text-sm text-gray-800 dark:text-gray-100 text-left w-full truncate hover:text-blue-600 transition"
@@ -182,6 +208,11 @@ export default function EventModal({ dateKey, onClose }) {
                     {ev.time && readOnly && <span className="text-xs text-gray-400">@ {ev.time}</span>}
                   </div>
                 </div>
+
+                {/* Saved flash */}
+                {savedId === ev.id && (
+                  <span className="shrink-0 text-[10px] text-green-600 font-semibold animate-pulse">✓ Saved</span>
+                )}
 
                 {/* Delete */}
                 {!readOnly && (

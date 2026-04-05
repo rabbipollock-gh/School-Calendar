@@ -158,14 +158,15 @@ export default function MonthBlock({ year, month, onOpenModal, focusedDate, onRe
       </div>
 
       {/* Day headers */}
-      <div className="grid grid-cols-7 border-b border-gray-100 dark:border-gray-700">
+      <div className="grid grid-cols-7 border-b border-gray-100 dark:border-gray-700 overflow-hidden">
         {HEADERS.map((h, i) => (
           <div
             key={h}
-            className={`
-              text-center text-[10px] font-bold py-1 uppercase tracking-tight
-              ${i === 6 && settings.shabbatHighlight ? 'text-[#1e3a5f] dark:text-[#7ba4d4] bg-[#1e3a5f]/8' : 'text-gray-400 dark:text-gray-500'}
-            `}
+            className="text-center text-[10px] font-bold py-1 uppercase tracking-tight"
+            style={i === 6 && settings.shabbatHighlight ? {
+              color: 'var(--color-primary)',
+              backgroundColor: 'color-mix(in srgb, var(--color-primary) 8%, transparent)',
+            } : { color: '#9ca3af' }}
           >
             {h}
           </div>
@@ -177,11 +178,12 @@ export default function MonthBlock({ year, month, onOpenModal, focusedDate, onRe
         {grid.map((week, wi) => {
           if (!hasAnyDay(week)) return null
           const rowSegments = bannerSegments.filter(s => s.weekRow === wi)
+          const hasBanners = rowSegments.length > 0
           return (
             <div
               key={wi}
               ref={el => weekRefs.current[wi] = el}
-              className="relative grid grid-cols-7 gap-0.5"
+              className={`relative grid grid-cols-7 gap-0.5${hasBanners ? ' pb-4' : ''}`}
             >
               {week.map((date, di) =>
                 date ? (
@@ -197,27 +199,27 @@ export default function MonthBlock({ year, month, onOpenModal, focusedDate, onRe
                 )
               )}
 
-              {/* Banner overlays for this row */}
+              {/* Banner overlays — bottom of week row, readable height */}
               {rowSegments.map((seg, si) => {
                 const totalCols = 7
                 const leftPct = (seg.startCol / totalCols) * 100
                 const widthPct = ((seg.endCol - seg.startCol + 1) / totalCols) * 100
-                const displayLabel = seg.isContinuation ? `↳ ${seg.label}` : seg.label
+                const displayLabel = seg.isContinuation ? `\u21b3 ${seg.label}` : seg.label
                 return (
                   <div
                     key={si}
-                    className="absolute pointer-events-none z-10 flex items-center px-1.5 overflow-hidden"
+                    className="absolute pointer-events-none z-10 flex items-center px-2 overflow-hidden shadow-sm"
                     style={{
-                      left: `calc(${leftPct}% + 2px)`,
-                      width: `calc(${widthPct}% - 4px)`,
-                      top: '2px',
-                      height: '7px',
+                      left: `calc(${leftPct}% + 1px)`,
+                      width: `calc(${widthPct}% - 2px)`,
+                      bottom: '2px',
+                      height: '14px',
                       backgroundColor: seg.color,
-                      borderRadius: '3px',
-                      opacity: 0.88,
+                      borderRadius: '4px',
+                      opacity: 0.95,
                     }}
                   >
-                    <span className="text-white font-semibold truncate" style={{ fontSize: '6px', lineHeight: 1 }}>
+                    <span className="text-white font-bold truncate drop-shadow-sm" style={{ fontSize: '8px', lineHeight: 1, letterSpacing: '0.02em' }}>
                       {displayLabel}
                     </span>
                   </div>

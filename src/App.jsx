@@ -198,7 +198,6 @@ export default function App() {
 
       {pdfPreviewOpen && (
         <PDFPreviewModal
-          state={state}
           onClose={() => setPdfPreviewOpen(false)}
         />
       )}

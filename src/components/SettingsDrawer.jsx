@@ -15,14 +15,24 @@ export default function SettingsDrawer({ isOpen, onClose, onOpenCategories, onOp
   const { schoolInfo, settings } = state
   const fileInputRef = useRef(null)
   const importRef = useRef(null)
+  const [savedToast, setSavedToast] = useState(false)
+  const savedTimerRef = useRef(null)
+
+  const flashSaved = () => {
+    setSavedToast(true)
+    clearTimeout(savedTimerRef.current)
+    savedTimerRef.current = setTimeout(() => setSavedToast(false), 2000)
+  }
 
   const updateInfo = (field, val) => {
     if (readOnly) return
     dispatch({ type: 'UPDATE_SCHOOL_INFO', info: { [field]: val } })
+    flashSaved()
   }
   const updateSettings = (key, val) => {
     if (readOnly) return
     dispatch({ type: 'UPDATE_SETTINGS', settings: { [key]: val } })
+    flashSaved()
   }
 
   const handleLogoUpload = (e) => {
@@ -343,6 +353,23 @@ export default function SettingsDrawer({ isOpen, onClose, onOpenCategories, onOp
             </div>
             <input ref={importRef} type="file" accept=".json" onChange={handleImportBackup} className="sr-only" />
           </section>
+        </div>
+
+        {/* ── Saved toast footer ── */}
+        <div
+          className={`shrink-0 px-5 py-3 border-t border-gray-100 dark:border-gray-700 flex items-center justify-between transition-all duration-300 ${
+            savedToast ? 'bg-green-50 dark:bg-green-900/20' : 'bg-white dark:bg-gray-900'
+          }`}
+        >
+          <span className={`text-sm font-semibold transition-opacity duration-300 ${savedToast ? 'text-green-600 opacity-100' : 'opacity-0'}`}>
+            ✓ Changes saved
+          </span>
+          <button
+            onClick={onClose}
+            className="text-sm font-medium text-gray-500 hover:text-gray-800 dark:hover:text-gray-200 transition px-3 py-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700"
+          >
+            Close
+          </button>
         </div>
       </div>
     </>

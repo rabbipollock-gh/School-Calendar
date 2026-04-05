@@ -39,13 +39,6 @@ export default function Sidebar({ onOpenCategories, onOpenSettings, onOpenBulk }
 
       {/* ── School branding header ── */}
       <div className="px-4 pt-5 pb-4 relative shrink-0" style={{ backgroundColor: 'var(--color-primary)' }}>
-        {onOpenSettings && (
-          <button
-            onClick={onOpenSettings}
-            className="absolute top-3 right-3 text-white/40 hover:text-white transition text-base leading-none"
-            title="Edit school info"
-          >✏️</button>
-        )}
 
         {/* Logo or monogram */}
         <div className="flex justify-center mb-3">

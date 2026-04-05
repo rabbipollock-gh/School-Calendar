@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import { exportPDF } from '../utils/exportPDF.js'
+import { useCalendar } from '../context/CalendarContext.jsx'
 
 const PDF_STYLES = [
   {
@@ -58,7 +59,12 @@ const PDF_STYLES = [
   },
 ]
 
-export default function PDFPreviewModal({ state, onClose }) {
+export default function PDFPreviewModal({ onClose }) {
+  const { state } = useCalendar()
+  // Keep a ref so async PDF callbacks always see the latest state
+  const stateRef = useRef(state)
+  useEffect(() => { stateRef.current = state }, [state])
+
   const [selectedStyle, setSelectedStyle] = useState('classic')
   const [url, setUrl] = useState(null)
   const [error, setError] = useState(null)
@@ -78,7 +84,7 @@ export default function PDFPreviewModal({ state, onClose }) {
     setError(null)
     setPreviewing(true)
     try {
-      const blobUrl = await exportPDF(state, { preview: true, pdfStyle: id })
+      const blobUrl = await exportPDF(stateRef.current, { preview: true, pdfStyle: id })
       setUrl(blobUrl)
     } catch (err) {
       setError(err.message || 'Failed to generate preview')
@@ -89,7 +95,7 @@ export default function PDFPreviewModal({ state, onClose }) {
   const handleDownload = async () => {
     setDownloading(true)
     try {
-      await exportPDF(state, { preview: false, pdfStyle: selectedStyle })
+      await exportPDF(stateRef.current, { preview: false, pdfStyle: selectedStyle })
     } catch (err) {
       alert('Export failed: ' + err.message)
     }
