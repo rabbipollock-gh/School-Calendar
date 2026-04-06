@@ -156,6 +156,18 @@ export default function PDFPreviewModal({ onClose }) {
   const [error, setError] = useState(null)
   const [previewing, setPreviewing] = useState(false)
   const [downloading, setDownloading] = useState(false)
+  const [settingsChanged, setSettingsChanged] = useState(false)
+
+  // Track when settings change after the last preview was generated
+  const lastPreviewSettingsRef = useRef(null)
+  useEffect(() => {
+    const key = JSON.stringify({ theme: state.settings.theme, academicYear: state.settings.academicYear, customPrimary: state.settings.customPrimary, customAccent: state.settings.customAccent })
+    if (lastPreviewSettingsRef.current === null) {
+      lastPreviewSettingsRef.current = key
+    } else if (lastPreviewSettingsRef.current !== key) {
+      setSettingsChanged(true)
+    }
+  }, [state.settings.theme, state.settings.academicYear, state.settings.customPrimary, state.settings.customAccent])
 
   // Auto-generate preview on mount
   useEffect(() => { handlePreview('classic') }, [])
@@ -167,6 +179,8 @@ export default function PDFPreviewModal({ onClose }) {
     setUrl(null)
     setError(null)
     setPreviewing(true)
+    setSettingsChanged(false)
+    lastPreviewSettingsRef.current = JSON.stringify({ theme: stateRef.current.settings.theme, academicYear: stateRef.current.settings.academicYear, customPrimary: stateRef.current.settings.customPrimary, customAccent: stateRef.current.settings.customAccent })
     try {
       // exportPDF returns a data URI string in preview mode — works in all browsers
       const dataUri = await exportPDF(stateRef.current, { preview: true, pdfStyle: id, monthIndex: mIdx })
@@ -309,12 +323,17 @@ export default function PDFPreviewModal({ onClose }) {
             <span className="text-sm font-semibold text-gray-700 dark:text-gray-200">
               Preview: {activeStyle?.name}
             </span>
+            {settingsChanged && !previewing && (
+              <span className="text-xs bg-amber-100 text-amber-700 border border-amber-300 px-2 py-0.5 rounded-full font-medium">
+                ⚠ Settings changed
+              </span>
+            )}
             <button
               onClick={() => handlePreview(selectedStyle)}
               disabled={previewing}
               className="ml-auto text-xs text-blue-500 hover:text-blue-700 font-semibold disabled:opacity-40 transition"
             >
-              {previewing ? '⏳ Generating…' : '🔄 Refresh Preview'}
+              {previewing ? '⏳ Generating…' : settingsChanged ? '🔄 Refresh to apply changes' : '🔄 Refresh Preview'}
             </button>
           </div>
 

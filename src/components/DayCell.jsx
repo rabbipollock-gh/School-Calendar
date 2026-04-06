@@ -33,8 +33,8 @@ export default function DayCell({ date, onOpenModal, focusedDate, settings }) {
     // Detect if tooltip would clip off-screen (tooltip is w-48 = 192px wide)
     if (cellRef.current) {
       const rect = cellRef.current.getBoundingClientRect()
-      setFlipX(rect.right + 200 > window.innerWidth)
-      setFlipY(rect.bottom + 120 > window.innerHeight)
+      setFlipX(rect.right + 220 > window.innerWidth)
+      setFlipY(rect.bottom + 150 > window.innerHeight)
     }
     tooltipTimerRef.current = setTimeout(() => setShowTooltip(true), TOOLTIP_DELAY)
   }, [dayEvents.length])

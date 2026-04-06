@@ -1,12 +1,11 @@
 import React, { useMemo } from 'react'
 import { useCalendar } from '../context/CalendarContext.jsx'
 import { groupConsecutiveDates, formatRangeLabel } from '../utils/dateUtils.js'
-import { ACADEMIC_MONTHS } from '../hooks/useKeyboardNav.js'
 
 const MONTH_NAMES = ['January','February','March','April','May','June','July','August','September','October','November','December']
 
 export default function MonthEventsPanel({ onOpenModal }) {
-  const { state, readOnly } = useCalendar()
+  const { state, readOnly, academicMonths } = useCalendar()
   const { events, categories, settings } = state
 
   const catMap = {}
@@ -14,7 +13,7 @@ export default function MonthEventsPanel({ onOpenModal }) {
 
   // Build per-month event groups
   const monthData = useMemo(() => {
-    return ACADEMIC_MONTHS.map(({ year, month }) => {
+    return academicMonths.map(({ year, month }) => {
       const monthKey = `${year}-${String(month + 1).padStart(2, '0')}`
       const byEvent = {}
 
@@ -39,7 +38,7 @@ export default function MonthEventsPanel({ onOpenModal }) {
 
       return { year, month, monthKey, monthName: MONTH_NAMES[month], groups }
     }).filter(m => m.groups.length > 0)
-  }, [events, categories])
+  }, [events, categories, academicMonths])
 
   if (monthData.length === 0) return null
 

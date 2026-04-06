@@ -1,5 +1,5 @@
 import { saveAs } from 'file-saver'
-import { ACADEMIC_MONTHS } from '../hooks/useKeyboardNav.js'
+import { getAcademicMonths } from './academicMonths.js'
 import { getDaysInMonth, getFirstDayOfWeek, formatDateKey, groupConsecutiveDates, formatRangeLabel } from './dateUtils.js'
 import { getHebrewMonthLabel } from '../data/hebrewMonthNames.js'
 
@@ -35,7 +35,7 @@ export async function exportPPTX(state) {
     x: 0.8, y: 0.05, w: 8, h: 0.4,
     fontSize: 16, bold: true, color: 'FFFFFF', fontFace: 'Arial',
   })
-  slide.addText('Academic Year 2026–2027', {
+  slide.addText(`Academic Year ${settings.academicYear || '2026–2027'}`, {
     x: 9, y: 0.1, w: 4, h: 0.3,
     fontSize: 9, color: 'CCDDFF', fontFace: 'Arial', align: 'right',
   })
@@ -54,7 +54,7 @@ export async function exportPPTX(state) {
   const START_X = 0.1
   const START_Y = 0.7
 
-  ACADEMIC_MONTHS.forEach(({ year, month }, idx) => {
+  getAcademicMonths(settings.academicYear).forEach(({ year, month }, idx) => {
     const col = idx % COLS
     const row = Math.floor(idx / COLS)
     const mx = START_X + col * (CELL_W + 0.05)

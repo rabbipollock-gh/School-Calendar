@@ -1,4 +1,5 @@
-import React, { createContext, useContext, useReducer, useEffect, useCallback, useState } from 'react'
+import React, { createContext, useContext, useReducer, useEffect, useCallback, useState, useMemo } from 'react'
+import { getAcademicMonths } from '../utils/academicMonths.js'
 import { DEFAULT_CATEGORIES } from '../data/defaultCategories.js'
 import { DEFAULT_EVENTS, YAYOE_EVENTS } from '../data/defaultEvents.js'
 import { nanoid } from '../utils/nanoid.js'
@@ -342,6 +343,11 @@ export function CalendarProvider({ children, readOnly = false }) {
     return () => window.removeEventListener('keydown', handler)
   }, [readOnly])
 
+  const academicMonths = useMemo(
+    () => getAcademicMonths(state.settings.academicYear),
+    [state.settings.academicYear]
+  )
+
   const value = {
     state,
     dispatch,
@@ -351,6 +357,7 @@ export function CalendarProvider({ children, readOnly = false }) {
     canRedo: state.undoFuture.length > 0,
     collabUnlocked,
     setCollabUnlocked,
+    academicMonths,
   }
 
   return <CalendarContext.Provider value={value}>{children}</CalendarContext.Provider>

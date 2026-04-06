@@ -2,17 +2,16 @@ import React, { useState } from 'react'
 import { useCalendar } from '../context/CalendarContext.jsx'
 import { getDateRange } from '../utils/dateUtils.js'
 import { nanoid } from '../utils/nanoid.js'
-import { ACADEMIC_MONTHS } from '../hooks/useKeyboardNav.js'
 
 const MONTH_NAMES = ['January','February','March','April','May','June','July','August','September','October','November','December']
 
 export default function BulkRangeModal({ onClose }) {
-  const { state, dispatch, readOnly } = useCalendar()
+  const { state, dispatch, readOnly, academicMonths } = useCalendar()
   const { categories } = state
 
-  const [fromMonth, setFromMonth] = useState(ACADEMIC_MONTHS[0])
+  const [fromMonth, setFromMonth] = useState(academicMonths[0])
   const [fromDay, setFromDay] = useState(1)
-  const [toMonth, setToMonth] = useState(ACADEMIC_MONTHS[0])
+  const [toMonth, setToMonth] = useState(academicMonths[0])
   const [toDay, setToDay] = useState(1)
   const [category, setCategory] = useState(categories.find(c => c.visible)?.id || '')
   const [label, setLabel] = useState('')
@@ -47,11 +46,11 @@ export default function BulkRangeModal({ onClose }) {
             value={`${monthVal.year}-${monthVal.month}`}
             onChange={e => {
               const [y, m] = e.target.value.split('-')
-              onMonthChange(ACADEMIC_MONTHS.find(am => am.year === Number(y) && am.month === Number(m)) || ACADEMIC_MONTHS[0])
+              onMonthChange(academicMonths.find(am => am.year === Number(y) && am.month === Number(m)) || academicMonths[0])
             }}
             className="flex-1 text-sm border border-gray-200 rounded-lg px-2 py-2 bg-white outline-none focus:ring-2 focus:ring-blue-400"
           >
-            {ACADEMIC_MONTHS.map(am => (
+            {academicMonths.map(am => (
               <option key={`${am.year}-${am.month}`} value={`${am.year}-${am.month}`}>
                 {MONTH_NAMES[am.month]} {am.year}
               </option>

@@ -2,18 +2,22 @@ import React, { useRef, useState } from 'react'
 import { useCalendar } from '../context/CalendarContext.jsx'
 import MonthBlock from './MonthBlock.jsx'
 import MonthEventsPanel from './MonthEventsPanel.jsx'
-import { ACADEMIC_MONTHS } from '../hooks/useKeyboardNav.js'
 
 export default function CalendarGrid({ onOpenModal, focusedDate, highlightDate }) {
-  const { state } = useCalendar()
+  const { state, academicMonths } = useCalendar()
   const { settings } = state
 
   // Mobile: single-month swipe view
   const [mobileMonthIdx, setMobileMonthIdx] = useState(() => {
     const now = new Date()
-    const idx = ACADEMIC_MONTHS.findIndex(m => m.year === now.getFullYear() && m.month === now.getMonth())
+    const idx = academicMonths.findIndex(m => m.year === now.getFullYear() && m.month === now.getMonth())
     return idx >= 0 ? idx : 0
   })
+
+  // Reset mobile month index when academic year changes
+  React.useEffect(() => {
+    setMobileMonthIdx(0)
+  }, [academicMonths])
 
   const scrollToDate = (dateKey) => {
     if (!dateKey) return
@@ -35,7 +39,7 @@ export default function CalendarGrid({ onOpenModal, focusedDate, highlightDate }
         id="calendar-grid"
         className="hidden md:grid grid-cols-4 gap-4 p-4"
       >
-        {ACADEMIC_MONTHS.map(({ year, month }) => (
+        {academicMonths.map(({ year, month }) => (
           <MonthBlock
             key={`${year}-${month}`}
             year={year}
@@ -61,19 +65,19 @@ export default function CalendarGrid({ onOpenModal, focusedDate, highlightDate }
             className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-30 transition"
           >‹</button>
           <span className="text-sm font-semibold text-gray-700 dark:text-gray-200">
-            {['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][ACADEMIC_MONTHS[mobileMonthIdx].month]}
-            {' '}{ACADEMIC_MONTHS[mobileMonthIdx].year}
+            {['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][academicMonths[mobileMonthIdx].month]}
+            {' '}{academicMonths[mobileMonthIdx].year}
           </span>
           <button
-            onClick={() => setMobileMonthIdx(i => Math.min(ACADEMIC_MONTHS.length - 1, i + 1))}
-            disabled={mobileMonthIdx === ACADEMIC_MONTHS.length - 1}
+            onClick={() => setMobileMonthIdx(i => Math.min(academicMonths.length - 1, i + 1))}
+            disabled={mobileMonthIdx === academicMonths.length - 1}
             className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-30 transition"
           >›</button>
         </div>
 
         {/* Month dots indicator */}
         <div className="flex justify-center gap-1 py-1.5 bg-white dark:bg-gray-800">
-          {ACADEMIC_MONTHS.map((_, i) => (
+          {academicMonths.map((_, i) => (
             <button
               key={i}
               onClick={() => setMobileMonthIdx(i)}
@@ -85,9 +89,9 @@ export default function CalendarGrid({ onOpenModal, focusedDate, highlightDate }
         {/* Single month view */}
         <div className="flex-1 overflow-y-auto p-3">
           <MonthBlock
-            key={`${ACADEMIC_MONTHS[mobileMonthIdx].year}-${ACADEMIC_MONTHS[mobileMonthIdx].month}`}
-            year={ACADEMIC_MONTHS[mobileMonthIdx].year}
-            month={ACADEMIC_MONTHS[mobileMonthIdx].month}
+            key={`${academicMonths[mobileMonthIdx].year}-${academicMonths[mobileMonthIdx].month}`}
+            year={academicMonths[mobileMonthIdx].year}
+            month={academicMonths[mobileMonthIdx].month}
             onOpenModal={onOpenModal}
             focusedDate={focusedDate}
           />

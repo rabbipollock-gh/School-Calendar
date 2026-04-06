@@ -2,24 +2,7 @@ import { jsPDF } from 'jspdf'
 import { loadMontserrat } from './pdfFonts.js'
 import { getDaysInMonth, getFirstDayOfWeek, formatDateKey, groupConsecutiveDates, formatRangeLabel } from './dateUtils.js'
 
-function getAcademicMonths(academicYear) {
-  const [startYearStr] = (academicYear || '2026-2027').split('-')
-  const startYear = parseInt(startYearStr, 10) || 2026
-  const endYear = startYear + 1
-  return [
-    { year: startYear, month: 7 },   // August
-    { year: startYear, month: 8 },   // September
-    { year: startYear, month: 9 },   // October
-    { year: startYear, month: 10 },  // November
-    { year: startYear, month: 11 },  // December
-    { year: endYear,   month: 0 },   // January
-    { year: endYear,   month: 1 },   // February
-    { year: endYear,   month: 2 },   // March
-    { year: endYear,   month: 3 },   // April
-    { year: endYear,   month: 4 },   // May
-    { year: endYear,   month: 5 },   // June
-  ]
-}
+import { getAcademicMonths } from './academicMonths.js'
 import { getHebrewMonthLabel } from '../data/hebrewMonthNames.js'
 import { ROSH_CHODESH_MAP } from '../data/hebrewCalendar.js'
 import { getTheme, hexToRgb } from './themeUtils.js'
@@ -628,14 +611,19 @@ async function exportMinimal(state, { preview, theme, doc, titleFont, shabbatLab
   const MONTH_W = (GRID_W / 4) - 2.5
   const MONTH_H = (PAGE_H - HEADER_H - MARGIN * 2 - 10 - EVENTS_STRIP_H) / 3
 
+  // Pre-compute circular logo
+  let circLogoMin = null
+  if (schoolInfo.logo) { try { circLogoMin = await circularCropImage(schoolInfo.logo) } catch {} }
+
   // White page header with colored rule
   doc.setFillColor(255, 255, 255); doc.rect(0, 0, PAGE_W, PAGE_H, 'F')
   doc.setDrawColor(pr, pg, pb); doc.setLineWidth(2)
   doc.line(0, HEADER_H, PAGE_W, HEADER_H)
   doc.setFillColor(ar, ag, ab); doc.rect(0, HEADER_H - 2, PAGE_W, 2, 'F')
+  if (circLogoMin) doc.addImage(circLogoMin, 'PNG', MARGIN, 1, 11, 11)
   doc.setTextColor(pr, pg, pb)
   doc.setFontSize(11); doc.setFont(titleFont, 'bold')
-  doc.text(schoolInfo.name || 'Academic Calendar', MARGIN, 9)
+  doc.text(schoolInfo.name || 'Academic Calendar', circLogoMin ? MARGIN + 13 : MARGIN, 9)
   doc.setFontSize(7); doc.setFont(titleFont, 'normal'); doc.setTextColor(130, 130, 130)
   doc.text(settings.academicYear || '2026-2027', PAGE_W - MARGIN, 9, { align: 'right' })
 
@@ -739,6 +727,10 @@ async function exportMonthlyPortrait(state, { preview, theme, doc: _doc, titleFo
   const GRID_H = PAGE_H - HEADER_H - DAY_H - MARGIN * 2 - 16
   const cellH = GRID_H / 6
 
+  // Pre-compute circular logo (once, reused on each page)
+  let circLogoPort = null
+  if (schoolInfo.logo) { try { circLogoPort = await circularCropImage(schoolInfo.logo) } catch {} }
+
   const MONTHS_PORT = getAcademicMonths(settings.academicYear)
   const monthsToRender = monthIndex !== null
     ? [MONTHS_PORT[monthIndex]].filter(Boolean)
@@ -758,11 +750,12 @@ async function exportMonthlyPortrait(state, { preview, theme, doc: _doc, titleFo
     // Header
     doc.setFillColor(pr, pg, pb); doc.rect(0, 0, PAGE_W, HEADER_H, 'F')
     doc.setFillColor(ar, ag, ab); doc.rect(0, HEADER_H - 2.5, PAGE_W, 2.5, 'F')
+    if (circLogoPort) doc.addImage(circLogoPort, 'PNG', MARGIN, 2, 14, 14)
     doc.setTextColor(255, 255, 255); doc.setFontSize(18); doc.setFont(titleFont, 'bold')
     doc.text(mName, MARGIN, 14)
     if (heLabel) { doc.setFontSize(9); doc.setTextColor(ar, ag, ab); doc.text(heLabel, PAGE_W - MARGIN, 14, { align: 'right' }) }
     doc.setFontSize(7); doc.setFont('helvetica', 'normal'); doc.setTextColor(255, 255, 255, 0.7)
-    doc.text(`${schoolInfo.name || ''}  ·  ${settings.academicYear || ''}`, MARGIN, 21)
+    doc.text(`${schoolInfo.name || ''}  ·  ${settings.academicYear || ''}`, circLogoPort ? MARGIN + 16 : MARGIN, 21)
 
     // Day headers
     DAYS.forEach((d, i2) => {
@@ -841,11 +834,16 @@ async function exportYearAtAGlance(state, { preview, theme, doc, titleFont, shab
   const HEADER_H = 12
   const MONTH_H = (PAGE_H - HEADER_H - MARGIN * 2 - (ROWS - 1) * 2) / ROWS
 
+  // Pre-compute circular logo
+  let circLogoGlance = null
+  if (schoolInfo.logo) { try { circLogoGlance = await circularCropImage(schoolInfo.logo) } catch {} }
+
   // Page header
   doc.setFillColor(pr, pg, pb); doc.rect(0, 0, PAGE_W, HEADER_H, 'F')
   doc.setFillColor(ar, ag, ab); doc.rect(0, HEADER_H - 1.5, PAGE_W, 1.5, 'F')
+  if (circLogoGlance) doc.addImage(circLogoGlance, 'PNG', MARGIN, 1, 9, 9)
   doc.setTextColor(255, 255, 255); doc.setFontSize(9); doc.setFont(titleFont, 'bold')
-  doc.text(schoolInfo.name || 'Academic Calendar', MARGIN + 2, 8)
+  doc.text(schoolInfo.name || 'Academic Calendar', circLogoGlance ? MARGIN + 11 : MARGIN + 2, 8)
   doc.setTextColor(ar, ag, ab); doc.setFontSize(7)
   doc.text(`Year at a Glance  ·  ${settings.academicYear || '2026-2027'}`, PAGE_W - MARGIN - 2, 8, { align: 'right' })
 
@@ -895,6 +893,10 @@ async function exportDarkElegant(state, { preview, theme, doc, titleFont, shabba
   const MONTH_H = (PAGE_H - HEADER_H - MARGIN - 6) / 3
   const BG = [15, 20, 38], CARD = [24, 32, 58], TEXC = [215, 225, 245]
 
+  // Pre-compute circular logo
+  let circLogoDark = null
+  if (schoolInfo.logo) { try { circLogoDark = await circularCropImage(schoolInfo.logo) } catch {} }
+
   // Dark background fill
   doc.setFillColor(...BG); doc.rect(0, 0, PAGE_W, PAGE_H, 'F')
   // Accent left bar
@@ -902,8 +904,9 @@ async function exportDarkElegant(state, { preview, theme, doc, titleFont, shabba
   // Header card
   doc.setFillColor(...CARD); doc.rect(4, 0, PAGE_W - 4, HEADER_H, 'F')
   doc.setFillColor(ar, ag, ab); doc.rect(4, HEADER_H - 1.5, PAGE_W - 4, 1.5, 'F')
+  if (circLogoDark) doc.addImage(circLogoDark, 'PNG', MARGIN + 2, 2, 12, 12)
   doc.setTextColor(ar, ag, ab); doc.setFontSize(11); doc.setFont(titleFont, 'bold')
-  doc.text(schoolInfo.name || 'Academic Calendar', MARGIN + 4, 10)
+  doc.text(schoolInfo.name || 'Academic Calendar', circLogoDark ? MARGIN + 16 : MARGIN + 4, 10)
   doc.setTextColor(...TEXC); doc.setFontSize(7); doc.setFont(titleFont, 'normal')
   doc.text(`Academic Year  ${settings.academicYear || '2026-2027'}`, MARGIN + 4, 15)
 
@@ -1009,17 +1012,18 @@ async function exportBulletinBoard(state, { preview, theme, doc, titleFont, shab
   const MONTH_H = (PAGE_H - HEADER_H - MARGIN - 6) / 3
   const PALETTE = ['#E63946','#2A9D8F','#E9800A','#264653','#6A4C93','#F4A261','#43AA8B','#577590','#E07A5F','#3D405B']
 
-  // Rainbow header bar
-  for (let i = 0; i < PALETTE.length; i++) {
-    const [cr, cg, cb] = hexToRgbLocal(PALETTE[i])
-    doc.setFillColor(cr, cg, cb)
-    doc.rect((PAGE_W / PALETTE.length) * i, 0, PAGE_W / PALETTE.length, HEADER_H, 'F')
-  }
+  // Pre-compute circular logo
+  let circLogoBB = null
+  if (schoolInfo.logo) { try { circLogoBB = await circularCropImage(schoolInfo.logo) } catch {} }
+
+  // Theme-colored header bar (month bodies still use the colorful PALETTE)
+  doc.setFillColor(pr, pg, pb); doc.rect(0, 0, PAGE_W, HEADER_H, 'F')
+  doc.setFillColor(ar, ag, ab); doc.rect(0, HEADER_H - 1.5, PAGE_W, 1.5, 'F')
+  if (circLogoBB) doc.addImage(circLogoBB, 'PNG', MARGIN, 1.5, 11, 11)
   doc.setTextColor(255, 255, 255); doc.setFontSize(11); doc.setFont(titleFont, 'bold')
-  doc.setGState(doc.GState({ opacity: 0.95 }))
-  doc.text(schoolInfo.name || 'Academic Calendar', MARGIN + 2, 9)
+  doc.text(schoolInfo.name || 'Academic Calendar', circLogoBB ? MARGIN + 13 : MARGIN + 2, 9)
+  doc.setTextColor(ar, ag, ab); doc.setFontSize(8)
   doc.text(settings.academicYear || '2026-2027', PAGE_W - MARGIN - 4, 9, { align: 'right' })
-  doc.setGState(doc.GState({ opacity: 1.0 }))
 
   if (settings.draftWatermark) {
     doc.setTextColor(200, 50, 50); doc.setFontSize(72); doc.setFont('helvetica', 'bold')

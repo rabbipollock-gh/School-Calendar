@@ -1,27 +1,17 @@
 import { useState, useCallback, useEffect, useRef } from 'react'
+import { getAcademicMonths } from '../utils/academicMonths.js'
 
-// Months in the academic year: Aug 2026 – Jun 2027
-export const ACADEMIC_MONTHS = [
-  { year: 2026, month: 7 },  // August (0-indexed)
-  { year: 2026, month: 8 },  // September
-  { year: 2026, month: 9 },  // October
-  { year: 2026, month: 10 }, // November
-  { year: 2026, month: 11 }, // December
-  { year: 2027, month: 0 },  // January
-  { year: 2027, month: 1 },  // February
-  { year: 2027, month: 2 },  // March
-  { year: 2027, month: 3 },  // April
-  { year: 2027, month: 4 },  // May
-  { year: 2027, month: 5 },  // June
-]
-
-export function useKeyboardNav(onOpenModal) {
+export function useKeyboardNav(onOpenModal, academicYear) {
   const [focusedDate, setFocusedDate] = useState(null)
   const gridRef = useRef(null)
 
   const move = useCallback((direction) => {
     setFocusedDate((current) => {
-      if (!current) return '2026-08-26' // default start date
+      if (!current) {
+        const months = getAcademicMonths(academicYear)
+        const first = months[0]
+        return `${first.year}-${String(first.month + 1).padStart(2, '0')}-01`
+      }
       const d = new Date(current + 'T00:00:00')
       switch (direction) {
         case 'left':  d.setDate(d.getDate() - 1); break

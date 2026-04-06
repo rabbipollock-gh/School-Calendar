@@ -2,18 +2,10 @@ import React, { useState } from 'react'
 import { useCalendar } from '../context/CalendarContext.jsx'
 import { nanoid } from '../utils/nanoid.js'
 import { parseDateKey, getDateRange } from '../utils/dateUtils.js'
-import { ACADEMIC_MONTHS } from '../hooks/useKeyboardNav.js'
-
 const MONTH_NAMES = ['January','February','March','April','May','June','July','August','September','October','November','December']
 
-// Find which ACADEMIC_MONTHS entry contains a dateKey
-function findAcademicMonth(dateKey) {
-  const [y, m] = dateKey.split('-').map(Number)
-  return ACADEMIC_MONTHS.find(am => am.year === y && am.month === m - 1) || ACADEMIC_MONTHS[0]
-}
-
 export default function EventModal({ dateKey, onClose }) {
-  const { state, dispatch, readOnly } = useCalendar()
+  const { state, dispatch, readOnly, academicMonths } = useCalendar()
   const { events, categories, settings } = state
 
   const dayEvents = events[dateKey] || []
@@ -28,6 +20,10 @@ export default function EventModal({ dateKey, onClose }) {
   const [duplicateWarning, setDuplicateWarning] = useState(false)
 
   // ── Inline range add state ──
+  const findAcademicMonth = (dk) => {
+    const [y, m] = dk.split('-').map(Number)
+    return academicMonths.find(am => am.year === y && am.month === m - 1) || academicMonths[0]
+  }
   const startMonth = findAcademicMonth(dateKey)
   const startDay = parseInt(dateKey.split('-')[2], 10)
   const [fromMonth, setFromMonth] = useState(startMonth)
@@ -310,11 +306,11 @@ export default function EventModal({ dateKey, onClose }) {
                       value={`${fromMonth.year}-${fromMonth.month}`}
                       onChange={e => {
                         const [y, m] = e.target.value.split('-')
-                        setFromMonth(ACADEMIC_MONTHS.find(am => am.year === Number(y) && am.month === Number(m)) || ACADEMIC_MONTHS[0])
+                        setFromMonth(academicMonths.find(am => am.year === Number(y) && am.month === Number(m)) || academicMonths[0])
                       }}
                       className="w-full text-xs border border-gray-200 dark:border-gray-600 rounded-lg px-2 py-1.5 bg-white dark:bg-gray-800 dark:text-white outline-none focus:ring-2 focus:ring-blue-400"
                     >
-                      {ACADEMIC_MONTHS.map(am => (
+                      {academicMonths.map(am => (
                         <option key={`${am.year}-${am.month}`} value={`${am.year}-${am.month}`}>
                           {MONTH_NAMES[am.month]} {am.year}
                         </option>
@@ -336,11 +332,11 @@ export default function EventModal({ dateKey, onClose }) {
                       value={`${toMonth.year}-${toMonth.month}`}
                       onChange={e => {
                         const [y, m] = e.target.value.split('-')
-                        setToMonth(ACADEMIC_MONTHS.find(am => am.year === Number(y) && am.month === Number(m)) || ACADEMIC_MONTHS[0])
+                        setToMonth(academicMonths.find(am => am.year === Number(y) && am.month === Number(m)) || academicMonths[0])
                       }}
                       className="w-full text-xs border border-gray-200 dark:border-gray-600 rounded-lg px-2 py-1.5 bg-white dark:bg-gray-800 dark:text-white outline-none focus:ring-2 focus:ring-blue-400"
                     >
-                      {ACADEMIC_MONTHS.map(am => (
+                      {academicMonths.map(am => (
                         <option key={`${am.year}-${am.month}`} value={`${am.year}-${am.month}`}>
                           {MONTH_NAMES[am.month]} {am.year}
                         </option>

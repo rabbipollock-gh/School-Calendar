@@ -70,7 +70,7 @@ export default function Header({
     setExportOpen(false)
     setIcsMenuOpen(false)
     try {
-      if (type === 'pdf') { onPreviewPDF?.(); return }
+      if (type === 'pdf') { setExporting(false); onPreviewPDF?.(); return }
       else if (type === 'pptx') await exportPPTX(state)
       else if (type === 'ics') await exportICS(events, categories, icsFilter || 'all', schoolInfo.name)
       else if (type === 'csv') exportCSV(events, categories, schoolInfo.name)

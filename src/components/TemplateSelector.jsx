@@ -61,19 +61,6 @@ export default function TemplateSelector({ onClose }) {
             </button>
           ))}
 
-          <div className="mt-4 p-4 rounded-xl border border-dashed border-gray-200 dark:border-gray-700">
-            <p className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">📎 Upload Reference PDF</p>
-            <p className="text-xs text-gray-400 dark:text-gray-500 mb-3">Upload a calendar you like for reference. The file is saved locally for Phase 2 template analysis.</p>
-            <input
-              type="file"
-              accept=".pdf"
-              onChange={(e) => {
-                const file = e.target.files?.[0]
-                if (file) alert(`Reference PDF "${file.name}" noted! This will be used for custom template creation in Phase 2.`)
-              }}
-              className="text-xs text-gray-500 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-gray-100 file:text-gray-700 hover:file:bg-gray-200 cursor-pointer"
-            />
-          </div>
         </div>
       </div>
     </div>
