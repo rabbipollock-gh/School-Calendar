@@ -80,14 +80,14 @@ export const HEBREW_HOLIDAY_MAP = {
   '2026-10-03': { group: 'sukkos', ashkenaz: 'Shmini Atzeres',  sephardi: 'Shemini Atzeret',  icon: '🌿' },
   '2026-10-04': { group: 'sukkos', ashkenaz: 'Simchas Torah',   sephardi: 'Simchat Torah',    icon: '📜' },
   // ── Chanukah ──
-  '2026-12-01': { group: 'chanuka', ashkenaz: 'Chanukah',  sephardi: 'Chanukah',  icon: '🕎' },
-  '2026-12-02': { group: 'chanuka', ashkenaz: 'Chanukah',  sephardi: 'Chanukah',  icon: '🕎' },
-  '2026-12-03': { group: 'chanuka', ashkenaz: 'Chanukah',  sephardi: 'Chanukah',  icon: '🕎' },
-  '2026-12-04': { group: 'chanuka', ashkenaz: 'Chanukah',  sephardi: 'Chanukah',  icon: '🕎' },
   '2026-12-05': { group: 'chanuka', ashkenaz: 'Chanukah',  sephardi: 'Chanukah',  icon: '🕎' },
   '2026-12-06': { group: 'chanuka', ashkenaz: 'Chanukah',  sephardi: 'Chanukah',  icon: '🕎' },
   '2026-12-07': { group: 'chanuka', ashkenaz: 'Chanukah',  sephardi: 'Chanukah',  icon: '🕎' },
   '2026-12-08': { group: 'chanuka', ashkenaz: 'Chanukah',  sephardi: 'Chanukah',  icon: '🕎' },
+  '2026-12-09': { group: 'chanuka', ashkenaz: 'Chanukah',  sephardi: 'Chanukah',  icon: '🕎' },
+  '2026-12-10': { group: 'chanuka', ashkenaz: 'Chanukah',  sephardi: 'Chanukah',  icon: '🕎' },
+  '2026-12-11': { group: 'chanuka', ashkenaz: 'Chanukah',  sephardi: 'Chanukah',  icon: '🕎' },
+  '2026-12-12': { group: 'chanuka', ashkenaz: 'Chanukah',  sephardi: 'Chanukah',  icon: '🕎' },
   // ── Minor Fasts ──
   '2026-09-14': { group: 'minor-fasts', ashkenaz: 'Tzom Gedalya',   sephardi: 'Tzom Gedalyah',  icon: '⏰' },
   '2026-12-20': { group: 'minor-fasts', ashkenaz: "Asara B'Teves",  sephardi: "Asara B'Tevet",  icon: '⏰' },
@@ -132,14 +132,14 @@ export const HOLIDAY_SUGGESTIONS = [
   { id: 'hs-simcha', date: '2026-10-04', label: 'Simchas Torah', category: 'no-school', hebrewDate: '23 Tishrei 5787' },
 
   // Kislev / Tevet
-  { id: 'hs-chan1', date: '2026-12-01', label: 'Chanukah (1st Night)', category: 'chanukah', hebrewDate: '25 Kislev 5787' },
-  { id: 'hs-chan2', date: '2026-12-02', label: 'Chanukah (2nd Night)', category: 'chanukah', hebrewDate: '26 Kislev 5787' },
-  { id: 'hs-chan3', date: '2026-12-03', label: 'Chanukah (3rd Night)', category: 'chanukah', hebrewDate: '27 Kislev 5787' },
-  { id: 'hs-chan4', date: '2026-12-04', label: 'Chanukah (4th Night)', category: 'chanukah', hebrewDate: '28 Kislev 5787' },
-  { id: 'hs-chan5', date: '2026-12-05', label: 'Chanukah (5th Night)', category: 'chanukah', hebrewDate: '29 Kislev 5787' },
-  { id: 'hs-chan6', date: '2026-12-06', label: 'Chanukah (6th Night)', category: 'chanukah', hebrewDate: '1 Tevet 5787' },
-  { id: 'hs-chan7', date: '2026-12-07', label: 'Chanukah (7th Night)', category: 'chanukah', hebrewDate: '2 Tevet 5787' },
-  { id: 'hs-chan8', date: '2026-12-08', label: 'Chanukah (8th Night)', category: 'chanukah', hebrewDate: '3 Tevet 5787' },
+  { id: 'hs-chan1', date: '2026-12-05', label: 'Chanukah (1st Night)', category: 'chanukah', hebrewDate: '25 Kislev 5787' },
+  { id: 'hs-chan2', date: '2026-12-06', label: 'Chanukah (2nd Night)', category: 'chanukah', hebrewDate: '26 Kislev 5787' },
+  { id: 'hs-chan3', date: '2026-12-07', label: 'Chanukah (3rd Night)', category: 'chanukah', hebrewDate: '27 Kislev 5787' },
+  { id: 'hs-chan4', date: '2026-12-08', label: 'Chanukah (4th Night)', category: 'chanukah', hebrewDate: '28 Kislev 5787' },
+  { id: 'hs-chan5', date: '2026-12-09', label: 'Chanukah (5th Night)', category: 'chanukah', hebrewDate: '29 Kislev 5787' },
+  { id: 'hs-chan6', date: '2026-12-10', label: 'Chanukah (6th Night)', category: 'chanukah', hebrewDate: '1 Tevet 5787' },
+  { id: 'hs-chan7', date: '2026-12-11', label: 'Chanukah (7th Night)', category: 'chanukah', hebrewDate: '2 Tevet 5787' },
+  { id: 'hs-chan8', date: '2026-12-12', label: 'Chanukah (8th Night)', category: 'chanukah', hebrewDate: '3 Tevet 5787' },
   { id: 'hs-asara', date: '2026-12-20', label: 'Asara B\'Teves', category: 'early-dismissal', hebrewDate: '10 Tevet 5787' },
 
   // Shvat
