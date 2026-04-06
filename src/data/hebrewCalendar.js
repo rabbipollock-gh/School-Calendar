@@ -46,7 +46,7 @@ ROSH_CHODESH_DATES.forEach(rc => { ROSH_CHODESH_MAP[rc.date] = rc.month })
 // Groups used for per-toggle settings. Names have Ashkenaz/Sephardi variants.
 // shabbatLabel === 'Shabbos' → use ashkenaz; 'Shabbat' → use sephardi.
 export const HEBREW_HOLIDAY_GROUPS = [
-  { id: 'rosh-hashana',   ashkenaz: 'Rosh Hashana',   sephardi: 'Rosh Hashana',   icon: '📯' },
+  { id: 'rosh-hashana',   ashkenaz: 'Rosh Hashana',   sephardi: 'Rosh Hashana',   icon: '🍎' },
   { id: 'yom-kippur',     ashkenaz: 'Yom Kippur',     sephardi: 'Yom Kippur',     icon: '📿' },
   { id: 'sukkos',         ashkenaz: 'Sukkos',         sephardi: 'Sukkot',         icon: '🌿' },
   { id: 'chanuka',        ashkenaz: 'Chanukah',       sephardi: 'Chanukah',       icon: '🕎' },
@@ -64,8 +64,8 @@ export const HEBREW_HOLIDAY_GROUPS = [
 // Covers academic year 5787 (Aug 2026 – Jun 2027)
 export const HEBREW_HOLIDAY_MAP = {
   // ── Rosh Hashana ──
-  '2026-09-12': { group: 'rosh-hashana', ashkenaz: 'Rosh Hashana', sephardi: 'Rosh Hashana', icon: '📯' },
-  '2026-09-13': { group: 'rosh-hashana', ashkenaz: 'Rosh Hashana', sephardi: 'Rosh Hashana', icon: '📯' },
+  '2026-09-12': { group: 'rosh-hashana', ashkenaz: 'Rosh Hashana', sephardi: 'Rosh Hashana', icon: '🍎' },
+  '2026-09-13': { group: 'rosh-hashana', ashkenaz: 'Rosh Hashana', sephardi: 'Rosh Hashana', icon: '🍎' },
   // ── Yom Kippur ──
   '2026-09-21': { group: 'yom-kippur', ashkenaz: 'Yom Kippur', sephardi: 'Yom Kippur', icon: '📿' },
   // ── Sukkos / Sukkot ──
