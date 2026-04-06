@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useReducer, useEffect, useCallback } from 'react'
+import React, { createContext, useContext, useReducer, useEffect, useCallback, useState } from 'react'
 import { DEFAULT_CATEGORIES } from '../data/defaultCategories.js'
 import { DEFAULT_EVENTS, YAYOE_EVENTS } from '../data/defaultEvents.js'
 import { nanoid } from '../utils/nanoid.js'
@@ -300,6 +300,7 @@ const CalendarContext = createContext(null)
 
 export function CalendarProvider({ children, readOnly = false }) {
   const sharedState = getSharedState()
+  const [collabUnlocked, setCollabUnlocked] = useState(false)
 
   const [state, dispatch] = useReducer(
     reducer,
@@ -344,10 +345,12 @@ export function CalendarProvider({ children, readOnly = false }) {
   const value = {
     state,
     dispatch,
-    readOnly: readOnly || !!sharedState || state.settings.locked,
+    readOnly: readOnly || (!!sharedState && !collabUnlocked) || state.settings.locked,
     isSharedView: !!sharedState,
     canUndo: state.undoPast.length > 0,
     canRedo: state.undoFuture.length > 0,
+    collabUnlocked,
+    setCollabUnlocked,
   }
 
   return <CalendarContext.Provider value={value}>{children}</CalendarContext.Provider>

@@ -13,6 +13,7 @@ import ConflictPanel from './components/ConflictPanel.jsx'
 import HolidaySuggestionsPanel from './components/HolidaySuggestionsPanel.jsx'
 import TemplateSelector from './components/TemplateSelector.jsx'
 import PDFPreviewModal from './components/PDFPreviewModal.jsx'
+import CollabModal from './components/CollabModal.jsx'
 
 export default function App() {
   const { state, isSharedView } = useCalendar()
@@ -28,6 +29,7 @@ export default function App() {
   const [holidaysOpen, setHolidaysOpen] = useState(false)
   const [templatesOpen, setTemplatesOpen] = useState(false)
   const [pdfPreviewOpen, setPdfPreviewOpen] = useState(false)
+  const [collabOpen, setCollabOpen] = useState(false)
   const [highlightDate, setHighlightDate] = useState(null)
 
   // Keyboard shortcut: Cmd+K opens search
@@ -75,6 +77,7 @@ export default function App() {
         onOpenConflicts={() => setConflictOpen(true)}
         onOpenHolidays={() => setHolidaysOpen(true)}
         onPreviewPDF={() => setPdfPreviewOpen(true)}
+        onOpenCollab={() => setCollabOpen(true)}
         conflictCount={conflictCount}
       />
 
@@ -200,6 +203,10 @@ export default function App() {
         <PDFPreviewModal
           onClose={() => setPdfPreviewOpen(false)}
         />
+      )}
+
+      {collabOpen && (
+        <CollabModal onClose={() => setCollabOpen(false)} />
       )}
 
       {/* Shared view banner (mobile) */}

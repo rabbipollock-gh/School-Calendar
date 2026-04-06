@@ -1,6 +1,79 @@
-import React, { useState, useEffect, useRef } from 'react'
+import React, { useState, useEffect, useRef, useMemo } from 'react'
 import { exportPDF } from '../utils/exportPDF.js'
 import { useCalendar } from '../context/CalendarContext.jsx'
+
+// Renders every page of a PDF data URI to canvases using pdf.js (CDN).
+// Works in all browsers including Safari — no embedded viewer required.
+function PdfCanvasPreview({ dataUri }) {
+  const containerRef = useRef(null)
+  const [renderError, setRenderError] = useState(null)
+
+  useEffect(() => {
+    if (!dataUri || !containerRef.current) return
+    let cancelled = false
+
+    async function render() {
+      setRenderError(null)
+      const container = containerRef.current
+      // Clear previous canvases
+      while (container.firstChild) container.removeChild(container.firstChild)
+
+      try {
+        // Load pdf.js from CDN if not already loaded
+        if (!window.pdfjsLib) {
+          await new Promise((resolve, reject) => {
+            const script = document.createElement('script')
+            script.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js'
+            script.onload = resolve
+            script.onerror = reject
+            document.head.appendChild(script)
+          })
+          window.pdfjsLib.GlobalWorkerOptions.workerSrc =
+            'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js'
+        }
+
+        const loadingTask = window.pdfjsLib.getDocument({ url: dataUri })
+        const pdf = await loadingTask.promise
+        if (cancelled) return
+
+        for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
+          if (cancelled) return
+          const page = await pdf.getPage(pageNum)
+          const viewport = page.getViewport({ scale: 2.0 })
+          const canvas = document.createElement('canvas')
+          canvas.width = viewport.width
+          canvas.height = viewport.height
+          canvas.style.width = '100%'
+          canvas.style.display = 'block'
+          canvas.style.marginBottom = '8px'
+          canvas.style.boxShadow = '0 2px 8px rgba(0,0,0,0.15)'
+          container.appendChild(canvas)
+          await page.render({ canvasContext: canvas.getContext('2d'), viewport }).promise
+        }
+      } catch (err) {
+        if (!cancelled) setRenderError(err.message || 'Render failed')
+      }
+    }
+
+    render()
+    return () => { cancelled = true }
+  }, [dataUri])
+
+  if (renderError) {
+    return (
+      <div className="flex-1 flex items-center justify-center bg-gray-100 dark:bg-gray-900 p-6">
+        <p className="text-red-500 text-sm text-center">⚠ Preview error: {renderError}</p>
+      </div>
+    )
+  }
+
+  return (
+    <div
+      ref={containerRef}
+      className="flex-1 overflow-y-auto bg-gray-200 dark:bg-gray-800 p-4"
+    />
+  )
+}
 
 const PDF_STYLES = [
   {
@@ -61,31 +134,43 @@ const PDF_STYLES = [
 
 export default function PDFPreviewModal({ onClose }) {
   const { state } = useCalendar()
-  // Keep a ref so async PDF callbacks always see the latest state
+
+  const academicMonthNames = useMemo(() => {
+    const [startYearStr] = (state.settings.academicYear || '2026-2027').split('-')
+    const startYear = parseInt(startYearStr, 10) || 2026
+    const endYear = startYear + 1
+    return [
+      `August ${startYear}`, `September ${startYear}`, `October ${startYear}`,
+      `November ${startYear}`, `December ${startYear}`,
+      `January ${endYear}`, `February ${endYear}`, `March ${endYear}`,
+      `April ${endYear}`, `May ${endYear}`, `June ${endYear}`,
+    ]
+  }, [state.settings.academicYear])
+  // Ref so async callbacks always get the latest state
   const stateRef = useRef(state)
   useEffect(() => { stateRef.current = state }, [state])
 
   const [selectedStyle, setSelectedStyle] = useState('classic')
+  const [portraitMonth, setPortraitMonth] = useState(null) // null = all months
   const [url, setUrl] = useState(null)
   const [error, setError] = useState(null)
-  const [generating, setGenerating] = useState(false)
-  const [downloading, setDownloading] = useState(false)
   const [previewing, setPreviewing] = useState(false)
+  const [downloading, setDownloading] = useState(false)
 
-  // Auto-generate preview for classic on mount
-  useEffect(() => {
-    handlePreview('classic')
-  }, [])
+  // Auto-generate preview on mount
+  useEffect(() => { handlePreview('classic') }, [])
 
-  const handlePreview = async (styleId) => {
-    const id = styleId || selectedStyle
+  const handlePreview = async (styleId, monthIdx) => {
+    const id = styleId ?? selectedStyle
+    const mIdx = monthIdx !== undefined ? monthIdx : (id === 'portrait-monthly' ? portraitMonth : null)
     setSelectedStyle(id)
     setUrl(null)
     setError(null)
     setPreviewing(true)
     try {
-      const blobUrl = await exportPDF(stateRef.current, { preview: true, pdfStyle: id })
-      setUrl(blobUrl)
+      // exportPDF returns a data URI string in preview mode — works in all browsers
+      const dataUri = await exportPDF(stateRef.current, { preview: true, pdfStyle: id, monthIndex: mIdx })
+      setUrl(dataUri)
     } catch (err) {
       setError(err.message || 'Failed to generate preview')
     }
@@ -95,14 +180,21 @@ export default function PDFPreviewModal({ onClose }) {
   const handleDownload = async () => {
     setDownloading(true)
     try {
-      await exportPDF(stateRef.current, { preview: false, pdfStyle: selectedStyle })
+      const mIdx = selectedStyle === 'portrait-monthly' ? portraitMonth : null
+      await exportPDF(stateRef.current, { preview: false, pdfStyle: selectedStyle, monthIndex: mIdx })
     } catch (err) {
       alert('Export failed: ' + err.message)
     }
     setDownloading(false)
   }
 
+  const handleMonthChange = (idx) => {
+    setPortraitMonth(idx)
+    handlePreview('portrait-monthly', idx)
+  }
+
   const activeStyle = PDF_STYLES.find(s => s.id === selectedStyle)
+
 
   return (
     <div className="fixed inset-0 z-50 flex flex-col bg-gray-50 dark:bg-gray-900">
@@ -170,12 +262,45 @@ export default function PDFPreviewModal({ onClose }) {
             </button>
           ))}
 
+          {/* Month selector — only for portrait-monthly */}
+          {selectedStyle === 'portrait-monthly' && (
+            <div className="pt-2 border-t border-gray-100 dark:border-gray-700">
+              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest px-1 pb-1.5">Choose Month</p>
+              <div className="space-y-1">
+                <button
+                  onClick={() => handleMonthChange(null)}
+                  className={`w-full text-left text-xs px-3 py-1.5 rounded-lg transition font-medium ${
+                    portraitMonth === null
+                      ? 'bg-blue-500 text-white'
+                      : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+                  }`}
+                >
+                  📚 All Months (11 pages)
+                </button>
+                {academicMonthNames.map((name, i) => (
+                  <button
+                    key={i}
+                    onClick={() => handleMonthChange(i)}
+                    className={`w-full text-left text-xs px-3 py-1.5 rounded-lg transition font-medium ${
+                      portraitMonth === i
+                        ? 'bg-blue-500 text-white'
+                        : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+                    }`}
+                  >
+                    {name}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
           <div className="pt-2 pb-1 px-1">
             <p className="text-[9px] text-gray-400 dark:text-gray-500 leading-relaxed">
               All styles use your current theme colors and school info. Switch themes in ⚙️ Settings.
             </p>
           </div>
         </div>
+
 
         {/* Preview area */}
         <div className="flex-1 flex flex-col overflow-hidden">
@@ -214,11 +339,7 @@ export default function PDFPreviewModal({ onClose }) {
               </div>
             </div>
           ) : (
-            <iframe
-              src={url}
-              className="flex-1 w-full border-0"
-              title="PDF Preview"
-            />
+            <PdfCanvasPreview dataUri={url} />
           )}
         </div>
       </div>
