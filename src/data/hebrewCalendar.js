@@ -97,22 +97,22 @@ export const HEBREW_HOLIDAY_MAP = {
   '2027-03-23': { group: 'purim', ashkenaz: 'Purim',          sephardi: 'Purim',          icon: '🎭' },
   '2027-03-24': { group: 'purim', ashkenaz: 'Shushan Purim',  sephardi: 'Shushan Purim',  icon: '🎭' },
   // ── Pesach ──
-  '2027-04-16': { group: 'pesach', ashkenaz: 'Pesach',       sephardi: 'Pesach',       icon: '🫓' },
-  '2027-04-17': { group: 'pesach', ashkenaz: 'Pesach',       sephardi: 'Pesach',       icon: '🫓' },
-  '2027-04-18': { group: 'pesach', ashkenaz: 'Chol HaMoed',  sephardi: 'Chol HaMoed',  icon: '🫓' },
-  '2027-04-19': { group: 'pesach', ashkenaz: 'Chol HaMoed',  sephardi: 'Chol HaMoed',  icon: '🫓' },
-  '2027-04-20': { group: 'pesach', ashkenaz: 'Chol HaMoed',  sephardi: 'Chol HaMoed',  icon: '🫓' },
-  '2027-04-21': { group: 'pesach', ashkenaz: 'Chol HaMoed',  sephardi: 'Chol HaMoed',  icon: '🫓' },
   '2027-04-22': { group: 'pesach', ashkenaz: 'Pesach',       sephardi: 'Pesach',       icon: '🫓' },
   '2027-04-23': { group: 'pesach', ashkenaz: 'Pesach',       sephardi: 'Pesach',       icon: '🫓' },
+  '2027-04-24': { group: 'pesach', ashkenaz: 'Chol HaMoed',  sephardi: 'Chol HaMoed',  icon: '🫓' },
+  '2027-04-25': { group: 'pesach', ashkenaz: 'Chol HaMoed',  sephardi: 'Chol HaMoed',  icon: '🫓' },
+  '2027-04-26': { group: 'pesach', ashkenaz: 'Chol HaMoed',  sephardi: 'Chol HaMoed',  icon: '🫓' },
+  '2027-04-27': { group: 'pesach', ashkenaz: 'Chol HaMoed',  sephardi: 'Chol HaMoed',  icon: '🫓' },
+  '2027-04-28': { group: 'pesach', ashkenaz: 'Pesach',       sephardi: 'Pesach',       icon: '🫓' },
+  '2027-04-29': { group: 'pesach', ashkenaz: 'Pesach',       sephardi: 'Pesach',       icon: '🫓' },
   // ── Shavuos / Shavuot ──
   '2027-06-11': { group: 'shavuos', ashkenaz: 'Shavuos', sephardi: 'Shavuot', icon: '📜' },
   '2027-06-12': { group: 'shavuos', ashkenaz: 'Shavuos', sephardi: 'Shavuot', icon: '📜' },
   // ── Individual Jewish Holidays (each has its own toggle) ──
   '2027-02-01': { group: 'tu-bshvat',     ashkenaz: "Tu B'Shvat",    sephardi: "Tu B'Shvat",    icon: '🌳' },
-  '2027-04-29': { group: 'yom-hazikaron', ashkenaz: 'Yom HaZikaron', sephardi: 'Yom HaZikaron', icon: '🕯️' },
-  '2027-04-30': { group: 'yom-haatzmaut', ashkenaz: 'Yom HaAtzmaut', sephardi: 'Yom HaAtzmaut', icon: '🇮🇱' },
-  '2027-05-06': { group: 'lag-baomer',    ashkenaz: "Lag B'Omer",    sephardi: "Lag B'Omer",    icon: '🔥' },
+  '2027-05-11': { group: 'yom-hazikaron', ashkenaz: 'Yom HaZikaron', sephardi: 'Yom HaZikaron', icon: '🕯️' },
+  '2027-05-12': { group: 'yom-haatzmaut', ashkenaz: 'Yom HaAtzmaut', sephardi: 'Yom HaAtzmaut', icon: '🇮🇱' },
+  '2027-05-25': { group: 'lag-baomer',    ashkenaz: "Lag B'Omer",    sephardi: "Lag B'Omer",    icon: '🔥' },
 }
 
 // ── Major holiday suggestions — shown as "suggestions" (grayed out) in Holiday Suggestions Panel
@@ -151,16 +151,16 @@ export const HOLIDAY_SUGGESTIONS = [
   { id: 'hs-shushan', date: '2027-03-24', label: 'Shushan Purim', category: 'no-school', hebrewDate: '15 Adar 5787' },
 
   // Nissan / Pesach
-  { id: 'hs-erev-pesach', date: '2027-04-15', label: 'Erev Pesach', category: 'no-school', hebrewDate: '14 Nissan 5787' },
-  { id: 'hs-pesach1', date: '2027-04-16', label: 'Pesach (1st Day)', category: 'no-school', hebrewDate: '15 Nissan 5787' },
-  { id: 'hs-pesach2', date: '2027-04-17', label: 'Pesach (2nd Day)', category: 'no-school', hebrewDate: '16 Nissan 5787' },
-  { id: 'hs-pesach7', date: '2027-04-22', label: 'Pesach (7th Day)', category: 'no-school', hebrewDate: '21 Nissan 5787' },
-  { id: 'hs-pesach8', date: '2027-04-23', label: 'Pesach (8th Day)', category: 'no-school', hebrewDate: '22 Nissan 5787' },
+  { id: 'hs-erev-pesach', date: '2027-04-21', label: 'Erev Pesach', category: 'no-school', hebrewDate: '14 Nissan 5787' },
+  { id: 'hs-pesach1', date: '2027-04-22', label: 'Pesach (1st Day)', category: 'no-school', hebrewDate: '15 Nissan 5787' },
+  { id: 'hs-pesach2', date: '2027-04-23', label: 'Pesach (2nd Day)', category: 'no-school', hebrewDate: '16 Nissan 5787' },
+  { id: 'hs-pesach7', date: '2027-04-28', label: 'Pesach (7th Day)', category: 'no-school', hebrewDate: '21 Nissan 5787' },
+  { id: 'hs-pesach8', date: '2027-04-29', label: 'Pesach (8th Day)', category: 'no-school', hebrewDate: '22 Nissan 5787' },
 
   // Iyar
-  { id: 'hs-yomhazik', date: '2027-04-29', label: 'Yom HaZikaron', category: 'school-event', hebrewDate: '11 Iyar 5787' },
-  { id: 'hs-yomhaat', date: '2027-04-30', label: 'Yom HaAtzmaut', category: 'school-event', hebrewDate: '12 Iyar 5787' },
-  { id: 'hs-lagbaomer', date: '2027-05-06', label: "Lag B'Omer", category: 'school-event', hebrewDate: '18 Iyar 5787' },
+  { id: 'hs-yomhazik', date: '2027-05-11', label: 'Yom HaZikaron', category: 'school-event', hebrewDate: '4 Iyar 5787' },
+  { id: 'hs-yomhaat', date: '2027-05-12', label: 'Yom HaAtzmaut', category: 'school-event', hebrewDate: '5 Iyar 5787' },
+  { id: 'hs-lagbaomer', date: '2027-05-25', label: "Lag B'Omer", category: 'school-event', hebrewDate: '18 Iyar 5787' },
 
   // Sivan / Shavuot
   { id: 'hs-erev-shavuos', date: '2027-06-10', label: 'Erev Shavuos', category: 'early-dismissal', hebrewDate: '5 Sivan 5787' },
