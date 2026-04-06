@@ -1,7 +1,7 @@
 import React, { useState, useRef, useCallback } from 'react'
 import { useCalendar } from '../context/CalendarContext.jsx'
 import { formatDateKey } from '../utils/dateUtils.js'
-import { ROSH_CHODESH_MAP } from '../data/hebrewCalendar.js'
+import { ROSH_CHODESH_MAP, HEBREW_HOLIDAY_MAP } from '../data/hebrewCalendar.js'
 
 const TOOLTIP_DELAY = 500
 
@@ -18,6 +18,11 @@ export default function DayCell({ date, onOpenModal, focusedDate, settings }) {
   const hasConflict = nonRCEvents.length > 1
   const isFocused = focusedDate === dateKey
   const rcMonth = ROSH_CHODESH_MAP[dateKey]
+  const hebrewHoliday = HEBREW_HOLIDAY_MAP[dateKey]
+  const holidayToggles = settings.hebrewHolidayToggles || {}
+  const showHoliday = hebrewHoliday && holidayToggles[hebrewHoliday.group] !== false
+  const isAshkenaz = settings.shabbatLabel === 'Shabbos'
+  const holidayName = hebrewHoliday ? (isAshkenaz ? hebrewHoliday.ashkenaz : hebrewHoliday.sephardi) : null
 
   const catMap = {}
   categories.forEach(c => { catMap[c.id] = c })
@@ -122,6 +127,17 @@ export default function DayCell({ date, onOpenModal, focusedDate, settings }) {
           ${isFilled ? 'text-white/80' : 'text-purple-500/70 dark:text-purple-400/60'}
         `}>
           🌙 {rcMonth}
+        </span>
+      )}
+
+      {/* Hebrew holiday badge */}
+      {showHoliday && (
+        <span className={`
+          text-[7px] leading-none font-medium truncate max-w-full
+          ${rcMonth ? '' : 'mt-auto'}
+          ${isFilled ? 'text-white/80' : 'text-amber-600/80 dark:text-amber-400/70'}
+        `}>
+          {hebrewHoliday.icon} {holidayName}
         </span>
       )}
 

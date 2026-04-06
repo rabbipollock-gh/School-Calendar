@@ -1,6 +1,7 @@
 import React, { useRef, useState } from 'react'
 import { useCalendar } from '../context/CalendarContext.jsx'
 import { THEME_MAP } from '../utils/themeUtils.js'
+import { HEBREW_HOLIDAY_GROUPS } from '../data/hebrewCalendar.js'
 
 // Group themes for display
 const THEME_GROUPS = [
@@ -333,6 +334,36 @@ export default function SettingsDrawer({ isOpen, onClose, onOpenCategories, onOp
                   </div>
                 </div>
               )}
+            </div>
+          </section>
+
+          {/* Jewish Holiday Badges */}
+          <section>
+            <h3 className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-widest mb-3">Jewish Holiday Icons</h3>
+            <p className="text-[10px] text-gray-400 dark:text-gray-500 mb-2 leading-relaxed">
+              Show holiday icons on calendar days. Names follow your Shabbat/Shabbos setting.
+            </p>
+            <div className="space-y-2">
+              {HEBREW_HOLIDAY_GROUPS.map(group => {
+                const enabled = (settings.hebrewHolidayToggles || {})[group.id] !== false
+                const name = settings.shabbatLabel === 'Shabbos' ? group.ashkenaz : group.sephardi
+                return (
+                  <div key={group.id} className="flex items-center justify-between">
+                    <span className="text-sm text-gray-700 dark:text-gray-300">
+                      {group.icon} {name}
+                    </span>
+                    <button
+                      onClick={() => {
+                        const current = settings.hebrewHolidayToggles || {}
+                        updateSettings('hebrewHolidayToggles', { ...current, [group.id]: !enabled })
+                      }}
+                      className={`relative w-11 h-6 rounded-full transition ${enabled ? 'bg-[#2E86AB]' : 'bg-gray-300'}`}
+                    >
+                      <span className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-all ${enabled ? 'left-5' : 'left-0.5'}`} />
+                    </button>
+                  </div>
+                )
+              })}
             </div>
           </section>
 
