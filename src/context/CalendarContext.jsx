@@ -26,6 +26,9 @@ const DEFAULT_SETTINGS = {
   shabbatHighlight: true,
   theme: 'navy-gold',
   academicYear: '2026-2027',
+  hebrewYear: '5787',
+  calendarTitle: '',        // custom title override (empty = use school name)
+  showHebrewYear: true,     // show Hebrew year in PDF headers
   locked: false,
   draftWatermark: false,
   monthNotes: {},

@@ -31,7 +31,7 @@ export default function TemplateSelector({ onClose }) {
       <div className="fixed inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
       <div className="relative w-full max-w-lg bg-white dark:bg-gray-900 rounded-2xl shadow-2xl overflow-hidden">
         <div className="px-5 py-4 bg-[#1e3a5f] flex items-center justify-between">
-          <h2 className="text-white font-bold text-lg">Layout Templates</h2>
+          <h2 className="text-white font-bold text-lg">Calendar View Style</h2>
           <button onClick={onClose} className="text-white/60 hover:text-white text-2xl">×</button>
         </div>
 

@@ -354,17 +354,21 @@ export async function exportPDF(state, { preview = false, pdfStyle = 'classic', 
   doc.setFillColor(ar, ag, ab)
   doc.rect(0, 0, 3, HEADER_H - 1.5, 'F')
 
-  // School name — ACCENT color, prominent
+  // School name / custom title — ACCENT color, prominent
+  const displayTitle = settings.calendarTitle || schoolInfo.name || 'YAYOE Calendar'
   doc.setTextColor(ar, ag, ab)
   doc.setFontSize(12)
   doc.setFont(titleFont, 'bold')
-  doc.text(schoolInfo.name || 'YAYOE Calendar', MARGIN + 16, 9)
-  // Secondary line — all WHITE, all same size: "Academic Year  2026–2027  •  5787"
+  doc.text(displayTitle, MARGIN + 16, 9)
+  // Secondary line: "Academic Year 2026–2027  •  5787" (Hebrew year optional)
   doc.setFontSize(7)
   doc.setFont(titleFont, 'normal')
   doc.setTextColor(255, 255, 255)
-  const hebrewYear = settings.hebrewYear || '5787'
-  doc.text(`Academic Year  ${settings.academicYear || '2026–2027'}  •  ${hebrewYear}`, MARGIN + 16, 14)
+  const hebrewYear = settings.hebrewYear || ''
+  const yearLine = settings.showHebrewYear !== false && hebrewYear
+    ? `Academic Year  ${settings.academicYear || '2026–2027'}  •  ${hebrewYear}`
+    : `Academic Year  ${settings.academicYear || '2026–2027'}`
+  doc.text(yearLine, MARGIN + 16, 14)
 
   // ── Draft Watermark ──────────────────────────────────
   if (settings.draftWatermark) {
@@ -623,7 +627,7 @@ async function exportMinimal(state, { preview, theme, doc, titleFont, shabbatLab
   if (circLogoMin) doc.addImage(circLogoMin, 'PNG', MARGIN, 1, 11, 11)
   doc.setTextColor(pr, pg, pb)
   doc.setFontSize(11); doc.setFont(titleFont, 'bold')
-  doc.text(schoolInfo.name || 'Academic Calendar', circLogoMin ? MARGIN + 13 : MARGIN, 9)
+  doc.text(settings.calendarTitle || schoolInfo.name || 'Academic Calendar', circLogoMin ? MARGIN + 13 : MARGIN, 9)
   doc.setFontSize(7); doc.setFont(titleFont, 'normal'); doc.setTextColor(130, 130, 130)
   doc.text(settings.academicYear || '2026-2027', PAGE_W - MARGIN, 9, { align: 'right' })
 
@@ -750,12 +754,15 @@ async function exportMonthlyPortrait(state, { preview, theme, doc: _doc, titleFo
     // Header
     doc.setFillColor(pr, pg, pb); doc.rect(0, 0, PAGE_W, HEADER_H, 'F')
     doc.setFillColor(ar, ag, ab); doc.rect(0, HEADER_H - 2.5, PAGE_W, 2.5, 'F')
-    if (circLogoPort) doc.addImage(circLogoPort, 'PNG', MARGIN, 2, 14, 14)
+    // Logo — right side of header so it doesn't collide with month name
+    if (circLogoPort) doc.addImage(circLogoPort, 'PNG', PAGE_W - MARGIN - 14, 3, 14, 14)
     doc.setTextColor(255, 255, 255); doc.setFontSize(18); doc.setFont(titleFont, 'bold')
     doc.text(mName, MARGIN, 14)
-    if (heLabel) { doc.setFontSize(9); doc.setTextColor(ar, ag, ab); doc.text(heLabel, PAGE_W - MARGIN, 14, { align: 'right' }) }
+    if (heLabel) { doc.setFontSize(9); doc.setTextColor(ar, ag, ab); doc.text(heLabel, circLogoPort ? PAGE_W - MARGIN - 17 : PAGE_W - MARGIN, 14, { align: 'right' }) }
     doc.setFontSize(7); doc.setFont('helvetica', 'normal'); doc.setTextColor(255, 255, 255, 0.7)
-    doc.text(`${schoolInfo.name || ''}  ·  ${settings.academicYear || ''}`, circLogoPort ? MARGIN + 16 : MARGIN, 21)
+    const portTitle = settings.calendarTitle || schoolInfo.name || ''
+    const portHebrew = settings.showHebrewYear !== false && settings.hebrewYear ? `  •  ${settings.hebrewYear}` : ''
+    doc.text(`${portTitle}  ·  ${settings.academicYear || ''}${portHebrew}`, MARGIN, 21)
 
     // Day headers
     DAYS.forEach((d, i2) => {
@@ -843,7 +850,7 @@ async function exportYearAtAGlance(state, { preview, theme, doc, titleFont, shab
   doc.setFillColor(ar, ag, ab); doc.rect(0, HEADER_H - 1.5, PAGE_W, 1.5, 'F')
   if (circLogoGlance) doc.addImage(circLogoGlance, 'PNG', MARGIN, 1, 9, 9)
   doc.setTextColor(255, 255, 255); doc.setFontSize(9); doc.setFont(titleFont, 'bold')
-  doc.text(schoolInfo.name || 'Academic Calendar', circLogoGlance ? MARGIN + 11 : MARGIN + 2, 8)
+  doc.text(settings.calendarTitle || schoolInfo.name || 'Academic Calendar', circLogoGlance ? MARGIN + 11 : MARGIN + 2, 8)
   doc.setTextColor(ar, ag, ab); doc.setFontSize(7)
   doc.text(`Year at a Glance  ·  ${settings.academicYear || '2026-2027'}`, PAGE_W - MARGIN - 2, 8, { align: 'right' })
 
@@ -906,9 +913,10 @@ async function exportDarkElegant(state, { preview, theme, doc, titleFont, shabba
   doc.setFillColor(ar, ag, ab); doc.rect(4, HEADER_H - 1.5, PAGE_W - 4, 1.5, 'F')
   if (circLogoDark) doc.addImage(circLogoDark, 'PNG', MARGIN + 2, 2, 12, 12)
   doc.setTextColor(ar, ag, ab); doc.setFontSize(11); doc.setFont(titleFont, 'bold')
-  doc.text(schoolInfo.name || 'Academic Calendar', circLogoDark ? MARGIN + 16 : MARGIN + 4, 10)
+  const darkNameX = circLogoDark ? MARGIN + 16 : MARGIN + 4
+  doc.text(settings.calendarTitle || schoolInfo.name || 'Academic Calendar', darkNameX, 10)
   doc.setTextColor(...TEXC); doc.setFontSize(7); doc.setFont(titleFont, 'normal')
-  doc.text(`Academic Year  ${settings.academicYear || '2026-2027'}`, MARGIN + 4, 15)
+  doc.text(`Academic Year  ${settings.academicYear || '2026-2027'}`, PAGE_W - MARGIN - 4, 15, { align: 'right' })
 
   if (settings.draftWatermark) {
     doc.setTextColor(220, 80, 80); doc.setFontSize(72); doc.setFont('helvetica', 'bold')
@@ -1021,7 +1029,7 @@ async function exportBulletinBoard(state, { preview, theme, doc, titleFont, shab
   doc.setFillColor(ar, ag, ab); doc.rect(0, HEADER_H - 1.5, PAGE_W, 1.5, 'F')
   if (circLogoBB) doc.addImage(circLogoBB, 'PNG', MARGIN, 1.5, 11, 11)
   doc.setTextColor(255, 255, 255); doc.setFontSize(11); doc.setFont(titleFont, 'bold')
-  doc.text(schoolInfo.name || 'Academic Calendar', circLogoBB ? MARGIN + 13 : MARGIN + 2, 9)
+  doc.text(settings.calendarTitle || schoolInfo.name || 'Academic Calendar', circLogoBB ? MARGIN + 13 : MARGIN + 2, 9)
   doc.setTextColor(ar, ag, ab); doc.setFontSize(8)
   doc.text(settings.academicYear || '2026-2027', PAGE_W - MARGIN - 4, 9, { align: 'right' })
 

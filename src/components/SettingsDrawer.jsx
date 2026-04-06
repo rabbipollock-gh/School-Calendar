@@ -136,7 +136,31 @@ export default function SettingsDrawer({ isOpen, onClose, onOpenCategories, onOp
             <h3 className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-widest mb-3">Calendar Settings</h3>
             <div className="space-y-3">
               <Field label="Academic Year">
-                <input type="text" value={settings.academicYear} onChange={e => updateSettings('academicYear', e.target.value)} readOnly={readOnly} className={inputCls} />
+                <select
+                  value={settings.academicYear}
+                  onChange={e => updateSettings('academicYear', e.target.value)}
+                  disabled={readOnly}
+                  className={inputCls}
+                >
+                  {[2025,2026,2027,2028,2029,2030].map(y => (
+                    <option key={y} value={`${y}-${y+1}`}>{y}–{y+1}</option>
+                  ))}
+                </select>
+              </Field>
+              <Field label="Hebrew Year (e.g. 5787)">
+                <input type="text" value={settings.hebrewYear || ''} onChange={e => updateSettings('hebrewYear', e.target.value)} readOnly={readOnly} className={inputCls} placeholder="5787" />
+              </Field>
+              <div className="flex items-center justify-between">
+                <label className="text-sm text-gray-700 dark:text-gray-300">Show Hebrew Year in PDF</label>
+                <button
+                  onClick={() => updateSettings('showHebrewYear', !settings.showHebrewYear)}
+                  className={`relative w-11 h-6 rounded-full transition ${settings.showHebrewYear !== false ? 'bg-[#2E86AB]' : 'bg-gray-300'}`}
+                >
+                  <span className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-all ${settings.showHebrewYear !== false ? 'left-5' : 'left-0.5'}`} />
+                </button>
+              </div>
+              <Field label="Custom Calendar Title (optional)">
+                <input type="text" value={settings.calendarTitle || ''} onChange={e => updateSettings('calendarTitle', e.target.value)} readOnly={readOnly} className={inputCls} placeholder="Leave blank to use school name" />
               </Field>
               <div className="flex items-center justify-between">
                 <label className="text-sm text-gray-700 dark:text-gray-300">Shabbat Column Highlight</label>
@@ -319,7 +343,7 @@ export default function SettingsDrawer({ isOpen, onClose, onOpenCategories, onOp
               <span className="text-gray-400">›</span>
             </button>
             <button onClick={onOpenTemplates} className="w-full flex items-center justify-between p-3 rounded-xl border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 transition">
-              <span className="text-sm font-medium text-gray-700 dark:text-gray-300">📄 Layout Templates</span>
+              <span className="text-sm font-medium text-gray-700 dark:text-gray-300">📄 Calendar View Style</span>
               <span className="text-gray-400">›</span>
             </button>
           </section>

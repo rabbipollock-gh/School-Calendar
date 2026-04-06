@@ -64,7 +64,7 @@ export default function Sidebar({ onOpenCategories, onOpenSettings, onOpenBulk }
 
         {/* Academic year in gold */}
         <p className="text-amber-300 text-[11px] text-center mt-1 font-medium tracking-wide">
-          {settings.academicYear || '2026–2027'} · 5787
+          {settings.academicYear || '2026–2027'}{settings.hebrewYear ? ` · ${settings.hebrewYear}` : ''}
         </p>
 
         {/* Address + contact */}
@@ -177,7 +177,7 @@ export default function Sidebar({ onOpenCategories, onOpenSettings, onOpenBulk }
       {/* ── Footer ── */}
       <div className="px-4 py-3 mt-3 text-center shrink-0">
         <span className="inline-block bg-gray-100 dark:bg-gray-700 text-gray-400 dark:text-gray-500 text-[10px] px-3 py-1 rounded-full">
-          5787 · {settings.academicYear || '2026–2027'}
+          {settings.hebrewYear ? `${settings.hebrewYear} · ` : ''}{settings.academicYear || '2026–2027'}
         </span>
       </div>
     </aside>
