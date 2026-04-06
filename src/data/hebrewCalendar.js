@@ -46,23 +46,26 @@ ROSH_CHODESH_DATES.forEach(rc => { ROSH_CHODESH_MAP[rc.date] = rc.month })
 // Groups used for per-toggle settings. Names have Ashkenaz/Sephardi variants.
 // shabbatLabel === 'Shabbos' → use ashkenaz; 'Shabbat' → use sephardi.
 export const HEBREW_HOLIDAY_GROUPS = [
-  { id: 'rosh-hashana', ashkenaz: 'Rosh Hashana',  sephardi: 'Rosh Hashana',  icon: '🍎' },
-  { id: 'yom-kippur',   ashkenaz: 'Yom Kippur',    sephardi: 'Yom Kippur',    icon: '📿' },
-  { id: 'sukkos',       ashkenaz: 'Sukkos',         sephardi: 'Sukkot',        icon: '🌿' },
-  { id: 'chanuka',      ashkenaz: 'Chanukah',       sephardi: 'Chanukah',      icon: '🕎' },
-  { id: 'purim',        ashkenaz: 'Purim',          sephardi: 'Purim',         icon: '🎭' },
-  { id: 'pesach',       ashkenaz: 'Pesach',         sephardi: 'Pesach',        icon: '🫓' },
-  { id: 'shavuos',      ashkenaz: 'Shavuos',        sephardi: 'Shavuot',       icon: '📜' },
-  { id: 'minor-fasts',  ashkenaz: 'Fast Day',       sephardi: 'Fast Day',      icon: '⏰' },
-  { id: 'other',        ashkenaz: 'Jewish Holiday', sephardi: 'Jewish Holiday', icon: '✡️' },
+  { id: 'rosh-hashana',   ashkenaz: 'Rosh Hashana',   sephardi: 'Rosh Hashana',   icon: '📯' },
+  { id: 'yom-kippur',     ashkenaz: 'Yom Kippur',     sephardi: 'Yom Kippur',     icon: '📿' },
+  { id: 'sukkos',         ashkenaz: 'Sukkos',         sephardi: 'Sukkot',         icon: '🌿' },
+  { id: 'chanuka',        ashkenaz: 'Chanukah',       sephardi: 'Chanukah',       icon: '🕎' },
+  { id: 'purim',          ashkenaz: 'Purim',          sephardi: 'Purim',          icon: '🎭' },
+  { id: 'pesach',         ashkenaz: 'Pesach',         sephardi: 'Pesach',         icon: '🫓' },
+  { id: 'shavuos',        ashkenaz: 'Shavuos',        sephardi: 'Shavuot',        icon: '📜' },
+  { id: 'minor-fasts',    ashkenaz: 'Fast Day',       sephardi: 'Fast Day',       icon: '⏰' },
+  { id: 'tu-bshvat',      ashkenaz: "Tu B'Shvat",     sephardi: "Tu B'Shvat",     icon: '🌳' },
+  { id: 'yom-hazikaron',  ashkenaz: 'Yom HaZikaron',  sephardi: 'Yom HaZikaron',  icon: '🕯️' },
+  { id: 'yom-haatzmaut',  ashkenaz: 'Yom HaAtzmaut',  sephardi: 'Yom HaAtzmaut',  icon: '🇮🇱' },
+  { id: 'lag-baomer',     ashkenaz: "Lag B'Omer",     sephardi: "Lag B'Omer",     icon: '🔥' },
 ]
 
 // Fast lookup: dateKey → { group, ashkenaz, sephardi, icon }
 // Covers academic year 5787 (Aug 2026 – Jun 2027)
 export const HEBREW_HOLIDAY_MAP = {
   // ── Rosh Hashana ──
-  '2026-09-12': { group: 'rosh-hashana', ashkenaz: 'Rosh Hashana', sephardi: 'Rosh Hashana', icon: '🍎' },
-  '2026-09-13': { group: 'rosh-hashana', ashkenaz: 'Rosh Hashana', sephardi: 'Rosh Hashana', icon: '🍎' },
+  '2026-09-12': { group: 'rosh-hashana', ashkenaz: 'Rosh Hashana', sephardi: 'Rosh Hashana', icon: '📯' },
+  '2026-09-13': { group: 'rosh-hashana', ashkenaz: 'Rosh Hashana', sephardi: 'Rosh Hashana', icon: '📯' },
   // ── Yom Kippur ──
   '2026-09-21': { group: 'yom-kippur', ashkenaz: 'Yom Kippur', sephardi: 'Yom Kippur', icon: '📿' },
   // ── Sukkos / Sukkot ──
@@ -105,11 +108,11 @@ export const HEBREW_HOLIDAY_MAP = {
   // ── Shavuos / Shavuot ──
   '2027-06-11': { group: 'shavuos', ashkenaz: 'Shavuos', sephardi: 'Shavuot', icon: '📜' },
   '2027-06-12': { group: 'shavuos', ashkenaz: 'Shavuos', sephardi: 'Shavuot', icon: '📜' },
-  // ── Other Jewish Holidays ──
-  '2027-02-01': { group: 'other', ashkenaz: "Tu B'Shvat",    sephardi: "Tu B'Shvat",    icon: '🌳' },
-  '2027-04-29': { group: 'other', ashkenaz: 'Yom HaZikaron', sephardi: 'Yom HaZikaron', icon: '🕯️' },
-  '2027-04-30': { group: 'other', ashkenaz: 'Yom HaAtzmaut', sephardi: 'Yom HaAtzmaut', icon: '🇮🇱' },
-  '2027-05-06': { group: 'other', ashkenaz: "Lag B'Omer",    sephardi: "Lag B'Omer",    icon: '🔥' },
+  // ── Individual Jewish Holidays (each has its own toggle) ──
+  '2027-02-01': { group: 'tu-bshvat',     ashkenaz: "Tu B'Shvat",    sephardi: "Tu B'Shvat",    icon: '🌳' },
+  '2027-04-29': { group: 'yom-hazikaron', ashkenaz: 'Yom HaZikaron', sephardi: 'Yom HaZikaron', icon: '🕯️' },
+  '2027-04-30': { group: 'yom-haatzmaut', ashkenaz: 'Yom HaAtzmaut', sephardi: 'Yom HaAtzmaut', icon: '🇮🇱' },
+  '2027-05-06': { group: 'lag-baomer',    ashkenaz: "Lag B'Omer",    sephardi: "Lag B'Omer",    icon: '🔥' },
 }
 
 // ── Major holiday suggestions — shown as "suggestions" (grayed out) in Holiday Suggestions Panel

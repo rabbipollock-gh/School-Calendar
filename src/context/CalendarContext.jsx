@@ -30,6 +30,7 @@ const DEFAULT_SETTINGS = {
   calendarTitle: '',        // custom title override (empty = use school name)
   showHebrewYear: true,     // show Hebrew year in PDF headers
   hebrewHolidayToggles: {}, // { groupId: false } to disable; absent = enabled
+  hebrewHolidayIcons: {},   // { groupId: '🎯' } to override default icon
   locked: false,
   draftWatermark: false,
   monthNotes: {},

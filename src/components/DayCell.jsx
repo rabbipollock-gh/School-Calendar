@@ -23,6 +23,8 @@ export default function DayCell({ date, onOpenModal, focusedDate, settings }) {
   const showHoliday = hebrewHoliday && holidayToggles[hebrewHoliday.group] !== false
   const isAshkenaz = settings.shabbatLabel === 'Shabbos'
   const holidayName = hebrewHoliday ? (isAshkenaz ? hebrewHoliday.ashkenaz : hebrewHoliday.sephardi) : null
+  const customIcons = settings.hebrewHolidayIcons || {}
+  const holidayIcon = hebrewHoliday ? (customIcons[hebrewHoliday.group] || hebrewHoliday.icon) : null
 
   const catMap = {}
   categories.forEach(c => { catMap[c.id] = c })
@@ -35,14 +37,15 @@ export default function DayCell({ date, onOpenModal, focusedDate, settings }) {
 
   const handleMouseEnter = useCallback(() => {
     if (dayEvents.length === 0) return
-    // Detect if tooltip would clip off-screen (tooltip is w-48 = 192px wide)
     if (cellRef.current) {
       const rect = cellRef.current.getBoundingClientRect()
-      setFlipX(rect.right + 220 > window.innerWidth)
+      // For Thu/Fri/Sat (dow 4/5/6), always open left — they're in the rightmost columns
+      // Also catch anything where the right edge + tooltip width would overflow
+      setFlipX(dow >= 4 || rect.right + 200 > window.innerWidth)
       setFlipY(rect.bottom + 150 > window.innerHeight)
     }
     tooltipTimerRef.current = setTimeout(() => setShowTooltip(true), TOOLTIP_DELAY)
-  }, [dayEvents.length])
+  }, [dayEvents.length, dow])
 
   const handleMouseLeave = useCallback(() => {
     clearTimeout(tooltipTimerRef.current)
@@ -137,7 +140,7 @@ export default function DayCell({ date, onOpenModal, focusedDate, settings }) {
           ${rcMonth ? '' : 'mt-auto'}
           ${isFilled ? 'text-white/80' : 'text-amber-600/80 dark:text-amber-400/70'}
         `}>
-          {hebrewHoliday.icon} {holidayName}
+          {holidayIcon} {holidayName}
         </span>
       )}
 
