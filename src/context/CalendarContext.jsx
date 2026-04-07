@@ -19,6 +19,7 @@ const DEFAULT_SCHOOL_INFO = {
   fax: '323-556-6901',
   logo: null,
   hours: 'Boys: 8:30 AM – 4:00 PM\nGirls: 8:30 AM – 3:30 PM\nFriday: 8:30 AM – 1:30 PM',
+  otherInfo: '',
 }
 
 const DEFAULT_SETTINGS = {
@@ -57,10 +58,13 @@ function buildInitialState() {
   const isYayoe = (getSchoolCode() || '').toLowerCase().includes('yayoe')
   const sourceEvents = isYayoe ? YAYOE_EVENTS : DEFAULT_EVENTS
   const events = normalizeEvents(sourceEvents)
+  const schoolInfo = isYayoe ? DEFAULT_SCHOOL_INFO : {
+    name: '', address: '', phone: '', fax: '', logo: null, hours: '', website: '', otherInfo: '',
+  }
   return {
     events,
     categories: DEFAULT_CATEGORIES,
-    schoolInfo: DEFAULT_SCHOOL_INFO,
+    schoolInfo,
     settings: DEFAULT_SETTINGS,
     hebrewEventToggles: {},
     undoPast: [],

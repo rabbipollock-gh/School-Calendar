@@ -106,6 +106,9 @@ export default function SettingsDrawer({ isOpen, onClose, onOpenCategories, onOp
               <Field label="School Hours">
                 <textarea value={schoolInfo.hours} onChange={e => updateInfo('hours', e.target.value)} readOnly={readOnly} rows={3} className={inputCls + ' resize-none'} />
               </Field>
+              <Field label="Other Information">
+                <textarea value={schoolInfo.otherInfo || ''} onChange={e => updateInfo('otherInfo', e.target.value)} readOnly={readOnly} rows={3} className={inputCls + ' resize-none'} placeholder="Any additional info to include on your calendar..." />
+              </Field>
             </div>
           </section>
 
@@ -130,6 +133,28 @@ export default function SettingsDrawer({ isOpen, onClose, onOpenCategories, onOp
               </div>
               <input ref={fileInputRef} type="file" accept="image/*" onChange={handleLogoUpload} className="sr-only" />
             </div>
+
+            {/* Logo shape */}
+            {schoolInfo.logo && (
+              <div className="mt-3">
+                <label className="text-xs font-medium text-gray-500 dark:text-gray-400 block mb-1.5">Logo Shape in PDF</label>
+                <div className="flex gap-2">
+                  {[['circle', '⬤ Circle'], ['rounded', '▢ Rounded'], ['square', '■ Square']].map(([val, label]) => (
+                    <button
+                      key={val}
+                      onClick={() => !readOnly && updateSettings('logoShape', val)}
+                      className={`flex-1 py-1.5 rounded-lg border-2 text-xs font-semibold transition ${
+                        (settings.logoShape || 'circle') === val
+                          ? 'border-blue-500 bg-blue-50 text-blue-700 dark:bg-blue-900/20 dark:text-blue-300'
+                          : 'border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:border-gray-300'
+                      }`}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
           </section>
 
           {/* Calendar Settings */}

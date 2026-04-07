@@ -1,5 +1,8 @@
 import React, { useState, useCallback, useMemo } from 'react'
 import { useCalendar } from './context/CalendarContext.jsx'
+import { useAuth } from './context/AuthContext.jsx'
+import AuthGate from './components/AuthGate.jsx'
+import OnboardingWizard from './components/OnboardingWizard.jsx'
 import SchoolCodeGate from './components/SchoolCodeGate.jsx'
 import Header from './components/Header.jsx'
 import CalendarGrid from './components/CalendarGrid.jsx'
@@ -16,7 +19,22 @@ import PDFPreviewModal from './components/PDFPreviewModal.jsx'
 import CollabModal from './components/CollabModal.jsx'
 
 export default function App() {
+  const { session, loading: authLoading, isNewUser } = useAuth()
   const { state, isSharedView } = useCalendar()
+
+  const hash = window.location.hash.slice(1)
+  const isYayoe = hash === 'yayoe' || hash.startsWith('yayoe-')
+  const isSharedUrl = new URLSearchParams(window.location.search).has('cal')
+  const needsAuth = !isYayoe && !isSharedUrl && !session
+
+  if (authLoading) return (
+    <div className="min-h-screen bg-[#1e3a5f] flex items-center justify-center">
+      <div className="w-8 h-8 border-4 border-white/30 border-t-white rounded-full animate-spin" />
+    </div>
+  )
+
+  if (needsAuth) return <AuthGate />
+  if (isNewUser) return <OnboardingWizard />
   const { events } = state
 
   // Modal / panel state

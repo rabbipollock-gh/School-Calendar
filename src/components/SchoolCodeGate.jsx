@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react'
 import { getSchoolCode, slugify } from '../utils/schoolCode.js'
+import { useAuth } from '../context/AuthContext.jsx'
 
 export default function SchoolCodeGate({ children }) {
+  const { session } = useAuth()
   const [hasCode] = useState(() => !!getSchoolCode())
   const [name, setName] = useState('')
   const [error, setError] = useState('')
@@ -9,8 +11,8 @@ export default function SchoolCodeGate({ children }) {
   // Also allow arriving via a ?cal= share link (read-only shared view — no code needed)
   const isSharedUrl = new URLSearchParams(window.location.search).has('cal')
 
-  // If there's a hash code in the URL, render the calendar directly
-  if (hasCode || isSharedUrl) return children
+  // Authenticated users always pass through — their hash is set from profile
+  if (session || hasCode || isSharedUrl) return children
 
   const handleStart = () => {
     const slug = slugify(name)

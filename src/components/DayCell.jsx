@@ -1,7 +1,7 @@
 import React, { useState, useRef, useCallback } from 'react'
 import { useCalendar } from '../context/CalendarContext.jsx'
 import { formatDateKey } from '../utils/dateUtils.js'
-import { ROSH_CHODESH_MAP, HEBREW_HOLIDAY_MAP } from '../data/hebrewCalendar.js'
+import { getRoshChodeshMap, getHolidayMap } from '../data/hebrewCalendar.js'
 
 const TOOLTIP_DELAY = 500
 
@@ -17,8 +17,8 @@ export default function DayCell({ date, onOpenModal, focusedDate, settings }) {
   const nonRCEvents = dayEvents.filter(e => e.category !== 'rosh-chodesh')
   const hasConflict = nonRCEvents.length > 1
   const isFocused = focusedDate === dateKey
-  const rcMonth = ROSH_CHODESH_MAP[dateKey]
-  const hebrewHoliday = HEBREW_HOLIDAY_MAP[dateKey]
+  const rcMonth = getRoshChodeshMap(settings.academicYear)[dateKey]
+  const hebrewHoliday = getHolidayMap(settings.academicYear)[dateKey]
   const holidayToggles = settings.hebrewHolidayToggles || {}
   const showHoliday = hebrewHoliday && holidayToggles[hebrewHoliday.group] !== false
   const isAshkenaz = settings.shabbatLabel === 'Shabbos'

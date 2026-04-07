@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react'
 import { useCalendar } from '../context/CalendarContext.jsx'
-import { HOLIDAY_SUGGESTIONS } from '../data/hebrewCalendar.js'
+import { getHolidaySuggestions } from '../data/hebrewCalendar.js'
 import { parseDateKey } from '../utils/dateUtils.js'
 import { nanoid } from '../utils/nanoid.js'
 
@@ -38,7 +38,7 @@ export default function HolidaySuggestionsPanel({ isOpen, onClose, onOpenModal }
   // Group by month
   const grouped = useMemo(() => {
     const groups = {}
-    HOLIDAY_SUGGESTIONS.forEach(h => {
+    getHolidaySuggestions(state.settings.academicYear).forEach(h => {
       const monthKey = h.date.slice(0, 7)
       if (!groups[monthKey]) groups[monthKey] = []
       groups[monthKey].push(h)

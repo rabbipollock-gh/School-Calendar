@@ -4,7 +4,7 @@ import { getDaysInMonth, getFirstDayOfWeek, formatDateKey, groupConsecutiveDates
 
 import { getAcademicMonths } from './academicMonths.js'
 import { getHebrewMonthLabel } from '../data/hebrewMonthNames.js'
-import { ROSH_CHODESH_MAP, HEBREW_HOLIDAY_MAP } from '../data/hebrewCalendar.js'
+import { getRoshChodeshMap, getHolidayMap } from '../data/hebrewCalendar.js'
 import { getTheme, hexToRgb } from './themeUtils.js'
 
 const DAYS = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SHA']
@@ -20,8 +20,8 @@ function hexToRgbLocal(hex) {
   return hexToRgb(hex)
 }
 
-// Crop an image to a circle using canvas (for round logo in PDF)
-async function circularCropImage(base64) {
+// Crop/shape a logo image using canvas. shape: 'circle' | 'square' | 'rounded'
+async function cropLogoImage(base64, shape = 'circle') {
   return new Promise((resolve) => {
     const img = new Image()
     img.onload = () => {
@@ -30,9 +30,20 @@ async function circularCropImage(base64) {
       canvas.width = size
       canvas.height = size
       const ctx = canvas.getContext('2d')
-      ctx.beginPath()
-      ctx.arc(size / 2, size / 2, size / 2, 0, Math.PI * 2)
-      ctx.clip()
+      if (shape === 'circle') {
+        ctx.beginPath()
+        ctx.arc(size / 2, size / 2, size / 2, 0, Math.PI * 2)
+        ctx.clip()
+      } else if (shape === 'rounded') {
+        const r = size * 0.15
+        ctx.beginPath()
+        ctx.moveTo(r, 0); ctx.lineTo(size - r, 0); ctx.arcTo(size, 0, size, r, r)
+        ctx.lineTo(size, size - r); ctx.arcTo(size, size, size - r, size, r)
+        ctx.lineTo(r, size); ctx.arcTo(0, size, 0, size - r, r)
+        ctx.lineTo(0, r); ctx.arcTo(0, 0, r, 0, r)
+        ctx.closePath(); ctx.clip()
+      }
+      // 'square' — no clip, draw as-is
       ctx.drawImage(img, 0, 0, size, size)
       resolve(canvas.toDataURL('image/png'))
     }
@@ -100,8 +111,8 @@ function drawMonth(doc, { year, month }, events, categories, settings, x, y, w, 
     const cy = dayLabelY + 2 + weekRow * cellH
     const dateKey = formatDateKey(date)
     const dayEvs = (events[dateKey] || []).filter(e => e.category !== 'rosh-chodesh')
-    const rcMonth = ROSH_CHODESH_MAP[dateKey]
-    const hebrewHoliday = HEBREW_HOLIDAY_MAP[dateKey]
+    const rcMonth = getRoshChodeshMap(settings.academicYear)[dateKey]
+    const hebrewHoliday = getHolidayMap(settings.academicYear)[dateKey]
 
     // Shabbat background — always apply theme tint first
     if (dow === 6) {
@@ -392,7 +403,7 @@ export async function exportPDF(state, { preview = false, pdfStyle = 'classic', 
   // Logo — circular crop via canvas
   if (schoolInfo.logo) {
     try {
-      const circularLogo = await circularCropImage(schoolInfo.logo)
+      const circularLogo = await cropLogoImage(schoolInfo.logo, settings.logoShape || 'circle')
       doc.addImage(circularLogo, 'PNG', MARGIN, 2, 13, 13)
     } catch {}
   }
@@ -611,7 +622,7 @@ function drawMiniMonth(doc, { year, month }, events, categories, settings, {
     const dateKey = formatDateKey(date)
     const dayEvs = (events[dateKey] || []).filter(e => e.category !== 'rosh-chodesh')
     const isSha = dow === 6
-    const hebrewHolidayMini = HEBREW_HOLIDAY_MAP[dateKey]
+    const hebrewHolidayMini = getHolidayMap(settings.academicYear)[dateKey]
 
     // Shabbat tint
     if (isSha) {
@@ -679,7 +690,7 @@ async function exportMinimal(state, { preview, theme, doc, titleFont, shabbatLab
 
   // Pre-compute circular logo
   let circLogoMin = null
-  if (schoolInfo.logo) { try { circLogoMin = await circularCropImage(schoolInfo.logo) } catch {} }
+  if (schoolInfo.logo) { try { circLogoMin = await cropLogoImage(schoolInfo.logo, settings.logoShape || 'circle') } catch {} }
 
   // White page header with colored rule
   doc.setFillColor(255, 255, 255); doc.rect(0, 0, PAGE_W, PAGE_H, 'F')
@@ -757,7 +768,7 @@ async function exportMonthlyPortrait(state, { preview, theme, doc: _doc, titleFo
 
   // Pre-compute circular logo (once, reused on each page)
   let circLogoPort = null
-  if (schoolInfo.logo) { try { circLogoPort = await circularCropImage(schoolInfo.logo) } catch {} }
+  if (schoolInfo.logo) { try { circLogoPort = await cropLogoImage(schoolInfo.logo, settings.logoShape || 'circle') } catch {} }
 
   const MONTHS_PORT = getAcademicMonths(settings.academicYear)
   const monthsToRender = monthIndex !== null
@@ -867,7 +878,7 @@ async function exportYearAtAGlance(state, { preview, theme, doc, titleFont, shab
 
   // Pre-compute circular logo
   let circLogoGlance = null
-  if (schoolInfo.logo) { try { circLogoGlance = await circularCropImage(schoolInfo.logo) } catch {} }
+  if (schoolInfo.logo) { try { circLogoGlance = await cropLogoImage(schoolInfo.logo, settings.logoShape || 'circle') } catch {} }
 
   // Page header
   doc.setFillColor(pr, pg, pb); doc.rect(0, 0, PAGE_W, HEADER_H, 'F')
@@ -930,7 +941,7 @@ async function exportDarkElegant(state, { preview, theme, doc, titleFont, shabba
 
   // Pre-compute circular logo
   let circLogoDark = null
-  if (schoolInfo.logo) { try { circLogoDark = await circularCropImage(schoolInfo.logo) } catch {} }
+  if (schoolInfo.logo) { try { circLogoDark = await cropLogoImage(schoolInfo.logo, settings.logoShape || 'circle') } catch {} }
 
   // Dark background fill
   doc.setFillColor(...BG); doc.rect(0, 0, PAGE_W, PAGE_H, 'F')
@@ -1064,7 +1075,7 @@ async function exportBulletinBoard(state, { preview, theme, doc, titleFont, shab
 
   // Pre-compute circular logo
   let circLogoBB = null
-  if (schoolInfo.logo) { try { circLogoBB = await circularCropImage(schoolInfo.logo) } catch {} }
+  if (schoolInfo.logo) { try { circLogoBB = await cropLogoImage(schoolInfo.logo, settings.logoShape || 'circle') } catch {} }
 
   // Theme-colored header bar (month bodies still use the colorful PALETTE)
   doc.setFillColor(pr, pg, pb); doc.rect(0, 0, PAGE_W, HEADER_H, 'F')

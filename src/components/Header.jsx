@@ -1,5 +1,6 @@
 import React, { useState, useCallback, useRef } from 'react'
 import { useCalendar } from '../context/CalendarContext.jsx'
+import { useAuth } from '../context/AuthContext.jsx'
 import { generateShareUrl, copyToClipboard } from '../utils/shareUrl.js'
 import { exportPPTX } from '../utils/exportPPTX.js'
 import { exportICS } from '../utils/exportICS.js'
@@ -18,6 +19,12 @@ export default function Header({
 }) {
   const { state, dispatch, readOnly, isSharedView, canUndo, canRedo } = useCalendar()
   const { settings, schoolInfo, events, categories } = state
+  const { session, signOut } = useAuth()
+  const [accountOpen, setAccountOpen] = useState(false)
+
+  const hash = window.location.hash.slice(1)
+  const isYayoe = hash === 'yayoe' || hash.startsWith('yayoe-')
+  const showAccount = session && !isYayoe
 
   const [exportOpen, setExportOpen] = useState(false)
   const [icsMenuOpen, setIcsMenuOpen] = useState(false)
@@ -270,6 +277,33 @@ export default function Header({
           )}
         </div>
 
+        {/* Account / Logout */}
+        {showAccount && (
+          <div className="relative">
+            <button
+              onClick={() => setAccountOpen(o => !o)}
+              className="w-8 h-8 rounded-full bg-white/20 hover:bg-white/30 transition flex items-center justify-center text-white font-bold text-sm"
+              title={session.user.email}
+            >
+              {session.user.email?.[0]?.toUpperCase() || '?'}
+            </button>
+            {accountOpen && (
+              <div className="absolute right-0 top-full mt-1 w-52 bg-white text-gray-800 rounded-xl shadow-2xl border border-gray-100 overflow-hidden z-50">
+                <div className="px-4 py-3 border-b border-gray-100">
+                  <p className="text-[10px] text-gray-400 uppercase tracking-widest font-bold mb-0.5">Logged in as</p>
+                  <p className="text-xs text-gray-700 font-medium truncate">{session.user.email}</p>
+                </div>
+                <button
+                  onClick={() => { setAccountOpen(false); signOut() }}
+                  className="w-full text-left px-4 py-2.5 hover:bg-red-50 text-sm text-red-500 font-medium"
+                >
+                  Log Out
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Settings */}
         <button
           onClick={onOpenSettings}
@@ -281,10 +315,10 @@ export default function Header({
       </div>
 
       {/* Close dropdowns on outside click */}
-      {(exportOpen || icsMenuOpen) && (
+      {(exportOpen || icsMenuOpen || accountOpen) && (
         <div
           className="fixed inset-0 z-40"
-          onClick={() => { setExportOpen(false); setIcsMenuOpen(false) }}
+          onClick={() => { setExportOpen(false); setIcsMenuOpen(false); setAccountOpen(false) }}
         />
       )}
 
