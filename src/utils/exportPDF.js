@@ -647,8 +647,9 @@ async function exportMinimal(state, { preview, theme, doc, titleFont, shabbatLab
   const HEADER_H = 14
   const LEG_H = 9
   const showBottomPanel = settings.eventsPanel === 'bottom'
-  const NOTES_H = showBottomPanel ? 0 : 10
-  const BOTTOM_H = showBottomPanel ? 24 : 0
+  const maxEvMin = showBottomPanel ? 0 : computeMaxEventsPerMonth(events, settings.academicYear)
+  const NOTES_H = showBottomPanel ? 0 : Math.min(Math.max(8, maxEvMin * 2.2 + 2), 22)
+  const BOTTOM_H = showBottomPanel ? 26 : 0
   const GRID_W = PAGE_W - MARGIN * 2
   const MONTH_W = (GRID_W / 4) - 2.5
   const MONTH_H = (PAGE_H - HEADER_H - 3 - MARGIN - LEG_H - BOTTOM_H - (showBottomPanel ? 2 : 0)) / 3 - NOTES_H - 3
@@ -837,7 +838,7 @@ async function exportYearAtAGlance(state, { preview, theme, doc, titleFont, shab
   const [pr, pg, pb] = hexToRgbLocal(theme.primary)
   const [ar, ag, ab] = hexToRgbLocal(theme.accent)
   const PAGE_W = 297, PAGE_H = 210, MARGIN = 5
-  const COLS = 5, ROWS = 2
+  const COLS = 4, ROWS = 3  // 4×3 = 12 slots for 11 months, June no longer cut off
   const MONTH_W = (PAGE_W - MARGIN * 2 - (COLS - 1) * 2) / COLS
   const HEADER_H = 12
   const MONTH_H = (PAGE_H - HEADER_H - MARGIN * 2 - (ROWS - 1) * 2) / ROWS
@@ -898,8 +899,9 @@ async function exportDarkElegant(state, { preview, theme, doc, titleFont, shabba
   const MONTH_W = (GRID_W / 4) - 2
   const HEADER_H = 18
   const showBottomPanel = settings.eventsPanel === 'bottom'
-  const NOTES_H = showBottomPanel ? 0 : 8
-  const BOTTOM_H = showBottomPanel ? 22 : 0
+  const maxEvDE = showBottomPanel ? 0 : computeMaxEventsPerMonth(events, settings.academicYear)
+  const NOTES_H = showBottomPanel ? 0 : Math.min(Math.max(8, maxEvDE * 2.2 + 2), 22)
+  const BOTTOM_H = showBottomPanel ? 26 : 0
   const catMapDE = {}; categories.forEach(c => { catMapDE[c.id] = c })
   const MONTH_H = (PAGE_H - HEADER_H - MARGIN - 6 - BOTTOM_H) / 3 - (showBottomPanel ? 0 : NOTES_H)
   const BG = [15, 20, 38], CARD = [24, 32, 58], TEXC = [215, 225, 245]
@@ -1031,8 +1033,9 @@ async function exportBulletinBoard(state, { preview, theme, doc, titleFont, shab
   const MONTH_W = (GRID_W / 4) - 2
   const HEADER_H = 16
   const showBottomPanelBB = settings.eventsPanel === 'bottom'
-  const NOTES_H_BB = showBottomPanelBB ? 0 : 8
-  const BOTTOM_H_BB = showBottomPanelBB ? 22 : 0
+  const maxEvBB = showBottomPanelBB ? 0 : computeMaxEventsPerMonth(events, settings.academicYear)
+  const NOTES_H_BB = showBottomPanelBB ? 0 : Math.min(Math.max(8, maxEvBB * 2.2 + 2), 22)
+  const BOTTOM_H_BB = showBottomPanelBB ? 26 : 0
   const catMapBB = {}; categories.forEach(c => { catMapBB[c.id] = c })
   const MONTH_H = (PAGE_H - HEADER_H - MARGIN - 6 - BOTTOM_H_BB) / 3 - (showBottomPanelBB ? 0 : NOTES_H_BB)
   const PALETTE = ['#E63946','#2A9D8F','#E9800A','#264653','#6A4C93','#F4A261','#43AA8B','#577590','#E07A5F','#3D405B']
