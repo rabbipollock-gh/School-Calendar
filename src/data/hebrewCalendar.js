@@ -109,7 +109,7 @@ export const HEBREW_HOLIDAY_MAP = {
   '2027-06-11': { group: 'shavuos', ashkenaz: 'Shavuos', sephardi: 'Shavuot', icon: '📜' },
   '2027-06-12': { group: 'shavuos', ashkenaz: 'Shavuos', sephardi: 'Shavuot', icon: '📜' },
   // ── Individual Jewish Holidays (each has its own toggle) ──
-  '2027-02-01': { group: 'tu-bshvat',     ashkenaz: "Tu B'Shvat",    sephardi: "Tu B'Shvat",    icon: '🌳' },
+  '2027-01-22': { group: 'tu-bshvat',     ashkenaz: "Tu B'Shvat",    sephardi: "Tu B'Shvat",    icon: '🌳' },
   '2027-05-11': { group: 'yom-hazikaron', ashkenaz: 'Yom HaZikaron', sephardi: 'Yom HaZikaron', icon: '🕯️' },
   '2027-05-12': { group: 'yom-haatzmaut', ashkenaz: 'Yom HaAtzmaut', sephardi: 'Yom HaAtzmaut', icon: '🇮🇱' },
   '2027-05-25': { group: 'lag-baomer',    ashkenaz: "Lag B'Omer",    sephardi: "Lag B'Omer",    icon: '🔥' },
@@ -143,7 +143,7 @@ export const HOLIDAY_SUGGESTIONS = [
   { id: 'hs-asara', date: '2026-12-20', label: 'Asara B\'Teves', category: 'early-dismissal', hebrewDate: '10 Tevet 5787' },
 
   // Shvat
-  { id: 'hs-tubshvat', date: '2027-02-01', label: 'Tu B\'Shvat', category: 'school-event', hebrewDate: '15 Shvat 5787' },
+  { id: 'hs-tubshvat', date: '2027-01-22', label: 'Tu B\'Shvat', category: 'school-event', hebrewDate: '15 Shvat 5787' },
 
   // Adar
   { id: 'hs-taanit', date: '2027-03-22', label: 'Taanis Esther', category: 'early-dismissal', hebrewDate: '13 Adar 5787' },
