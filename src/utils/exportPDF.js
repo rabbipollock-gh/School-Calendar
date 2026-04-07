@@ -290,6 +290,41 @@ function drawBottomEventsPanel(doc, events, categories, y, pageW, margin, sideba
   })
 }
 
+// Helper: draw a per-month inline notes strip at (x, y, w × h)
+function drawNotesStrip(doc, events, catMap, x, y, w, h, year, month) {
+  const days = getDaysInMonth(year, month)
+  doc.setFillColor(248, 249, 251)
+  doc.rect(x, y, w, h, 'F')
+  doc.setDrawColor(210, 215, 220); doc.setLineWidth(0.15)
+  doc.line(x, y, x + w, y)
+  const notesEvents = {}
+  days.forEach(date => {
+    const dateKey = formatDateKey(date)
+    ;(events[dateKey] || []).filter(e => e.category !== 'rosh-chodesh').forEach(ev => {
+      const key = `${ev.category}::${ev.label}`
+      if (!notesEvents[key]) notesEvents[key] = { ev, dates: [] }
+      notesEvents[key].dates.push(dateKey)
+    })
+  })
+  let lineY = y + 2.5
+  const maxY = y + h - 0.5
+  doc.setFontSize(3.2); doc.setFont('helvetica', 'normal')
+  for (const { ev, dates } of Object.values(notesEvents)) {
+    if (lineY > maxY) break
+    const cat = catMap[ev.category]
+    const color = ev.color || cat?.color || '#999'
+    const [r, g, b] = hexToRgbLocal(color)
+    doc.setFillColor(r, g, b); doc.circle(x + 1, lineY - 0.5, 0.5, 'F')
+    const groups = groupConsecutiveDates([...dates].sort())
+    const rangeStr = groups.map(g => formatRangeLabel(g)).join(', ')
+    const lineText = `${rangeStr} | ${ev.label}`
+    const lines = doc.splitTextToSize(lineText, w - 3.5)
+    doc.setTextColor(60, 60, 60)
+    doc.text(lines, x + 2.5, lineY, { maxWidth: w - 3.5 })
+    lineY += lines.length * 1.5 + 0.6
+  }
+}
+
 export async function exportPDF(state, { preview = false, pdfStyle = 'classic', monthIndex = null } = {}) {
   const { events, categories, schoolInfo, settings } = state
   const theme = getTheme(settings.theme, settings.customPrimary, settings.customAccent)
@@ -610,10 +645,14 @@ async function exportMinimal(state, { preview, theme, doc, titleFont, shabbatLab
   const [ar, ag, ab] = hexToRgbLocal(theme.accent)
   const PAGE_W = 297, PAGE_H = 210, MARGIN = 8
   const HEADER_H = 14
-  const EVENTS_STRIP_H = 20  // room for the events list panel
+  const LEG_H = 9
+  const showBottomPanel = settings.eventsPanel === 'bottom'
+  const NOTES_H = showBottomPanel ? 0 : 10
+  const BOTTOM_H = showBottomPanel ? 24 : 0
   const GRID_W = PAGE_W - MARGIN * 2
   const MONTH_W = (GRID_W / 4) - 2.5
-  const MONTH_H = (PAGE_H - HEADER_H - MARGIN * 2 - 10 - EVENTS_STRIP_H) / 3
+  const MONTH_H = (PAGE_H - HEADER_H - 3 - MARGIN - LEG_H - BOTTOM_H - (showBottomPanel ? 2 : 0)) / 3 - NOTES_H - 3
+  const catMap = {}; categories.forEach(c => { catMap[c.id] = c })
 
   // Pre-compute circular logo
   let circLogoMin = null
@@ -640,62 +679,24 @@ async function exportMinimal(state, { preview, theme, doc, titleFont, shabbatLab
 
   const startY = HEADER_H + 3
   const MONTHS_MIN = getAcademicMonths(settings.academicYear)
+  const rowStep = MONTH_H + (showBottomPanel ? 0 : NOTES_H) + 3
   MONTHS_MIN.forEach(({ year, month }, idx) => {
     const col = idx % 4; const row = Math.floor(idx / 4)
     const x = MARGIN + col * (MONTH_W + 3)
-    const y = startY + row * (MONTH_H + 3)
+    const y = startY + row * rowStep
     drawMiniMonth(doc, { year, month }, events, categories, settings, {
       x, y, w: MONTH_W, h: MONTH_H, pr, pg, pb, ar, ag, ab, titleFont, shabbatLabel
     })
+    if (!showBottomPanel) {
+      drawNotesStrip(doc, events, catMap, x, y + MONTH_H, MONTH_W, NOTES_H, year, month)
+    }
   })
 
-  // ── Events strip ─────────────────────────────────────────────────────────
-  const catMap = {}
-  categories.forEach(c => { catMap[c.id] = c })
-  const eventsStripY = PAGE_H - 7 - EVENTS_STRIP_H - 2
-  doc.setFillColor(248, 249, 252); doc.rect(0, eventsStripY, PAGE_W, EVENTS_STRIP_H, 'F')
-  doc.setDrawColor(pr, pg, pb); doc.setLineWidth(0.4); doc.line(0, eventsStripY, PAGE_W, eventsStripY)
-  doc.setFillColor(pr, pg, pb); doc.rect(0, eventsStripY, PAGE_W, 5, 'F')
-  doc.setTextColor(255, 255, 255); doc.setFontSize(5); doc.setFont(titleFont, 'bold')
-  doc.text('SCHOOL EVENTS', MARGIN, eventsStripY + 3.6)
-  // Collect all events grouped by month
-  const MONTH_ABBR = ['Aug','Sep','Oct','Nov','Dec','Jan','Feb','Mar','Apr','May','Jun']
-  let evLineX = MARGIN
-  const evLineY1 = eventsStripY + 9
-  MONTHS_MIN.forEach(({ year, month }, mi) => {
-    const monthKey = `${year}-${String(month + 1).padStart(2, '0')}`
-    const monthEvs = {}
-    Object.entries(events).forEach(([dk, evs]) => {
-      if (!dk.startsWith(monthKey)) return
-      ;(evs || []).filter(e => e.category !== 'rosh-chodesh').forEach(ev => {
-        const key = `${ev.category}::${ev.label}`
-        if (!monthEvs[key]) monthEvs[key] = { ev, dates: [] }
-        monthEvs[key].dates.push(dk)
-      })
-    })
-    const entries = Object.values(monthEvs)
-    if (entries.length === 0) return
-    // Month label
-    if (evLineX + 20 > PAGE_W - MARGIN) return  // no room
-    doc.setFillColor(ar, ag, ab); doc.setFont('helvetica', 'bold'); doc.setFontSize(4)
-    doc.setTextColor(pr, pg, pb)
-    doc.text(`${MONTH_ABBR[mi]}:`, evLineX, evLineY1)
-    evLineX += doc.getTextWidth(`${MONTH_ABBR[mi]}: `) + 1
-    entries.slice(0, 3).forEach(({ ev, dates }) => {
-      if (evLineX + 30 > PAGE_W - MARGIN) return
-      const cat = catMap[ev.category]
-      const color = ev.color || cat?.color || '#999'
-      const [cr, cg, cb] = hexToRgbLocal(color)
-      doc.setFillColor(cr, cg, cb); doc.circle(evLineX + 1, evLineY1 - 0.8, 1.2, 'F')
-      doc.setTextColor(50, 50, 50); doc.setFont('helvetica', 'normal'); doc.setFontSize(3.8)
-      const groups = groupConsecutiveDates([...dates].sort())
-      const rangeStr = formatRangeLabel(groups[0]) + (groups.length > 1 ? '+' : '')
-      const label = ev.label || ''
-      const text = `${rangeStr} ${label.length > 14 ? label.slice(0, 13) + '…' : label}`
-      doc.text(text, evLineX + 3.5, evLineY1)
-      evLineX += doc.getTextWidth(text) + 6
-    })
-  })
+  // ── Bottom events panel ───────────────────────────────────────────────────
+  if (showBottomPanel) {
+    const panelY = startY + 3 * rowStep
+    drawBottomEventsPanel(doc, events, categories, panelY, PAGE_W, MARGIN, 0, BOTTOM_H, settings.academicYear)
+  }
 
   // Legend strip at bottom
   const legY = PAGE_H - 7
@@ -891,13 +892,16 @@ async function exportYearAtAGlance(state, { preview, theme, doc, titleFont, shab
 // ────────────────────────────────────────────────────────────────────────────
 async function exportDarkElegant(state, { preview, theme, doc, titleFont, shabbatLabel }) {
   const { events, categories, schoolInfo, settings } = state
-  const [pr, pg, pb] = hexToRgbLocal(theme.primary)
   const [ar, ag, ab] = hexToRgbLocal(theme.accent)
   const PAGE_W = 297, PAGE_H = 210, MARGIN = 8, SIDEBAR_W = 50
   const GRID_W = PAGE_W - MARGIN * 2 - SIDEBAR_W
   const MONTH_W = (GRID_W / 4) - 2
   const HEADER_H = 18
-  const MONTH_H = (PAGE_H - HEADER_H - MARGIN - 6) / 3
+  const showBottomPanel = settings.eventsPanel === 'bottom'
+  const NOTES_H = showBottomPanel ? 0 : 8
+  const BOTTOM_H = showBottomPanel ? 22 : 0
+  const catMapDE = {}; categories.forEach(c => { catMapDE[c.id] = c })
+  const MONTH_H = (PAGE_H - HEADER_H - MARGIN - 6 - BOTTOM_H) / 3 - (showBottomPanel ? 0 : NOTES_H)
   const BG = [15, 20, 38], CARD = [24, 32, 58], TEXC = [215, 225, 245]
 
   // Pre-compute circular logo
@@ -926,10 +930,11 @@ async function exportDarkElegant(state, { preview, theme, doc, titleFont, shabba
   }
 
   const startY = HEADER_H + 2
+  const deRowStep = MONTH_H + (showBottomPanel ? 0 : NOTES_H) + 3
   getAcademicMonths(settings.academicYear).forEach(({ year, month }, idx) => {
     const col = idx % 4; const row = Math.floor(idx / 4)
     const x = MARGIN + 4 + col * (MONTH_W + 2.5)
-    const y = startY + row * (MONTH_H + 3)
+    const y = startY + row * deRowStep
 
     // Month card
     doc.setFillColor(...CARD); doc.roundedRect(x, y, MONTH_W, MONTH_H, 1.5, 1.5, 'F')
@@ -985,7 +990,15 @@ async function exportDarkElegant(state, { preview, theme, doc, titleFont, shabba
         doc.text(String(dayNum), cx + 1, cy + 3.5)
       }
     })
+    if (!showBottomPanel) {
+      drawNotesStrip(doc, events, catMapDE, x, y + MONTH_H, MONTH_W, NOTES_H, year, month)
+    }
   })
+
+  if (showBottomPanel) {
+    const panelY = startY + 3 * deRowStep
+    drawBottomEventsPanel(doc, events, categories, panelY, PAGE_W, MARGIN, SIDEBAR_W, BOTTOM_H, settings.academicYear)
+  }
 
   // Dark sidebar
   const sbX = PAGE_W - MARGIN - SIDEBAR_W
@@ -1017,7 +1030,11 @@ async function exportBulletinBoard(state, { preview, theme, doc, titleFont, shab
   const GRID_W = PAGE_W - MARGIN * 2 - SIDEBAR_W
   const MONTH_W = (GRID_W / 4) - 2
   const HEADER_H = 16
-  const MONTH_H = (PAGE_H - HEADER_H - MARGIN - 6) / 3
+  const showBottomPanelBB = settings.eventsPanel === 'bottom'
+  const NOTES_H_BB = showBottomPanelBB ? 0 : 8
+  const BOTTOM_H_BB = showBottomPanelBB ? 22 : 0
+  const catMapBB = {}; categories.forEach(c => { catMapBB[c.id] = c })
+  const MONTH_H = (PAGE_H - HEADER_H - MARGIN - 6 - BOTTOM_H_BB) / 3 - (showBottomPanelBB ? 0 : NOTES_H_BB)
   const PALETTE = ['#E63946','#2A9D8F','#E9800A','#264653','#6A4C93','#F4A261','#43AA8B','#577590','#E07A5F','#3D405B']
 
   // Pre-compute circular logo
@@ -1041,10 +1058,11 @@ async function exportBulletinBoard(state, { preview, theme, doc, titleFont, shab
   }
 
   const startY = HEADER_H + 2
+  const bbRowStep = MONTH_H + (showBottomPanelBB ? 0 : NOTES_H_BB) + 3
   getAcademicMonths(settings.academicYear).forEach(({ year, month }, idx) => {
     const col = idx % 4; const row = Math.floor(idx / 4)
     const x = MARGIN + col * (MONTH_W + 2)
-    const y = startY + row * (MONTH_H + 3)
+    const y = startY + row * bbRowStep
     const hdrColor = PALETTE[idx % PALETTE.length]
     const [hcr, hcg, hcb] = hexToRgbLocal(hdrColor)
 
@@ -1100,7 +1118,15 @@ async function exportBulletinBoard(state, { preview, theme, doc, titleFont, shab
         doc.setFontSize(3.8); doc.setFont('helvetica', 'normal'); doc.text(String(dayNum), cx + 1, cy + 3.5)
       }
     })
+    if (!showBottomPanelBB) {
+      drawNotesStrip(doc, events, catMapBB, x, y + MONTH_H, MONTH_W, NOTES_H_BB, year, month)
+    }
   })
+
+  if (showBottomPanelBB) {
+    const panelY = startY + 3 * bbRowStep
+    drawBottomEventsPanel(doc, events, categories, panelY, PAGE_W, MARGIN, SIDEBAR_W, BOTTOM_H_BB, settings.academicYear)
+  }
 
   // Sidebar
   const sbX = PAGE_W - MARGIN - SIDEBAR_W
