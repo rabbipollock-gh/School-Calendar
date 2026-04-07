@@ -4,7 +4,7 @@ import { getDaysInMonth, getFirstDayOfWeek, formatDateKey, groupConsecutiveDates
 
 import { getAcademicMonths } from './academicMonths.js'
 import { getHebrewMonthLabel } from '../data/hebrewMonthNames.js'
-import { ROSH_CHODESH_MAP } from '../data/hebrewCalendar.js'
+import { ROSH_CHODESH_MAP, HEBREW_HOLIDAY_MAP } from '../data/hebrewCalendar.js'
 import { getTheme, hexToRgb } from './themeUtils.js'
 
 const DAYS = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SHA']
@@ -101,6 +101,7 @@ function drawMonth(doc, { year, month }, events, categories, settings, x, y, w, 
     const dateKey = formatDateKey(date)
     const dayEvs = (events[dateKey] || []).filter(e => e.category !== 'rosh-chodesh')
     const rcMonth = ROSH_CHODESH_MAP[dateKey]
+    const hebrewHoliday = HEBREW_HOLIDAY_MAP[dateKey]
 
     // Shabbat background — always apply theme tint first
     if (dow === 6) {
@@ -157,13 +158,24 @@ function drawMonth(doc, { year, month }, events, categories, settings, x, y, w, 
     doc.setLineWidth(0.15)
     doc.rect(cx, cy, cellW, cellH, 'S')
 
-    // Rosh Chodesh badge — shown in all modes
+    // Rosh Chodesh badge
     if (rcMonth) {
       doc.setFontSize(2.8)
       doc.setFont('helvetica', 'italic')
       doc.setTextColor(isFilled && dayEvs.length > 0 ? 230 : 120, isFilled && dayEvs.length > 0 ? 200 : 100, isFilled && dayEvs.length > 0 ? 255 : 180)
-      doc.text(`R.Ch. ${rcMonth}`, cx + 0.5, cy + cellH - 0.5, { maxWidth: cellW - 1 })
+      doc.text(`R.Ch. ${rcMonth}`, cx + 0.5, cy + cellH - (hebrewHoliday ? 2.2 : 0.5), { maxWidth: cellW - 1 })
       doc.setFont('helvetica', 'normal')
+    }
+    // Hebrew holiday badge
+    if (hebrewHoliday && settings.hebrewHolidayToggles?.[hebrewHoliday.group] !== false) {
+      const customIcons = settings.hebrewHolidayIcons || {}
+      const icon = customIcons[hebrewHoliday.group] || hebrewHoliday.icon
+      const isAshkenaz = settings.shabbatLabel === 'Shabbos'
+      const hName = isAshkenaz ? hebrewHoliday.ashkenaz : hebrewHoliday.sephardi
+      doc.setFontSize(2.8)
+      doc.setFont('helvetica', 'normal')
+      doc.setTextColor(isFilled && dayEvs.length > 0 ? 255 : 160, isFilled && dayEvs.length > 0 ? 230 : 120, isFilled && dayEvs.length > 0 ? 100 : 20)
+      doc.text(`${icon} ${hName}`, cx + 0.5, cy + cellH - 0.5, { maxWidth: cellW - 1 })
     }
   })
 
@@ -357,7 +369,7 @@ export async function exportPDF(state, { preview = false, pdfStyle = 'classic', 
     : 0
   // Dynamic inline notes strip height: grows per-event count, capped at 20mm
   // Each event line ≈ 2.1mm + 3mm header. Cells need at least 4mm each (24mm for 6 rows).
-  const maxInlineEvents = !showBottomPanel && !isCompact ? computeMaxEventsPerMonth(events, settings.academicYear) : 0
+  const maxInlineEvents = !showBottomPanel ? computeMaxEventsPerMonth(events, settings.academicYear) : 0
   const globalNotesStripH = maxInlineEvents > 0
     ? Math.min(Math.max(12, maxInlineEvents * 2.2 + 3), 20)
     : 0
@@ -599,6 +611,7 @@ function drawMiniMonth(doc, { year, month }, events, categories, settings, {
     const dateKey = formatDateKey(date)
     const dayEvs = (events[dateKey] || []).filter(e => e.category !== 'rosh-chodesh')
     const isSha = dow === 6
+    const hebrewHolidayMini = HEBREW_HOLIDAY_MAP[dateKey]
 
     // Shabbat tint
     if (isSha) {
@@ -633,6 +646,15 @@ function drawMiniMonth(doc, { year, month }, events, categories, settings, {
     // Cell border
     doc.setDrawColor(210, 215, 220); doc.setLineWidth(0.15)
     doc.rect(cx, cy, cellW, cellH, 'S')
+
+    // Hebrew holiday badge
+    if (hebrewHolidayMini && settings.hebrewHolidayToggles?.[hebrewHolidayMini.group] !== false) {
+      const customIcons = settings.hebrewHolidayIcons || {}
+      const icon = customIcons[hebrewHolidayMini.group] || hebrewHolidayMini.icon
+      doc.setFontSize(2.5); doc.setFont('helvetica', 'normal')
+      doc.setTextColor(160, 100, 20)
+      doc.text(`${icon}`, cx + cellW - 2.5, cy + cellH - 0.6, { align: 'right', maxWidth: cellW - 1 })
+    }
   })
 }
 
