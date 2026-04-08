@@ -332,11 +332,12 @@ export function CalendarProvider({ children, readOnly = false }) {
 
   // ── Cloud sync: load when userId becomes available ────────────────────────
   useEffect(() => {
+    console.log('[CalendarContext] sync effect fired, userId:', userId, 'sharedState:', !!sharedState)
     if (sharedState || !userId) return
 
     loadFromCloud(userId).then(cloud => {
       if (!cloud) {
-        // No cloud data yet — push current state up (first login migration)
+        console.log('[CalendarContext] no cloud data, uploading local state')
         saveToCloud(userId, state).then(() => {
           setCloudToast('synced')
           setTimeout(() => setCloudToast(null), 3500)
@@ -344,16 +345,18 @@ export function CalendarProvider({ children, readOnly = false }) {
         return
       }
 
-      // Always show the "load cloud version" prompt if cloud has data
-      // (on a fresh device there's nothing to compare against)
       const localRaw = localStorage.getItem(getStorageKey())
       const localSavedAt = localRaw ? JSON.parse(localRaw)?._savedAt : null
+      console.log('[CalendarContext] cloud updatedAt:', cloud.updatedAt, 'local savedAt:', localSavedAt)
 
       if (!localSavedAt || new Date(cloud.updatedAt) > new Date(localSavedAt)) {
+        console.log('[CalendarContext] cloud is newer — showing prompt')
         setNewerCloudState(cloud.data)
         setCloudToast('newer')
+      } else {
+        console.log('[CalendarContext] local is same or newer — no prompt needed')
       }
-    }).catch(err => console.warn('Cloud load failed:', err))
+    }).catch(err => console.error('[CalendarContext] cloud load failed:', err))
   }, [userId]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Cloud sync: save on every state change (debounced 2s) ─────────────────
