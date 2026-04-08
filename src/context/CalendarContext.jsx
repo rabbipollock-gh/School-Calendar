@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useReducer, useEffect, useCallback, useState, useMemo } from 'react'
+import React, { createContext, useContext, useReducer, useEffect, useCallback, useState, useMemo, useRef } from 'react'
 import { getAcademicMonths } from '../utils/academicMonths.js'
 import { DEFAULT_CATEGORIES } from '../data/defaultCategories.js'
 import { DEFAULT_EVENTS, YAYOE_EVENTS } from '../data/defaultEvents.js'
@@ -6,6 +6,8 @@ import { nanoid } from '../utils/nanoid.js'
 import { getSharedState } from '../utils/shareUrl.js'
 import { getSchoolCode } from '../utils/schoolCode.js'
 import { getTheme, applyThemeToCss } from '../utils/themeUtils.js'
+import { loadFromCloud, saveToCloud, debounce } from '../lib/supabaseSync.js'
+import { useAuth } from './AuthContext.jsx'
 
 function getStorageKey() {
   return `yayoe-calendar-v1-${getSchoolCode() || 'default'}`
@@ -310,7 +312,12 @@ const CalendarContext = createContext(null)
 
 export function CalendarProvider({ children, readOnly = false }) {
   const sharedState = getSharedState()
+  const { session } = useAuth()
+  const userId = session?.user?.id ?? null
   const [collabUnlocked, setCollabUnlocked] = useState(false)
+  const [cloudToast, setCloudToast] = useState(null) // null | 'synced' | 'newer'
+  const [newerCloudState, setNewerCloudState] = useState(null)
+  const debouncedSaveRef = useRef(null)
 
   const [state, dispatch] = useReducer(
     reducer,
@@ -323,7 +330,43 @@ export function CalendarProvider({ children, readOnly = false }) {
     }
   )
 
-  // Apply theme CSS variables whenever theme changes
+  // ── Cloud sync: load on mount ──────────────────────────────────────────────
+  useEffect(() => {
+    if (sharedState) return
+    if (!userId) return
+
+    loadFromCloud(userId).then(cloud => {
+      if (!cloud) {
+        // No cloud data yet — upload current localStorage state (auto-migration)
+        saveToCloud(userId, state).then(() => {
+          setCloudToast('synced')
+          setTimeout(() => setCloudToast(null), 3500)
+        })
+        return
+      }
+
+      // Compare timestamps: is cloud newer than localStorage?
+      const localRaw = localStorage.getItem(getStorageKey())
+      const localUpdated = localRaw ? JSON.parse(localRaw)._savedAt : null
+      if (!localUpdated || new Date(cloud.updatedAt) > new Date(localUpdated)) {
+        setNewerCloudState(cloud.data)
+        setCloudToast('newer')
+      }
+    }).catch(() => {/* offline — ignore */})
+  }, [userId]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── Cloud sync: save on every change (debounced 2s) ────────────────────────
+  useEffect(() => {
+    if (sharedState) return
+    if (!userId) return
+
+    if (!debouncedSaveRef.current) {
+      debouncedSaveRef.current = debounce((s, uid) => saveToCloud(uid, s), 2000)
+    }
+    debouncedSaveRef.current(state, userId)
+  }, [state, sharedState])
+
+  // ── Apply theme CSS variables whenever theme changes ───────────────────────
   useEffect(() => {
     const theme = getTheme(
       state.settings.theme,
@@ -333,9 +376,9 @@ export function CalendarProvider({ children, readOnly = false }) {
     applyThemeToCss(theme)
   }, [state.settings.theme, state.settings.customPrimary, state.settings.customAccent])
 
-  // Auto-save to localStorage on every state change (skip undo stacks)
+  // Auto-save to localStorage on every state change (stamp with time for cloud comparison)
   useEffect(() => {
-    if (!sharedState) saveToStorage(state)
+    if (!sharedState) saveToStorage({ ...state, _savedAt: new Date().toISOString() })
   }, [state, sharedState])
 
   // Keyboard undo/redo
@@ -357,6 +400,18 @@ export function CalendarProvider({ children, readOnly = false }) {
     [state.settings.academicYear]
   )
 
+  function acceptCloudVersion() {
+    if (!newerCloudState) return
+    dispatch({ type: 'LOAD_STATE', state: { ...buildInitialState(), ...migrateState(newerCloudState) } })
+    setNewerCloudState(null)
+    setCloudToast(null)
+  }
+
+  function dismissCloudToast() {
+    setNewerCloudState(null)
+    setCloudToast(null)
+  }
+
   const value = {
     state,
     dispatch,
@@ -367,6 +422,10 @@ export function CalendarProvider({ children, readOnly = false }) {
     collabUnlocked,
     setCollabUnlocked,
     academicMonths,
+    cloudToast,
+    newerCloudState,
+    acceptCloudVersion,
+    dismissCloudToast,
   }
 
   return <CalendarContext.Provider value={value}>{children}</CalendarContext.Provider>
