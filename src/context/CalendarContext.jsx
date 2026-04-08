@@ -330,14 +330,13 @@ export function CalendarProvider({ children, readOnly = false }) {
     }
   )
 
-  // ── Cloud sync: load on mount ──────────────────────────────────────────────
+  // ── Cloud sync: load when userId becomes available ────────────────────────
   useEffect(() => {
-    if (sharedState) return
-    if (!userId) return
+    if (sharedState || !userId) return
 
     loadFromCloud(userId).then(cloud => {
       if (!cloud) {
-        // No cloud data yet — upload current localStorage state (auto-migration)
+        // No cloud data yet — push current state up (first login migration)
         saveToCloud(userId, state).then(() => {
           setCloudToast('synced')
           setTimeout(() => setCloudToast(null), 3500)
@@ -345,26 +344,26 @@ export function CalendarProvider({ children, readOnly = false }) {
         return
       }
 
-      // Compare timestamps: is cloud newer than localStorage?
+      // Always show the "load cloud version" prompt if cloud has data
+      // (on a fresh device there's nothing to compare against)
       const localRaw = localStorage.getItem(getStorageKey())
-      const localUpdated = localRaw ? JSON.parse(localRaw)._savedAt : null
-      if (!localUpdated || new Date(cloud.updatedAt) > new Date(localUpdated)) {
+      const localSavedAt = localRaw ? JSON.parse(localRaw)?._savedAt : null
+
+      if (!localSavedAt || new Date(cloud.updatedAt) > new Date(localSavedAt)) {
         setNewerCloudState(cloud.data)
         setCloudToast('newer')
       }
-    }).catch(() => {/* offline — ignore */})
+    }).catch(err => console.warn('Cloud load failed:', err))
   }, [userId]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ── Cloud sync: save on every change (debounced 2s) ────────────────────────
+  // ── Cloud sync: save on every state change (debounced 2s) ─────────────────
   useEffect(() => {
-    if (sharedState) return
-    if (!userId) return
-
+    if (sharedState || !userId) return
     if (!debouncedSaveRef.current) {
       debouncedSaveRef.current = debounce((s, uid) => saveToCloud(uid, s), 2000)
     }
     debouncedSaveRef.current(state, userId)
-  }, [state, sharedState])
+  }, [state, userId, sharedState]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Apply theme CSS variables whenever theme changes ───────────────────────
   useEffect(() => {
