@@ -337,11 +337,16 @@ export function CalendarProvider({ children, readOnly = false }) {
 
     loadFromCloud(userId).then(cloud => {
       if (!cloud) {
-        console.log('[CalendarContext] no cloud data, uploading local state')
-        saveToCloud(userId, state).then(() => {
-          setCloudToast('synced')
-          setTimeout(() => setCloudToast(null), 3500)
-        })
+        const hasLocalEvents = Object.keys(state.events || {}).length > 0
+        if (hasLocalEvents) {
+          console.log('[CalendarContext] no cloud data, uploading local state with events')
+          saveToCloud(userId, state).then(() => {
+            setCloudToast('synced')
+            setTimeout(() => setCloudToast(null), 3500)
+          })
+        } else {
+          console.log('[CalendarContext] no cloud data and no local events — skipping upload')
+        }
         return
       }
 
