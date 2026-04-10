@@ -11,7 +11,7 @@ const THEME_GROUPS = [
   { label: 'Warm / Dark', ids: ['olive-cream', 'midnight-sky'] },
 ]
 
-export default function SettingsDrawer({ isOpen, onClose, onOpenCategories, onOpenTemplates }) {
+export default function SettingsDrawer({ isOpen, onClose, onOpenCategories, onOpenTemplates, onOpenDiagnostics }) {
   const { state, dispatch, readOnly } = useCalendar()
   const { schoolInfo, settings } = state
   const fileInputRef = useRef(null)
@@ -447,6 +447,16 @@ export default function SettingsDrawer({ isOpen, onClose, onOpenCategories, onOp
               )}
             </div>
             <input ref={importRef} type="file" accept=".json" onChange={handleImportBackup} className="sr-only" />
+          </section>
+
+          {/* Diagnostics */}
+          <section className="pb-6">
+            <button
+              onClick={onOpenDiagnostics}
+              className="w-full text-xs border border-gray-200 dark:border-gray-700 text-gray-400 dark:text-gray-500 rounded-xl px-4 py-2 hover:bg-gray-50 dark:hover:bg-gray-800 transition text-left"
+            >
+              🛠 Diagnostics
+            </button>
           </section>
         </div>
 

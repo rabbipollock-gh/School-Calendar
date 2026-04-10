@@ -17,6 +17,10 @@ import HolidaySuggestionsPanel from './components/HolidaySuggestionsPanel.jsx'
 import TemplateSelector from './components/TemplateSelector.jsx'
 import PDFPreviewModal from './components/PDFPreviewModal.jsx'
 import CollabModal from './components/CollabModal.jsx'
+import DiagnosticsModal from './components/DiagnosticsModal.jsx'
+
+// Initialize error log interception as early as possible
+import './utils/errorLog.js'
 
 export default function App() {
   const { session, loading: authLoading, isNewUser } = useAuth()
@@ -48,6 +52,7 @@ export default function App() {
   const [templatesOpen, setTemplatesOpen] = useState(false)
   const [pdfPreviewOpen, setPdfPreviewOpen] = useState(false)
   const [collabOpen, setCollabOpen] = useState(false)
+  const [diagnosticsOpen, setDiagnosticsOpen] = useState(false)
   const [highlightDate, setHighlightDate] = useState(null)
 
   // Keyboard shortcut: Cmd+K opens search
@@ -195,6 +200,7 @@ export default function App() {
         onClose={() => setSettingsOpen(false)}
         onOpenCategories={() => { setSettingsOpen(false); setCategoriesOpen(true) }}
         onOpenTemplates={() => { setSettingsOpen(false); setTemplatesOpen(true) }}
+        onOpenDiagnostics={() => { setSettingsOpen(false); setDiagnosticsOpen(true) }}
       />
 
       {categoriesOpen && (
@@ -225,6 +231,10 @@ export default function App() {
 
       {collabOpen && (
         <CollabModal onClose={() => setCollabOpen(false)} />
+      )}
+
+      {diagnosticsOpen && (
+        <DiagnosticsModal onClose={() => setDiagnosticsOpen(false)} />
       )}
 
       {/* Shared view banner (mobile) */}
