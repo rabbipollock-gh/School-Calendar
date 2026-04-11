@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react'
+import React, { useRef, useState, useCallback } from 'react'
 import { useCalendar } from '../context/CalendarContext.jsx'
 import { THEME_MAP } from '../utils/themeUtils.js'
 import { HEBREW_HOLIDAY_GROUPS } from '../data/hebrewCalendar.js'
@@ -101,6 +101,14 @@ export default function SettingsDrawer({ isOpen, onClose, onOpenCategories, onOp
                 </Field>
                 <Field label="Fax">
                   <input type="text" value={schoolInfo.fax} onChange={e => updateInfo('fax', e.target.value)} readOnly={readOnly} className={inputCls} />
+                </Field>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <Field label="Email">
+                  <input type="email" value={schoolInfo.email || ''} onChange={e => updateInfo('email', e.target.value)} readOnly={readOnly} className={inputCls} placeholder="office@school.org" />
+                </Field>
+                <Field label="Website">
+                  <input type="text" value={schoolInfo.website || ''} onChange={e => updateInfo('website', e.target.value)} readOnly={readOnly} className={inputCls} placeholder="www.school.org" />
                 </Field>
               </div>
               <Field label="School Hours">
@@ -419,6 +427,18 @@ export default function SettingsDrawer({ isOpen, onClose, onOpenCategories, onOp
             </button>
           </section>
 
+          {/* PDF Sidebar Layout */}
+          {!readOnly && (
+            <section>
+              <h3 className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-widest mb-1">PDF Sidebar Layout</h3>
+              <p className="text-xs text-gray-400 dark:text-gray-500 mb-3">Drag to reorder · toggle eye to show/hide</p>
+              <SidebarBlockManager
+                blocks={settings.sidebarBlocks}
+                onChange={blocks => updateSettings('sidebarBlocks', blocks)}
+              />
+            </section>
+          )}
+
           {/* Backup */}
           <section className="pb-4">
             <h3 className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-widest mb-3">Backup & Restore</h3>
@@ -488,6 +508,88 @@ function Field({ label, children }) {
     <div>
       <label className="text-xs font-medium text-gray-500 dark:text-gray-400 block mb-1">{label}</label>
       {children}
+    </div>
+  )
+}
+
+const DEFAULT_BLOCKS = [
+  { id: 'hours',     label: 'School Hours',     visible: true },
+  { id: 'legend',    label: 'Event Legend',      visible: true },
+  { id: 'otherInfo', label: 'Other Information', visible: true },
+  { id: 'contact',   label: 'Contact Info',      visible: true },
+]
+
+function SidebarBlockManager({ blocks, onChange }) {
+  const normalizedBlocks = blocks?.length ? blocks : DEFAULT_BLOCKS
+  const [dragIdx, setDragIdx] = useState(null)
+  const [overIdx, setOverIdx] = useState(null)
+
+  const handleDragStart = (i) => setDragIdx(i)
+  const handleDragOver = (e, i) => { e.preventDefault(); setOverIdx(i) }
+  const handleDrop = (i) => {
+    if (dragIdx === null || dragIdx === i) { setDragIdx(null); setOverIdx(null); return }
+    const next = [...normalizedBlocks]
+    const [moved] = next.splice(dragIdx, 1)
+    next.splice(i, 0, moved)
+    onChange(next)
+    setDragIdx(null); setOverIdx(null)
+  }
+  const handleDragEnd = () => { setDragIdx(null); setOverIdx(null) }
+
+  const toggleVisible = (i) => {
+    onChange(normalizedBlocks.map((b, idx) => idx === i ? { ...b, visible: !b.visible } : b))
+  }
+
+  const move = (i, dir) => {
+    const j = i + dir
+    if (j < 0 || j >= normalizedBlocks.length) return
+    const next = [...normalizedBlocks]
+    ;[next[i], next[j]] = [next[j], next[i]]
+    onChange(next)
+  }
+
+  return (
+    <div className="space-y-1.5">
+      {normalizedBlocks.map((block, i) => (
+        <div
+          key={block.id}
+          draggable
+          onDragStart={() => handleDragStart(i)}
+          onDragOver={e => handleDragOver(e, i)}
+          onDrop={() => handleDrop(i)}
+          onDragEnd={handleDragEnd}
+          className={`flex items-center gap-2 px-2 py-2 rounded-xl border select-none transition-all ${
+            dragIdx === i ? 'opacity-40 scale-95' : ''
+          } ${
+            overIdx === i && dragIdx !== i
+              ? 'border-blue-400 bg-blue-50 dark:bg-blue-900/20'
+              : 'border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800'
+          }`}
+        >
+          {/* Drag handle */}
+          <span className="text-gray-300 dark:text-gray-600 cursor-grab active:cursor-grabbing text-base leading-none select-none">⠿</span>
+
+          {/* Label */}
+          <span className={`flex-1 text-sm ${block.visible !== false ? 'text-gray-700 dark:text-gray-200' : 'text-gray-300 dark:text-gray-600 line-through'}`}>
+            {block.label}
+          </span>
+
+          {/* Up/Down nudge buttons */}
+          <div className="flex gap-0.5">
+            <button onClick={() => move(i, -1)} disabled={i === 0} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 disabled:opacity-20 text-xs px-1">▲</button>
+            <button onClick={() => move(i, 1)} disabled={i === normalizedBlocks.length - 1} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 disabled:opacity-20 text-xs px-1">▼</button>
+          </div>
+
+          {/* Visibility toggle */}
+          <button
+            onClick={() => toggleVisible(i)}
+            title={block.visible !== false ? 'Hide from PDF' : 'Show in PDF'}
+            className={`text-sm transition ${block.visible !== false ? 'text-blue-400' : 'text-gray-300 dark:text-gray-600'}`}
+          >
+            {block.visible !== false ? '👁' : '🚫'}
+          </button>
+        </div>
+      ))}
     </div>
   )
 }

@@ -20,6 +20,79 @@ function hexToRgbLocal(hex) {
   return hexToRgb(hex)
 }
 
+const DEFAULT_SIDEBAR_BLOCKS = [
+  { id: 'hours',     visible: true },
+  { id: 'legend',    visible: true },
+  { id: 'otherInfo', visible: true },
+  { id: 'contact',   visible: true },
+]
+
+// Renders one sidebar block and returns the next Y position.
+// colors: { pr, pg, pb, ar, ag, ab, textRgb, linkRgb } — lets dark/light themes reuse same helper
+function renderSidebarBlock(doc, blockId, startY, { sbX, sbCx, SIDEBAR_W, ruleW, pr, pg, pb, ar, ag, ab, textRgb, linkRgb, schoolInfo, categories }) {
+  const [tr, tg, tb] = textRgb || [60, 70, 90]
+  const [lr, lg, lb] = linkRgb || [42, 100, 180]
+  let y = startY
+
+  switch (blockId) {
+    case 'hours': {
+      const hourLines = (schoolInfo.hours || '').split('\n').filter(l => l.trim())
+      if (!hourLines.length) return y
+      doc.setTextColor(pr, pg, pb); doc.setFontSize(7); doc.setFont('helvetica', 'bold')
+      doc.text('SCHOOL HOURS', sbCx, y, { align: 'center' })
+      doc.setDrawColor(ar, ag, ab); doc.setLineWidth(0.5)
+      doc.line(sbCx - ruleW / 2, y + 1.8, sbCx + ruleW / 2, y + 1.8)
+      doc.setFont('helvetica', 'normal'); doc.setFontSize(5); doc.setTextColor(tr, tg, tb)
+      hourLines.forEach((line, i) => doc.text(line.trim(), sbCx, y + 7 + i * 5.5, { align: 'center' }))
+      y += 7 + hourLines.length * 5.5 + 4
+      doc.setDrawColor(ar, ag, ab); doc.setLineWidth(0.5)
+      doc.line(sbX + 3, y, sbX + SIDEBAR_W - 3, y)
+      return y + 6
+    }
+    case 'legend': {
+      const visibleCats = categories.filter(c => c.visible && c.id !== 'rosh-chodesh')
+      if (!visibleCats.length) return y
+      doc.setTextColor(pr, pg, pb); doc.setFontSize(7); doc.setFont('helvetica', 'bold')
+      doc.text('LEGEND', sbCx, y, { align: 'center' })
+      doc.setDrawColor(ar, ag, ab); doc.setLineWidth(0.5)
+      doc.line(sbCx - ruleW / 2, y + 1.8, sbCx + ruleW / 2, y + 1.8)
+      y += 6
+      visibleCats.forEach((cat, idx) => {
+        const [r, g, b] = hexToRgbLocal(cat.color || '#999')
+        const itemY = y + idx * 5.5
+        doc.setFillColor(r, g, b); doc.rect(sbX + 5, itemY - 2.5, 5, 3.2, 'F')
+        doc.setTextColor(tr, tg, tb); doc.setFontSize(5); doc.setFont('helvetica', 'normal')
+        doc.text(cat.name, sbX + 12, itemY, { maxWidth: SIDEBAR_W - 14 })
+      })
+      y += visibleCats.length * 5.5 + 4
+      doc.setDrawColor(ar, ag, ab); doc.setLineWidth(0.5)
+      doc.line(sbX + 3, y, sbX + SIDEBAR_W - 3, y)
+      return y + 6
+    }
+    case 'otherInfo': {
+      if (!schoolInfo.otherInfo) return y
+      doc.setFontSize(4.5); doc.setFont('helvetica', 'normal')
+      const lines = doc.splitTextToSize(schoolInfo.otherInfo, SIDEBAR_W - 6).slice(0, 4)
+      doc.setTextColor(tr, tg, tb)
+      lines.forEach((line, i) => doc.text(line, sbCx, y + i * 5, { align: 'center' }))
+      y += lines.length * 5 + 4
+      doc.setDrawColor(ar, ag, ab); doc.setLineWidth(0.5)
+      doc.line(sbX + 3, y, sbX + SIDEBAR_W - 3, y)
+      return y + 6
+    }
+    case 'contact': {
+      doc.setFont('helvetica', 'normal'); doc.setFontSize(4.5); doc.setTextColor(tr, tg, tb)
+      if (schoolInfo.address) { doc.text(schoolInfo.address, sbCx, y, { align: 'center', maxWidth: SIDEBAR_W - 6 }); y += 5 }
+      if (schoolInfo.phone) { doc.text(`Tel: ${schoolInfo.phone}`, sbCx, y, { align: 'center' }); y += 4.5 }
+      if (schoolInfo.fax) { doc.text(`Fax: ${schoolInfo.fax}`, sbCx, y, { align: 'center' }); y += 4.5 }
+      if (schoolInfo.email) { doc.setTextColor(lr, lg, lb); doc.text(schoolInfo.email, sbCx, y, { align: 'center', maxWidth: SIDEBAR_W - 6 }); doc.setTextColor(tr, tg, tb); y += 4.5 }
+      if (schoolInfo.website) { doc.setTextColor(lr, lg, lb); doc.text(schoolInfo.website, sbCx, y, { align: 'center', maxWidth: SIDEBAR_W - 6 }) }
+      return y
+    }
+    default: return y
+  }
+}
+
 // Crop/shape a logo image using canvas. shape: 'circle' | 'square' | 'rounded'
 async function cropLogoImage(base64, shape = 'circle') {
   return new Promise((resolve) => {
@@ -496,73 +569,12 @@ export async function exportPDF(state, { preview = false, pdfStyle = 'classic', 
   doc.setFont(titleFont, 'bold')
   doc.text(settings.academicYear || '2026–2027', sbCx, sbTop + 27, { align: 'center' })
 
-  // ── SCHOOL HOURS section ──
-  const hoursY = sbTop + titleStripH + 7
-  doc.setTextColor(pr, pg, pb)
-  doc.setFontSize(7)
-  doc.setFont('helvetica', 'bold')
-  doc.text('SCHOOL HOURS', sbCx, hoursY, { align: 'center' })
-  // Accent underline rule
+  // ── Sidebar blocks (user-ordered) ──
   const ruleW = SIDEBAR_W * 0.78
-  doc.setDrawColor(ar, ag, ab)
-  doc.setLineWidth(0.5)
-  doc.line(sbCx - ruleW / 2, hoursY + 1.8, sbCx + ruleW / 2, hoursY + 1.8)
-
-  const hourLines = (schoolInfo.hours || 'Boys: 8:30 AM – 4:30 PM\nGirls: 8:30 AM – 3:30 PM\nFriday: 8:30 AM – 1:30 PM').split('\n')
-  doc.setFont('helvetica', 'normal')
-  doc.setFontSize(5)
-  doc.setTextColor(50, 60, 80)
-  hourLines.forEach((line, i) => {
-    doc.text(line.trim(), sbCx, hoursY + 7 + i * 5.5, { align: 'center' })
-  })
-
-  // ── Full-width accent divider ──
-  const midDivY = hoursY + 7 + hourLines.length * 5.5 + 4
-  doc.setDrawColor(ar, ag, ab)
-  doc.setLineWidth(0.5)
-  doc.line(sbX + 3, midDivY, sbX + SIDEBAR_W - 3, midDivY)
-
-  // ── LEGEND section ──
-  const legendHeadY = midDivY + 6
-  doc.setTextColor(pr, pg, pb)
-  doc.setFontSize(7)
-  doc.setFont('helvetica', 'bold')
-  doc.text('LEGEND', sbCx, legendHeadY, { align: 'center' })
-  // Accent underline rule
-  doc.setDrawColor(ar, ag, ab)
-  doc.setLineWidth(0.5)
-  doc.line(sbCx - ruleW / 2, legendHeadY + 1.8, sbCx + ruleW / 2, legendHeadY + 1.8)
-
-  const addrBlockH = 26
-  const legendStartY = legendHeadY + 6
-  const visibleCats = categories.filter(c => c.visible && c.id !== 'rosh-chodesh')
-  const legendItemH = 5.5
-  visibleCats.forEach((cat, idx) => {
-    const [r, g, b] = hexToRgb(cat.color)
-    const itemY = legendStartY + idx * legendItemH
-    // Rectangular swatch (matches reference PDF style)
-    doc.setFillColor(r, g, b)
-    doc.rect(sbX + 5, itemY - 2.5, 5, 3.2, 'F')
-    doc.setTextColor(40, 50, 70)
-    doc.setFontSize(5)
-    doc.setFont('helvetica', 'normal')
-    doc.text(cat.name, sbX + 12, itemY, { maxWidth: SIDEBAR_W - 14 })
-  })
-
-
-  // ── Contact block (anchored to bottom) ──
-  const addrY = sbTop + sbH - addrBlockH + 3
-  doc.setDrawColor(ar, ag, ab)
-  doc.setLineWidth(0.5)
-  doc.line(sbX + 3, addrY - 4, sbX + SIDEBAR_W - 3, addrY - 4)
-  doc.setFont('helvetica', 'normal')
-  doc.setFontSize(4.5)
-  doc.setTextColor(60, 70, 90)
-  doc.text(schoolInfo.address || '241 S. Detroit St., Los Angeles, CA 90036', sbCx, addrY, { align: 'center', maxWidth: SIDEBAR_W - 6 })
-  doc.text(`Tel: ${schoolInfo.phone || '323-556-6900'}`, sbCx, addrY + 5, { align: 'center' })
-  doc.text(`Fax: ${schoolInfo.fax || '323-556-6901'}`, sbCx, addrY + 10, { align: 'center' })
-  doc.setTextColor(42, 100, 180)
-  doc.text(schoolInfo.website || 'www.yayoe.org', sbCx, addrY + 15, { align: 'center' })
+  const blocks = (settings.sidebarBlocks || DEFAULT_SIDEBAR_BLOCKS).filter(b => b.visible !== false)
+  let blockY = sbTop + titleStripH + 7
+  const blockOpts = { sbX, sbCx, SIDEBAR_W, ruleW, pr, pg, pb, ar, ag, ab, textRgb: [50, 60, 80], schoolInfo, categories }
+  blocks.forEach(b => { blockY = renderSidebarBlock(doc, b.id, blockY, blockOpts) })
 
   if (preview) return doc.output('datauristring')
   doc.save(`${(schoolInfo.name || 'YAYOE').replace(/\s+/g, '-')}-Calendar-${settings.academicYear || '2026-27'}-${pdfStyle}.pdf`)
@@ -1035,20 +1047,25 @@ async function exportDarkElegant(state, { preview, theme, doc, titleFont, shabba
     drawBottomEventsPanel(doc, events, categories, panelY, PAGE_W, MARGIN, SIDEBAR_W, BOTTOM_H, settings.academicYear)
   }
 
-  // Dark sidebar
+  // Dark sidebar — blocks rendered using shared helper with dark theme colors
   const sbX = PAGE_W - MARGIN - SIDEBAR_W
   doc.setFillColor(...CARD); doc.rect(sbX, HEADER_H + 2, SIDEBAR_W, PAGE_H - HEADER_H - MARGIN - 2, 'F')
   doc.setFillColor(ar, ag, ab); doc.rect(sbX, HEADER_H + 2, SIDEBAR_W, 8, 'F')
   doc.setTextColor(...BG); doc.setFontSize(7); doc.setFont(titleFont, 'bold')
-  doc.text('LEGEND', sbX + SIDEBAR_W / 2, HEADER_H + 8, { align: 'center' })
-  let legY = HEADER_H + 16
-  categories.filter(c => c.visible && c.id !== 'rosh-chodesh').forEach(cat => {
-    const [cr, cg, cb] = hexToRgbLocal(cat.color || '#999')
-    doc.setFillColor(cr, cg, cb); doc.roundedRect(sbX + 4, legY - 2.5, 5, 4, 0.5, 0.5, 'F')
-    doc.setTextColor(...TEXC); doc.setFontSize(5); doc.setFont('helvetica', 'normal')
-    doc.text(cat.name, sbX + 11, legY, { maxWidth: SIDEBAR_W - 14 })
-    legY += 7
-  })
+  doc.text('', sbX + SIDEBAR_W / 2, HEADER_H + 8, { align: 'center' }) // spacer
+  const deSbCx = sbX + SIDEBAR_W / 2
+  const deRuleW = SIDEBAR_W * 0.78
+  const deBlocks = (settings.sidebarBlocks || DEFAULT_SIDEBAR_BLOCKS).filter(b => b.visible !== false)
+  let deBlockY = HEADER_H + 14
+  const [deAr, deAg, deAb] = [ar, ag, ab]
+  const deBlockOpts = {
+    sbX, sbCx: deSbCx, SIDEBAR_W, ruleW: deRuleW,
+    pr: ar, pg: ag, pb: ab,   // use accent as heading color on dark bg
+    ar: deAr, ag: deAg, ab: deAb,
+    textRgb: TEXC, linkRgb: [ar, ag, ab],
+    schoolInfo, categories,
+  }
+  deBlocks.forEach(b => { deBlockY = renderSidebarBlock(doc, b.id, deBlockY, deBlockOpts) })
 
   if (preview) return doc.output('datauristring')
   doc.save(`${(schoolInfo.name || 'Calendar').replace(/\s+/g, '-')}-DarkElegant.pdf`)
@@ -1164,20 +1181,23 @@ async function exportBulletinBoard(state, { preview, theme, doc, titleFont, shab
     drawBottomEventsPanel(doc, events, categories, panelY, PAGE_W, MARGIN, SIDEBAR_W, BOTTOM_H_BB, settings.academicYear)
   }
 
-  // Sidebar
+  // Sidebar — blocks rendered using shared helper
   const sbX = PAGE_W - MARGIN - SIDEBAR_W
   doc.setFillColor(252, 252, 255); doc.rect(sbX, HEADER_H + 2, SIDEBAR_W, PAGE_H - HEADER_H - MARGIN - 2, 'F')
   doc.setFillColor(pr, pg, pb); doc.rect(sbX, HEADER_H + 2, SIDEBAR_W, 8, 'F')
   doc.setTextColor(255, 255, 255); doc.setFontSize(7); doc.setFont(titleFont, 'bold')
-  doc.text('LEGEND', sbX + SIDEBAR_W / 2, HEADER_H + 8, { align: 'center' })
-  let legY = HEADER_H + 16
-  categories.filter(c => c.visible && c.id !== 'rosh-chodesh').forEach(cat => {
-    const [cr, cg, cb] = hexToRgbLocal(cat.color || '#999')
-    doc.setFillColor(cr, cg, cb); doc.roundedRect(sbX + 4, legY - 2.5, 5, 4, 0.5, 0.5, 'F')
-    doc.setTextColor(40, 40, 55); doc.setFontSize(5); doc.setFont('helvetica', 'normal')
-    doc.text(cat.name, sbX + 11, legY, { maxWidth: SIDEBAR_W - 14 })
-    legY += 7
-  })
+  doc.text('', sbX + SIDEBAR_W / 2, HEADER_H + 8, { align: 'center' }) // spacer
+  const bbSbCx = sbX + SIDEBAR_W / 2
+  const bbRuleW = SIDEBAR_W * 0.78
+  const bbBlocks = (settings.sidebarBlocks || DEFAULT_SIDEBAR_BLOCKS).filter(b => b.visible !== false)
+  let bbBlockY = HEADER_H + 14
+  const bbBlockOpts = {
+    sbX, sbCx: bbSbCx, SIDEBAR_W, ruleW: bbRuleW,
+    pr, pg, pb, ar, ag, ab,
+    textRgb: [40, 40, 55], linkRgb: [pr, pg, pb],
+    schoolInfo, categories,
+  }
+  bbBlocks.forEach(b => { bbBlockY = renderSidebarBlock(doc, b.id, bbBlockY, bbBlockOpts) })
 
   if (preview) return doc.output('datauristring')
   doc.save(`${(schoolInfo.name || 'Calendar').replace(/\s+/g, '-')}-BulletinBoard.pdf`)

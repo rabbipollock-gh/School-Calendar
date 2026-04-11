@@ -19,6 +19,8 @@ const DEFAULT_SCHOOL_INFO = {
   address: '241 S. Detroit St., Los Angeles, CA 90036',
   phone: '323-556-6900',
   fax: '323-556-6901',
+  email: '',
+  website: 'www.yayoe.org',
   logo: null,
   hours: 'Boys: 8:30 AM – 4:00 PM\nGirls: 8:30 AM – 3:30 PM\nFriday: 8:30 AM – 1:30 PM',
   otherInfo: '',
@@ -40,6 +42,12 @@ const DEFAULT_SETTINGS = {
   template: 'classic',
   cellStyle: 'dots',      // 'dots' | 'filled'
   eventsPanel: 'inline', // 'inline' | 'bottom'
+  sidebarBlocks: [
+    { id: 'hours',     label: 'School Hours',      visible: true },
+    { id: 'legend',    label: 'Event Legend',       visible: true },
+    { id: 'otherInfo', label: 'Other Information',  visible: true },
+    { id: 'contact',   label: 'Contact Info',       visible: true },
+  ],
 }
 
 // ── ID normalizer for default events ────────────────────────────────────
@@ -61,7 +69,7 @@ function buildInitialState() {
   const sourceEvents = isYayoe ? YAYOE_EVENTS : DEFAULT_EVENTS
   const events = normalizeEvents(sourceEvents)
   const schoolInfo = isYayoe ? DEFAULT_SCHOOL_INFO : {
-    name: '', address: '', phone: '', fax: '', logo: null, hours: '', website: '', otherInfo: '',
+    name: '', address: '', phone: '', fax: '', email: '', website: '', logo: null, hours: '', otherInfo: '',
   }
   return {
     events,
