@@ -13,6 +13,7 @@ export default function OnboardingWizard() {
   const [address, setAddress] = useState('')
   const [phone, setPhone] = useState('')
   const [fax, setFax] = useState('')
+  const [email, setEmail] = useState('')
   const [website, setWebsite] = useState('')
   const [hours, setHours] = useState('')
   const [otherInfo, setOtherInfo] = useState('')
@@ -22,7 +23,7 @@ export default function OnboardingWizard() {
   function saveAndFinish() {
     dispatch({
       type: 'UPDATE_SCHOOL_INFO',
-      info: { name: profile?.school_name || '', address, phone, fax, website, hours, otherInfo },
+      info: { name: profile?.school_name || '', address, phone, fax, email, website, hours, otherInfo },
     })
     dispatch({ type: 'UPDATE_SETTINGS', settings: { academicYear, hebrewYear } })
     completeOnboarding(session.user.id)
@@ -31,7 +32,7 @@ export default function OnboardingWizard() {
   function skip() {
     dispatch({
       type: 'UPDATE_SCHOOL_INFO',
-      info: { name: profile?.school_name || '', address, phone, fax, website, hours, otherInfo },
+      info: { name: profile?.school_name || '', address, phone, fax, email, website, hours, otherInfo },
     })
     dispatch({ type: 'UPDATE_SETTINGS', settings: { academicYear, hebrewYear } })
     completeOnboarding(session.user.id)
@@ -90,9 +91,14 @@ export default function OnboardingWizard() {
                   <input value={fax} onChange={e => setFax(e.target.value)} placeholder="(555) 000-0001" className={cls} />
                 </Field>
               </div>
-              <Field label="Website">
-                <input value={website} onChange={e => setWebsite(e.target.value)} placeholder="www.yourschool.org" className={cls} />
-              </Field>
+              <div className="grid grid-cols-2 gap-2">
+                <Field label="Email">
+                  <input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="office@school.org" className={cls} />
+                </Field>
+                <Field label="Website">
+                  <input value={website} onChange={e => setWebsite(e.target.value)} placeholder="www.school.org" className={cls} />
+                </Field>
+              </div>
             </div>
           )}
 
