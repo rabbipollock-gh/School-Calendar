@@ -103,13 +103,13 @@ async function cropLogoImage(base64, shape = 'circle') {
       canvas.width = size
       canvas.height = size
       const ctx = canvas.getContext('2d')
-      // Fill white first — prevents black background on transparent PNGs / JPEGs with clipping
-      ctx.fillStyle = '#ffffff'
-      ctx.fillRect(0, 0, size, size)
       if (shape === 'circle') {
         ctx.beginPath()
         ctx.arc(size / 2, size / 2, size / 2, 0, Math.PI * 2)
         ctx.clip()
+        // Fill white INSIDE clip so transparent logo pixels show white, not gray
+        ctx.fillStyle = '#ffffff'
+        ctx.fillRect(0, 0, size, size)
       } else if (shape === 'rounded') {
         const r = size * 0.15
         ctx.beginPath()
@@ -118,8 +118,15 @@ async function cropLogoImage(base64, shape = 'circle') {
         ctx.lineTo(r, size); ctx.arcTo(0, size, 0, size - r, r)
         ctx.lineTo(0, r); ctx.arcTo(0, 0, r, 0, r)
         ctx.closePath(); ctx.clip()
+        // Fill white INSIDE clip
+        ctx.fillStyle = '#ffffff'
+        ctx.fillRect(0, 0, size, size)
       }
-      // 'square' — no clip, draw as-is
+      // 'square' — no clip, fill white before drawing to prevent black transparent pixels
+      if (shape === 'square') {
+        ctx.fillStyle = '#ffffff'
+        ctx.fillRect(0, 0, size, size)
+      }
       ctx.drawImage(img, 0, 0, size, size)
       resolve(canvas.toDataURL('image/png'))
     }
@@ -1362,9 +1369,8 @@ async function exportParchmentScroll(state, { preview, monthIndex = null }) {
       const cy = gridTop + 5 + row * cellH
       const dateKey = dayNum >= 1 && dayNum <= daysInMonth ? formatDateKey(year, month, dayNum) : null
 
-      // Shabbat column tint
+      // Shabbat column tint (light sepia)
       if (col === 6 && dateKey) {
-        doc.setFillColor(sR, sG, sB, 0.08)
         doc.setFillColor(Math.min(255, sR + 175), Math.min(255, sG + 145), Math.min(255, sB + 115))
         doc.rect(cx, cy, cellW, cellH, 'F')
       }
@@ -1386,7 +1392,7 @@ async function exportParchmentScroll(state, { preview, monthIndex = null }) {
       if (roshChodeshMap[dateKey]) {
         doc.setFontSize(3.8)
         doc.setTextColor(crR, crG, crB)
-        doc.text('ר"ח', cx + cellW - 1.5, cy + 4, { align: 'right' })
+        doc.text('R.Ch.', cx + cellW - 1.5, cy + 4, { align: 'right' })
       }
 
       // Holiday badge
@@ -1454,10 +1460,10 @@ async function exportDualHeritage(state, { preview, theme, doc, titleFont, shabb
   doc.setFont(titleFont, 'bold')
   doc.setFontSize(9)
   doc.setTextColor(255, 255, 255)
-  doc.text(schoolName, MARGIN + 15, 9, { baseline: 'middle' })
+  doc.text(schoolName, MARGIN + 15, 9)
   doc.setFontSize(5.5)
   doc.setTextColor(gR, gG, gB)
-  doc.text(settings.academicYear?.replace('-', '–') || '', PW - MARGIN, 9, { align: 'right', baseline: 'middle' })
+  doc.text(settings.academicYear?.replace('-', '–') || '', PW - MARGIN, 9, { align: 'right' })
 
   if (schoolInfo.logo) {
     try {
@@ -1584,10 +1590,10 @@ async function exportRegalTriptych(state, { preview, theme, doc, titleFont, shab
   doc.setFont(titleFont, 'bold')
   doc.setFontSize(9)
   doc.setTextColor(255, 255, 255)
-  doc.text(schoolName, MARGIN + 15, 9, { baseline: 'middle' })
+  doc.text(schoolName, MARGIN + 15, 9)
   doc.setFontSize(5)
   doc.setTextColor(gR, gG, gB)
-  doc.text(settings.academicYear?.replace('-', '–') || '', PW - MARGIN, 9, { align: 'right', baseline: 'middle' })
+  doc.text(settings.academicYear?.replace('-', '–') || '', PW - MARGIN, 9, { align: 'right' })
 
   if (schoolInfo.logo) {
     try {
@@ -1891,16 +1897,16 @@ async function exportHebrewDateFocus(state, { preview, theme, doc, titleFont, sh
   doc.setFont(titleFont, 'bold')
   doc.setFontSize(9)
   doc.setTextColor(255, 255, 255)
-  doc.text(schoolName, MARGIN + 15, 9, { baseline: 'middle' })
+  doc.text(schoolName, MARGIN + 15, 9)
   doc.setFontSize(5)
   doc.setTextColor(ar, ag, ab)
-  doc.text(settings.academicYear?.replace('-', '–') || '', PW - MARGIN, 9, { align: 'right', baseline: 'middle' })
+  doc.text(settings.academicYear?.replace('-', '–') || '', PW - MARGIN, 9, { align: 'right' })
 
   // "Hebrew Dates" subtitle
   doc.setFont('helvetica', 'normal')
   doc.setFontSize(5)
   doc.setTextColor(180, 210, 255)
-  doc.text('Hebrew / Gregorian Date Reference', PW / 2, 9, { align: 'center', baseline: 'middle' })
+  doc.text('Hebrew / Gregorian Date Reference', PW / 2, 9, { align: 'center' })
 
   if (schoolInfo.logo) {
     try {
@@ -2130,7 +2136,7 @@ async function exportElegantFeminine(state, { preview, monthIndex = null }) {
         doc.setFont('helvetica', 'normal')
         doc.setFontSize(3.5)
         doc.setTextColor(chR, chG, chB)
-        doc.text('ר"ח', cx + cellW - 1.5, cy + 4.5, { align: 'right' })
+        doc.text('R.Ch.', cx + cellW - 1.5, cy + 4.5, { align: 'right' })
       }
 
       // Holiday
