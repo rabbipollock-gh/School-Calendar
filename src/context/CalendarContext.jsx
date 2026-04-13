@@ -32,6 +32,8 @@ const DEFAULT_SETTINGS = {
   shabbatLabel: 'Shabbat',
   shabbatHighlight: true,
   theme: 'navy-gold',
+  customPrimary: null,
+  customAccent: null,
   academicYear: '2026-2027',
   hebrewYear: '5787',
   calendarTitle: '',        // custom title override (empty = use school name)
@@ -42,8 +44,9 @@ const DEFAULT_SETTINGS = {
   draftWatermark: false,
   monthNotes: {},
   template: 'classic',
-  cellStyle: 'dots',      // 'dots' | 'filled'
-  eventsPanel: 'inline', // 'inline' | 'bottom'
+  cellStyle: 'dots',        // 'dots' | 'filled'
+  eventsPanel: 'inline',    // 'inline' | 'bottom'
+  logoShape: 'circle',      // 'circle' | 'rounded' | 'square'
   sidebarBlocks: [
     { id: 'hours',     label: 'School Hours',      visible: true },
     { id: 'legend',    label: 'Event Legend',       visible: true },
@@ -120,10 +123,19 @@ function migrateState(state) {
 }
 
 function saveToStorage(state) {
+  const { undoPast, undoFuture, ...toSave } = state
   try {
-    const { undoPast, undoFuture, ...toSave } = state
     localStorage.setItem(getStorageKey(), JSON.stringify(toSave))
-  } catch {}
+  } catch (e) {
+    if (e?.name === 'QuotaExceededError' || e?.code === 22) {
+      // Storage full — likely due to large logo. Save without logo as fallback.
+      try {
+        const withoutLogo = { ...toSave, schoolInfo: { ...toSave.schoolInfo, logo: null, bannerImage: null } }
+        localStorage.setItem(getStorageKey(), JSON.stringify(withoutLogo))
+        console.warn('[Storage] localStorage quota exceeded — logo/banner stripped from local save. Cloud sync will preserve them.')
+      } catch {}
+    }
+  }
 }
 
 // ── Reducer ───────────────────────────────────────────────────────────────
@@ -333,9 +345,19 @@ export function CalendarProvider({ children, readOnly = false }) {
     reducer,
     null,
     () => {
-      if (sharedState) return { ...buildInitialState(), ...migrateState(sharedState), undoPast: [], undoFuture: [] }
+      if (sharedState) return {
+        ...buildInitialState(), ...migrateState(sharedState),
+        // Deep-merge settings so new fields from DEFAULT_SETTINGS survive version upgrades
+        settings: { ...DEFAULT_SETTINGS, ...migrateState(sharedState)?.settings },
+        undoPast: [], undoFuture: [],
+      }
       const stored = loadFromStorage()
-      if (stored) return { ...buildInitialState(), ...migrateState(stored), undoPast: [], undoFuture: [] }
+      if (stored) return {
+        ...buildInitialState(), ...migrateState(stored),
+        // Deep-merge settings so new fields from DEFAULT_SETTINGS survive version upgrades
+        settings: { ...DEFAULT_SETTINGS, ...migrateState(stored)?.settings },
+        undoPast: [], undoFuture: [],
+      }
       return buildInitialState()
     }
   )
@@ -419,7 +441,12 @@ export function CalendarProvider({ children, readOnly = false }) {
 
   function acceptCloudVersion() {
     if (!newerCloudState) return
-    dispatch({ type: 'LOAD_STATE', state: { ...buildInitialState(), ...migrateState(newerCloudState) } })
+    const migrated = migrateState(newerCloudState)
+    dispatch({ type: 'LOAD_STATE', state: {
+      ...buildInitialState(), ...migrated,
+      settings: { ...DEFAULT_SETTINGS, ...migrated?.settings },
+      undoPast: [], undoFuture: [],
+    }})
     setNewerCloudState(null)
     setCloudToast(null)
   }

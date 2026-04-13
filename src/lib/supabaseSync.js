@@ -18,10 +18,10 @@ export async function loadFromCloud(userId) {
 
 // ── Save calendar data to Supabase (upsert) ─────────────────────────────────
 export async function saveToCloud(userId, calendarState) {
-  const { events, categories, schoolInfo, settings } = calendarState
+  const { events, categories, schoolInfo, settings, hebrewEventToggles } = calendarState
   logger.debug('sync', 'saveToCloud called', { userId })
   const { error } = await supabase.from('calendars').upsert(
-    { user_id: userId, data: { events, categories, schoolInfo, settings }, updated_at: new Date().toISOString() },
+    { user_id: userId, data: { events, categories, schoolInfo, settings, hebrewEventToggles }, updated_at: new Date().toISOString() },
     { onConflict: 'user_id' }
   )
   if (error) logger.error('sync', 'saveToCloud error', { error: error.message })
