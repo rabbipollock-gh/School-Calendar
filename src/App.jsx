@@ -26,23 +26,8 @@ export default function App() {
   const { session, loading: authLoading, isNewUser } = useAuth()
   const { state, isSharedView } = useCalendar()
 
-  const hash = window.location.hash.slice(1)
-  const isYayoe = hash === 'yayoe' || hash.startsWith('yayoe-')
-  const isSharedUrl = new URLSearchParams(window.location.search).has('cal')
-  const needsAuth = !isYayoe && !isSharedUrl && !session
-
-  if (authLoading) return (
-    <div className="min-h-screen bg-[#1e3a5f] flex items-center justify-center">
-      <div className="w-8 h-8 border-4 border-white/30 border-t-white rounded-full animate-spin" />
-    </div>
-  )
-
-  if (needsAuth) return <AuthGate />
-  if (isNewUser) return <OnboardingWizard />
-  const { events } = state
-
-  // Modal / panel state
-  const [modalDate, setModalDate] = useState(null)      // EventModal date key
+  // All hooks must come before any conditional returns (Rules of Hooks)
+  const [modalDate, setModalDate] = useState(null)
   const [bulkOpen, setBulkOpen] = useState(false)
   const [searchOpen, setSearchOpen] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
@@ -75,20 +60,35 @@ export default function App() {
     setSearchOpen(false)
     setHighlightDate(dateKey)
     setTimeout(() => setHighlightDate(null), 2000)
-    // Also open the event modal after scroll
     if (dateKey) setTimeout(() => setModalDate(dateKey), 300)
   }, [])
 
   // Count conflicts (excluding acknowledged ones)
   const conflictCount = useMemo(() => {
-    const acknowledged = new Set(state.settings.acknowledgedConflicts || [])
-    return Object.entries(events).filter(([dateKey, evs]) => {
+    const evts = state.events || {}
+    const acknowledged = new Set(state.settings?.acknowledgedConflicts || [])
+    return Object.entries(evts).filter(([dateKey, evs]) => {
       if (!Array.isArray(evs)) return false
       if (acknowledged.has(dateKey)) return false
       const nonRC = evs.filter(e => e.category !== 'rosh-chodesh')
       return nonRC.length > 1
     }).length
-  }, [events, state.settings.acknowledgedConflicts])
+  }, [state.events, state.settings?.acknowledgedConflicts])
+
+  const hash = window.location.hash.slice(1)
+  const isYayoe = hash === 'yayoe' || hash.startsWith('yayoe-')
+  const isSharedUrl = new URLSearchParams(window.location.search).has('cal')
+  const needsAuth = !isYayoe && !isSharedUrl && !session
+
+  if (authLoading) return (
+    <div className="min-h-screen bg-[#1e3a5f] flex items-center justify-center">
+      <div className="w-8 h-8 border-4 border-white/30 border-t-white rounded-full animate-spin" />
+    </div>
+  )
+
+  if (needsAuth) return <AuthGate />
+  if (isNewUser) return <OnboardingWizard />
+  const { events } = state
 
   return (
     <SchoolCodeGate>

@@ -1339,7 +1339,7 @@ async function exportParchmentScroll(state, { preview, monthIndex = null }) {
     const gridH = PH - gridTop - MARGIN - 4
     const cellW = (PW - MARGIN * 2) / 7
     const firstDay = getFirstDayOfWeek(year, month)
-    const daysInMonth = getDaysInMonth(year, month)
+    const daysInMonth = new Date(year, month + 1, 0).getDate()
     const totalCells = Math.ceil((firstDay + daysInMonth) / 7) * 7
     const rows = totalCells / 7
     const cellH = gridH / rows
@@ -1501,7 +1501,7 @@ async function exportDualHeritage(state, { preview, theme, doc, titleFont, shabb
     const DAY_H = 4.5
     const cellW = monthW / 7
     const firstDay = getFirstDayOfWeek(year, month)
-    const daysInMonth = getDaysInMonth(year, month)
+    const daysInMonth = new Date(year, month + 1, 0).getDate()
     const DAY_ABBR = ['S', 'M', 'T', 'W', 'T', 'F', 'S']
     DAY_ABBR.forEach((d, i) => {
       doc.setFont('helvetica', 'bold')
@@ -1670,7 +1670,7 @@ async function exportRegalTriptych(state, { preview, theme, doc, titleFont, shab
       })
 
       const firstDay = getFirstDayOfWeek(year, month)
-      const daysInMonth = getDaysInMonth(year, month)
+      const daysInMonth = new Date(year, month + 1, 0).getDate()
       const totalCells = Math.ceil((firstDay + daysInMonth) / 7) * 7
       const rows = totalCells / 7
       const cellH = (monthH - 10) / rows
@@ -1803,7 +1803,7 @@ async function exportPhotoShowcase(state, { preview, monthIndex = null }) {
     const gridH = PH - gridTop - MARGIN + 2
     const cellW = (PW - MARGIN * 2) / 7
     const firstDay = getFirstDayOfWeek(year, month)
-    const daysInMonth = getDaysInMonth(year, month)
+    const daysInMonth = new Date(year, month + 1, 0).getDate()
     const totalCells = Math.ceil((firstDay + daysInMonth) / 7) * 7
     const rows = totalCells / 7
     const cellH = gridH / rows
@@ -1950,7 +1950,7 @@ async function exportHebrewDateFocus(state, { preview, theme, doc, titleFont, sh
     })
 
     const firstDay = getFirstDayOfWeek(year, month)
-    const daysInMonth = getDaysInMonth(year, month)
+    const daysInMonth = new Date(year, month + 1, 0).getDate()
     const totalCells = Math.ceil((firstDay + daysInMonth) / 7) * 7
     const rows = totalCells / 7
     const cellH = (monthH - 12) / rows
@@ -2087,7 +2087,7 @@ async function exportElegantFeminine(state, { preview, monthIndex = null }) {
     const gridH = PH - gridTop - MARGIN - 4
     const cellW = (PW - MARGIN * 2) / 7
     const firstDay = getFirstDayOfWeek(year, month)
-    const daysInMonth = getDaysInMonth(year, month)
+    const daysInMonth = new Date(year, month + 1, 0).getDate()
     const totalCells = Math.ceil((firstDay + daysInMonth) / 7) * 7
     const rows = totalCells / 7
     const cellH = gridH / rows
