@@ -20,6 +20,15 @@ function hexToRgbLocal(hex) {
   return hexToRgb(hex)
 }
 
+// Converts "13:30" → "1:30pm", "09:00" → "9am"
+function formatTime(t) {
+  if (!t) return ''
+  const [h, m] = t.split(':').map(Number)
+  const ampm = h >= 12 ? 'pm' : 'am'
+  const hour = h % 12 || 12
+  return m === 0 ? `${hour}${ampm}` : `${hour}:${String(m).padStart(2, '0')}${ampm}`
+}
+
 const DEFAULT_SIDEBAR_BLOCKS = [
   { id: 'hours',     visible: true },
   { id: 'legend',    visible: true },
@@ -905,13 +914,21 @@ async function exportMonthlyPortrait(state, { preview, theme, doc: _doc, titleFo
       doc.text(String(dayNum), cx + 3, cy + 9)
 
       // Events as colored pills
-      dayEvs.slice(0, 3).forEach((ev, ei) => {
+      let evY1 = cy + 12
+      dayEvs.slice(0, 3).forEach((ev) => {
         const cat = categories.find(c => c.id === ev.category)
         const [er, eg, eb] = hexToRgbLocal(ev.color || cat?.color || '#999')
+        const hasTime = !!ev.time
+        const boxH = hasTime ? 9 : 6
         doc.setFillColor(er, eg, eb)
-        doc.roundedRect(cx + 1.5, cy + 12 + ei * 8, cellW - 3, 6, 0.8, 0.8, 'F')
+        doc.roundedRect(cx + 1.5, evY1, cellW - 3, boxH, 0.8, 0.8, 'F')
         doc.setTextColor(255, 255, 255); doc.setFontSize(5); doc.setFont('helvetica', 'bold')
-        doc.text(ev.label, cx + 3, cy + 16.5 + ei * 8, { maxWidth: cellW - 5 })
+        doc.text(ev.label, cx + 3, evY1 + 4.5, { maxWidth: cellW - 5 })
+        if (hasTime) {
+          doc.setFontSize(3.5); doc.setFont('helvetica', 'normal')
+          doc.text(formatTime(ev.time), cx + 3, evY1 + 7.2, { maxWidth: cellW - 5 })
+        }
+        evY1 += boxH + 2
       })
     })
 
@@ -1406,15 +1423,22 @@ async function exportParchmentScroll(state, { preview, monthIndex = null }) {
       }
 
       // Events
-      const dayEvents = (events[dateKey] || []).slice(0, 3)
-      dayEvents.forEach((ev, ei) => {
+      let evY2 = cy + 11
+      ;(events[dateKey] || []).slice(0, 3).forEach((ev) => {
         const [er, eg, eb] = hexToRgbLocal(ev.color || '#888')
+        const hasTime = !!ev.time
+        const boxH = hasTime ? 6.5 : 3.5
         doc.setFillColor(er, eg, eb)
-        doc.rect(cx + 1, cy + 11 + ei * 4.5, cellW - 2, 3.5, 'F')
+        doc.rect(cx + 1, evY2, cellW - 2, boxH, 'F')
         doc.setTextColor(255, 255, 255)
         doc.setFontSize(3.2)
         doc.setFont('helvetica', 'normal')
-        doc.text(ev.label, cx + 1.5, cy + 13.5 + ei * 4.5, { maxWidth: cellW - 3 })
+        doc.text(ev.label, cx + 1.5, evY2 + 2.5, { maxWidth: cellW - 3 })
+        if (hasTime) {
+          doc.setFontSize(2.5)
+          doc.text(formatTime(ev.time), cx + 1.5, evY2 + 5.1, { maxWidth: cellW - 3 })
+        }
+        evY2 += boxH + 1
       })
     }
 
@@ -1851,15 +1875,22 @@ async function exportPhotoShowcase(state, { preview, monthIndex = null }) {
         doc.text(label, cx + cellW / 2, cy + 10, { align: 'center', maxWidth: cellW - 2 })
       }
 
-      const dayEvents = (events[dateKey] || []).slice(0, 3)
-      dayEvents.forEach((ev, ei) => {
+      let evY3 = cy + 13
+      ;(events[dateKey] || []).slice(0, 3).forEach((ev) => {
         const [er, eg, eb] = hexToRgbLocal(ev.color || '#888')
+        const hasTime = !!ev.time
+        const boxH = hasTime ? 7 : 4
         doc.setFillColor(er, eg, eb)
-        doc.rect(cx + 1, cy + 13 + ei * 5, cellW - 2, 4, 'F')
+        doc.rect(cx + 1, evY3, cellW - 2, boxH, 'F')
         doc.setTextColor(255, 255, 255)
         doc.setFontSize(3.5)
         doc.setFont('helvetica', 'normal')
-        doc.text(ev.label, cx + 1.5, cy + 16.2 + ei * 5, { maxWidth: cellW - 3 })
+        doc.text(ev.label, cx + 1.5, evY3 + 3.2, { maxWidth: cellW - 3 })
+        if (hasTime) {
+          doc.setFontSize(2.5)
+          doc.text(formatTime(ev.time), cx + 1.5, evY3 + 5.7, { maxWidth: cellW - 3 })
+        }
+        evY3 += boxH + 1
       })
     }
   }
@@ -2150,15 +2181,22 @@ async function exportElegantFeminine(state, { preview, monthIndex = null }) {
       }
 
       // Up to 4 events (taller portrait cells allow it)
-      const dayEvents = (events[dateKey] || []).slice(0, 4)
-      dayEvents.forEach((ev, ei) => {
+      let evY4 = cy + 12
+      ;(events[dateKey] || []).slice(0, 4).forEach((ev) => {
         const [er, eg, eb] = hexToRgbLocal(ev.color || '#888')
+        const hasTime = !!ev.time
+        const boxH = hasTime ? 6.8 : 3.8
         doc.setFillColor(er, eg, eb)
-        doc.rect(cx + 1, cy + 12 + ei * 4.5, cellW - 2, 3.8, 'F')
+        doc.rect(cx + 1, evY4, cellW - 2, boxH, 'F')
         doc.setTextColor(255, 255, 255)
         doc.setFontSize(3)
         doc.setFont('helvetica', 'normal')
-        doc.text(ev.label, cx + 1.5, cy + 14.8 + ei * 4.5, { maxWidth: cellW - 3 })
+        doc.text(ev.label, cx + 1.5, evY4 + 2.8, { maxWidth: cellW - 3 })
+        if (hasTime) {
+          doc.setFontSize(2.5)
+          doc.text(formatTime(ev.time), cx + 1.5, evY4 + 5.3, { maxWidth: cellW - 3 })
+        }
+        evY4 += boxH + 0.7
       })
     }
 
