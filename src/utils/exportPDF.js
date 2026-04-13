@@ -103,6 +103,9 @@ async function cropLogoImage(base64, shape = 'circle') {
       canvas.width = size
       canvas.height = size
       const ctx = canvas.getContext('2d')
+      // Fill white first — prevents black background on transparent PNGs / JPEGs with clipping
+      ctx.fillStyle = '#ffffff'
+      ctx.fillRect(0, 0, size, size)
       if (shape === 'circle') {
         ctx.beginPath()
         ctx.arc(size / 2, size / 2, size / 2, 0, Math.PI * 2)
@@ -144,29 +147,25 @@ function drawPageBorder(doc, pageW, pageH, goldHex = '#C8A96E') {
   doc.line(pageW - m, pageH - m, pageW - m - off, pageH - m - off)
 }
 
-// Draws a row of small 45°-rotated diamond shapes as a decorative band. Used by Elegant Feminine template.
+// Draws a decorative band: two thin rules with accent dots between them. Used by Orchid Elegance template.
 function drawDecorativeDiamondBand(doc, bandY, pageW, primaryRgb, accentRgb, margin = 10) {
   const [pr, pg, pb] = primaryRgb
   const [ar, ag, ab] = accentRgb
-  const size = 1.5    // half-width of each diamond
-  const spacing = 5   // center-to-center distance
-  const startX = margin + size
-  const endX = pageW - margin - size
-  let x = startX
+  // Two thin horizontal rules
+  doc.setDrawColor(pr, pg, pb)
+  doc.setLineWidth(0.4)
+  doc.line(margin, bandY - 1.5, pageW - margin, bandY - 1.5)
+  doc.line(margin, bandY + 1.5, pageW - margin, bandY + 1.5)
+  // Small accent dots along the center line, alternating primary/accent
+  const spacing = 5
   let toggle = 0
-  while (x <= endX) {
+  for (let x = margin + 2.5; x <= pageW - margin - 2.5; x += spacing) {
     if (toggle % 3 === 1) {
       doc.setFillColor(ar, ag, ab)
     } else {
       doc.setFillColor(pr, pg, pb)
     }
-    // Draw diamond as a rotated square using 4 lines
-    doc.lines(
-      [[size, size], [size, -size], [-size, -size], [-size, size]],
-      x - size, bandY,
-      [1, 1], 'F', true
-    )
-    x += spacing
+    doc.circle(x, bandY, 0.8, 'F')
     toggle++
   }
 }
@@ -1320,10 +1319,11 @@ async function exportParchmentScroll(state, { preview, monthIndex = null }) {
     doc.setLineWidth(0.2)
     doc.line(MARGIN + 5, 38, PW - MARGIN - 5, 38)
 
-    // Logo
+    // Logo (always go through cropLogoImage so format + shape are handled correctly)
     if (schoolInfo.logo) {
       try {
-        doc.addImage(schoolInfo.logo, 'PNG', MARGIN + 2, 13, 12, 12)
+        const shaped = await cropLogoImage(schoolInfo.logo, 'rounded')
+        doc.addImage(shaped, 'PNG', MARGIN + 2, 13, 12, 12)
       } catch {}
     }
 
@@ -1763,12 +1763,9 @@ async function exportPhotoShowcase(state, { preview, monthIndex = null }) {
       }
     }
 
-    // Semi-transparent primary band over banner bottom for month name
+    // Primary color band over banner bottom — carries month name text
     doc.setFillColor(pr, pg, pb)
-    doc.saveGraphicsState()
-    // Approximate opacity by blending: draw a rect then overlay text
     doc.rect(0, BANNER_H - HEADER_OVERLAY_H, PW, HEADER_OVERLAY_H, 'F')
-    doc.restoreGraphicsState()
 
     // Month title over the band
     const monthName = new Date(year, month, 1).toLocaleString('default', { month: 'long' })

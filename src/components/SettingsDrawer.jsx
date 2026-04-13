@@ -176,13 +176,23 @@ export default function SettingsDrawer({ isOpen, onClose, onOpenCategories, onOp
 
             {/* Banner image — for Photo Showcase PDF template */}
             <div className="mt-4 pt-3 border-t border-gray-100 dark:border-gray-700">
-              <label className="text-xs font-medium text-gray-500 dark:text-gray-400 block mb-1.5">
-                Banner Photo <span className="text-gray-400 font-normal">(for Photo Showcase PDF)</span>
+              <label className="text-xs font-medium text-gray-500 dark:text-gray-400 block mb-1">
+                Banner Photo <span className="text-gray-400 font-normal">(Photo Showcase PDF)</span>
               </label>
+              {/* Visual size guide — shows the expected wide landscape ratio */}
+              {!schoolInfo.bannerImage && (
+                <div className="mb-2 w-full rounded-lg overflow-hidden border border-dashed border-gray-300 dark:border-gray-600" style={{ aspectRatio: '4.9 / 1' }}>
+                  <div className="w-full h-full bg-gradient-to-r from-gray-200 to-gray-100 dark:from-gray-700 dark:to-gray-800 flex flex-col items-center justify-center gap-0.5">
+                    <span className="text-gray-400 dark:text-gray-500 text-lg">🏫</span>
+                    <span className="text-[9px] text-gray-400 dark:text-gray-500 font-medium">School photo goes here</span>
+                    <span className="text-[8px] text-gray-300 dark:text-gray-600">Ideal: 2970 × 600 px · landscape · JPG or PNG</span>
+                  </div>
+                </div>
+              )}
               {schoolInfo.bannerImage ? (
-                <div className="flex items-center gap-3">
-                  <img src={schoolInfo.bannerImage} alt="Banner" className="h-12 w-24 object-cover rounded-lg border border-gray-200" />
-                  <div className="flex flex-col gap-1">
+                <div className="space-y-2">
+                  <img src={schoolInfo.bannerImage} alt="Banner" className="w-full rounded-lg border border-gray-200 object-cover" style={{ aspectRatio: '4.9 / 1' }} />
+                  <div className="flex gap-2">
                     {!readOnly && (
                       <button onClick={() => bannerInputRef.current?.click()} className="text-xs bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:text-white px-2 py-1 rounded-lg transition">
                         Change

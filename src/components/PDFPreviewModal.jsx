@@ -75,15 +75,18 @@ function PdfCanvasPreview({ dataUri }) {
   )
 }
 
+// type: 'yearly' = full-year single/few pages | 'monthly' = one page per month
 const PDF_STYLES = [
+  // ── Yearly ────────────────────────────────────────────────────────────────
   {
     id: 'classic',
     name: 'Classic',
-    description: 'Landscape A4 · 4 months across · sidebar with hours & legend',
+    description: 'Landscape · 4 months across · sidebar with hours, legend & contact',
     icon: '📅',
     tag: 'Most Popular',
     tagColor: 'bg-blue-100 text-blue-700',
     previewBg: 'from-[#1e3a5f] to-[#2a4d7a]',
+    type: 'yearly',
   },
   {
     id: 'minimal',
@@ -93,96 +96,108 @@ const PDF_STYLES = [
     tag: 'Modern',
     tagColor: 'bg-gray-100 text-gray-600',
     previewBg: 'from-gray-100 to-white',
-  },
-  {
-    id: 'portrait-monthly',
-    name: 'Monthly Portrait',
-    description: 'One month per page · portrait A4/letter · large grid',
-    icon: '📄',
-    tag: 'Family-Friendly',
-    tagColor: 'bg-green-100 text-green-700',
-    previewBg: 'from-green-50 to-white',
+    type: 'yearly',
   },
   {
     id: 'year-at-a-glance',
     name: 'Year at a Glance',
-    description: 'All months tiny on one page · great for fridge or binder',
+    description: 'All 11 months on one page · great for fridge or binder',
     icon: '🗓',
     tag: 'Overview',
     tagColor: 'bg-amber-100 text-amber-700',
     previewBg: 'from-amber-50 to-white',
+    type: 'yearly',
   },
   {
     id: 'dark-elegant',
     name: 'Dark Elegant',
-    description: 'Dark navy/charcoal background · light text · premium feel',
+    description: 'Landscape · dark navy background · light text · premium feel',
     icon: '🌙',
     tag: 'Premium',
     tagColor: 'bg-purple-100 text-purple-700',
     previewBg: 'from-gray-900 to-gray-700',
+    type: 'yearly',
   },
   {
     id: 'bulletin-board',
     name: 'Bulletin Board',
-    description: 'Bold color-blocked month headers · chunky layout · vibrant',
+    description: 'Landscape · bold color-blocked month headers · vibrant & cheerful',
     icon: '📌',
     tag: 'Colorful',
     tagColor: 'bg-orange-100 text-orange-700',
     previewBg: 'from-orange-400 to-pink-400',
-  },
-  {
-    id: 'parchment-scroll',
-    name: 'Parchment Scroll',
-    description: 'Portrait · ketubah-style double border · warm sepia tones · one month per page',
-    icon: '📜',
-    tag: 'Heritage',
-    tagColor: 'bg-amber-100 text-amber-800',
-    previewBg: 'from-[#3B2206] to-[#7A4010]',
+    type: 'yearly',
   },
   {
     id: 'dual-heritage',
     name: 'Dual Heritage',
-    description: 'Landscape · Hebrew month name dominant · Israeli blue & gold · Rosh Chodesh crescent',
+    description: 'Landscape · Hebrew month name leads each cell · navy & gold palette · Rosh Chodesh crescent',
     icon: '✡️',
     tag: 'Bilingual',
     tagColor: 'bg-blue-100 text-blue-800',
     previewBg: 'from-[#1C3557] to-[#2E5480]',
+    type: 'yearly',
   },
   {
     id: 'regal-triptych',
     name: 'Regal Triptych',
-    description: 'Landscape · 3 zman term columns · gold dividers · Elul / Winter / Spring',
+    description: 'Landscape · 3 columns by zman term · gold dividers · Elul / Winter / Spring',
     icon: '🏛️',
     tag: 'By Term',
     tagColor: 'bg-indigo-100 text-indigo-800',
     previewBg: 'from-[#1A3A5C] to-[#2A5280]',
-  },
-  {
-    id: 'photo-showcase',
-    name: 'Photo Showcase',
-    description: 'Landscape · school photo banner · one month per page · premium donor style',
-    icon: '📷',
-    tag: 'Premium',
-    tagColor: 'bg-purple-100 text-purple-800',
-    previewBg: 'from-[#1e3a5f] to-[#6b21a8]',
+    type: 'yearly',
   },
   {
     id: 'hebrew-date-focus',
-    name: 'Hebrew Date Focus',
-    description: 'Landscape · every cell shows Hebrew + Gregorian date · Rosh Chodesh gold border',
+    name: 'Every Day in Hebrew',
+    description: 'Landscape · Hebrew date shown in every cell · Rosh Chodesh gold edge · both date systems at once',
     icon: '🗓️',
     tag: 'Hebrew Dates',
     tagColor: 'bg-green-100 text-green-800',
     previewBg: 'from-[#14532d] to-[#166534]',
+    type: 'yearly',
+  },
+  // ── Monthly ───────────────────────────────────────────────────────────────
+  {
+    id: 'portrait-monthly',
+    name: 'Monthly Portrait',
+    description: 'One month per page · portrait A4 · large easy-to-read grid',
+    icon: '📄',
+    tag: 'Family-Friendly',
+    tagColor: 'bg-green-100 text-green-700',
+    previewBg: 'from-green-50 to-white',
+    type: 'monthly',
+  },
+  {
+    id: 'parchment-scroll',
+    name: 'Parchment Scroll',
+    description: 'Portrait · traditional double-border style · warm sepia tones · one month per page',
+    icon: '📜',
+    tag: 'Heritage',
+    tagColor: 'bg-amber-100 text-amber-800',
+    previewBg: 'from-[#3B2206] to-[#7A4010]',
+    type: 'monthly',
+  },
+  {
+    id: 'photo-showcase',
+    name: 'Photo Showcase',
+    description: 'Landscape · wide school photo banner at top · one month per page · premium donor calendar',
+    icon: '📷',
+    tag: 'Premium',
+    tagColor: 'bg-purple-100 text-purple-800',
+    previewBg: 'from-[#1e3a5f] to-[#6b21a8]',
+    type: 'monthly',
   },
   {
     id: 'elegant-feminine',
-    name: 'Elegant Feminine',
-    description: "Portrait · plum & champagne gold · diamond band · lavender Shabbat · 4 events/cell",
+    name: 'Orchid Elegance',
+    description: 'Portrait · plum & champagne gold · decorative header band · lavender Shabbat · 4 events per day',
     icon: '🌸',
     tag: "Girls' Schools",
     tagColor: 'bg-pink-100 text-pink-800',
     previewBg: 'from-[#7B4F72] to-[#A0708A]',
+    type: 'monthly',
   },
 ]
 
@@ -205,6 +220,7 @@ export default function PDFPreviewModal({ onClose }) {
   useEffect(() => { stateRef.current = state }, [state])
 
   const [selectedStyle, setSelectedStyle] = useState('classic')
+  const [viewFilter, setViewFilter] = useState('all') // 'all' | 'yearly' | 'monthly'
   const [portraitMonth, setPortraitMonth] = useState(null) // null = all months
   const [url, setUrl] = useState(null)
   const [error, setError] = useState(null)
@@ -260,8 +276,12 @@ export default function PDFPreviewModal({ onClose }) {
 
   const handleMonthChange = (idx) => {
     setPortraitMonth(idx)
-    handlePreview('portrait-monthly', idx)
+    handlePreview(selectedStyle, idx)
   }
+
+  const filteredStyles = PDF_STYLES.filter(s =>
+    viewFilter === 'all' ? true : s.type === viewFilter
+  )
 
   const activeStyle = PDF_STYLES.find(s => s.id === selectedStyle)
 
@@ -299,8 +319,26 @@ export default function PDFPreviewModal({ onClose }) {
 
         {/* Style Picker */}
         <div className="w-72 shrink-0 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 overflow-y-auto p-3 space-y-2">
-          <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest px-1 pb-1">PDF Style</p>
-          {PDF_STYLES.map(style => (
+          {/* Yearly / Monthly filter tabs */}
+          <div className="flex gap-1 p-1 bg-gray-100 dark:bg-gray-700 rounded-xl mb-1">
+            {[['all', 'All'], ['yearly', 'Yearly'], ['monthly', 'Monthly']].map(([val, label]) => (
+              <button
+                key={val}
+                onClick={() => setViewFilter(val)}
+                className={`flex-1 text-xs py-1.5 rounded-lg font-semibold transition ${
+                  viewFilter === val
+                    ? 'bg-white dark:bg-gray-600 shadow text-gray-800 dark:text-white'
+                    : 'text-gray-500 dark:text-gray-400 hover:text-gray-700'
+                }`}
+              >{label}</button>
+            ))}
+          </div>
+          {viewFilter !== 'all' && (
+            <p className="text-[10px] text-gray-400 dark:text-gray-500 px-1 pb-0.5">
+              {viewFilter === 'yearly' ? 'Full year · single or two-page layout' : 'One page per month · portrait or landscape'}
+            </p>
+          )}
+          {filteredStyles.map(style => (
             <button
               key={style.id}
               onClick={() => handlePreview(style.id)}
@@ -333,7 +371,7 @@ export default function PDFPreviewModal({ onClose }) {
           ))}
 
           {/* Month selector — for per-month styles */}
-          {PER_MONTH_STYLES.includes(selectedStyle) && (
+          {PER_MONTH_STYLES.includes(selectedStyle) && filteredStyles.some(s => s.id === selectedStyle) && (
             <div className="pt-2 border-t border-gray-100 dark:border-gray-700">
               <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest px-1 pb-1.5">Choose Month</p>
               <div className="space-y-1">
