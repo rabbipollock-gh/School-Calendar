@@ -4,7 +4,7 @@ import { getDaysInMonth, getFirstDayOfWeek, formatDateKey, groupConsecutiveDates
 
 import { getAcademicMonths } from './academicMonths.js'
 import { getHebrewMonthLabel } from '../data/hebrewMonthNames.js'
-import { getRoshChodeshMap, getHolidayMap } from '../data/hebrewCalendar.js'
+import { getRoshChodeshMap, getHolidayMap, getHebrewDayNumber } from '../data/hebrewCalendar.js'
 import { getTheme, hexToRgb } from './themeUtils.js'
 
 const DAYS = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SHA']
@@ -123,6 +123,52 @@ async function cropLogoImage(base64, shape = 'circle') {
     img.onerror = () => resolve(base64)
     img.src = base64
   })
+}
+
+// Draws a thin double-rule border with corner marks. Used by Parchment Scroll template.
+function drawPageBorder(doc, pageW, pageH, goldHex = '#C8A96E') {
+  const [r, g, b] = hexToRgbLocal(goldHex)
+  doc.setDrawColor(r, g, b)
+  // Outer rule
+  doc.setLineWidth(0.6)
+  doc.rect(5, 5, pageW - 10, pageH - 10)
+  // Inner rule
+  doc.setLineWidth(0.25)
+  doc.rect(7, 7, pageW - 14, pageH - 14)
+  // Corner marks (small diagonal lines at each corner)
+  const m = 5, off = 3
+  doc.setLineWidth(0.4)
+  doc.line(m, m, m + off, m + off)
+  doc.line(pageW - m, m, pageW - m - off, m + off)
+  doc.line(m, pageH - m, m + off, pageH - m - off)
+  doc.line(pageW - m, pageH - m, pageW - m - off, pageH - m - off)
+}
+
+// Draws a row of small 45°-rotated diamond shapes as a decorative band. Used by Elegant Feminine template.
+function drawDecorativeDiamondBand(doc, bandY, pageW, primaryRgb, accentRgb, margin = 10) {
+  const [pr, pg, pb] = primaryRgb
+  const [ar, ag, ab] = accentRgb
+  const size = 1.5    // half-width of each diamond
+  const spacing = 5   // center-to-center distance
+  const startX = margin + size
+  const endX = pageW - margin - size
+  let x = startX
+  let toggle = 0
+  while (x <= endX) {
+    if (toggle % 3 === 1) {
+      doc.setFillColor(ar, ag, ab)
+    } else {
+      doc.setFillColor(pr, pg, pb)
+    }
+    // Draw diamond as a rotated square using 4 lines
+    doc.lines(
+      [[size, size], [size, -size], [-size, -size], [-size, size]],
+      x - size, bandY,
+      [1, 1], 'F', true
+    )
+    x += spacing
+    toggle++
+  }
 }
 
 function drawMonth(doc, { year, month }, events, categories, settings, x, y, w, h, shabbatLabel, notesStripH, theme) {
@@ -433,11 +479,17 @@ export async function exportPDF(state, { preview = false, pdfStyle = 'classic', 
   const ctx = { preview, theme, doc, titleFont, shabbatLabel }
 
   // Route to the correct style renderer
-  if (pdfStyle === 'minimal')          return exportMinimal(state, ctx)
-  if (pdfStyle === 'portrait-monthly') return exportMonthlyPortrait(state, { ...ctx, monthIndex })
-  if (pdfStyle === 'year-at-a-glance') return exportYearAtAGlance(state, ctx)
-  if (pdfStyle === 'dark-elegant')     return exportDarkElegant(state, ctx)
-  if (pdfStyle === 'bulletin-board')   return exportBulletinBoard(state, ctx)
+  if (pdfStyle === 'minimal')           return exportMinimal(state, ctx)
+  if (pdfStyle === 'portrait-monthly')  return exportMonthlyPortrait(state, { ...ctx, monthIndex })
+  if (pdfStyle === 'year-at-a-glance')  return exportYearAtAGlance(state, ctx)
+  if (pdfStyle === 'dark-elegant')      return exportDarkElegant(state, ctx)
+  if (pdfStyle === 'bulletin-board')    return exportBulletinBoard(state, ctx)
+  if (pdfStyle === 'parchment-scroll')  return exportParchmentScroll(state, { preview, monthIndex })
+  if (pdfStyle === 'dual-heritage')     return exportDualHeritage(state, { preview, theme, doc, titleFont, shabbatLabel })
+  if (pdfStyle === 'regal-triptych')    return exportRegalTriptych(state, { preview, theme, doc, titleFont, shabbatLabel })
+  if (pdfStyle === 'photo-showcase')    return exportPhotoShowcase(state, { preview, monthIndex })
+  if (pdfStyle === 'hebrew-date-focus') return exportHebrewDateFocus(state, { preview, theme, doc, titleFont, shabbatLabel })
+  if (pdfStyle === 'elegant-feminine')  return exportElegantFeminine(state, { preview, monthIndex })
   // default: classic
   const isCompact = settings.template === 'compact'
   const showBottomPanel = settings.eventsPanel === 'bottom'
@@ -1203,4 +1255,923 @@ async function exportBulletinBoard(state, { preview, theme, doc, titleFont, shab
   doc.save(`${(schoolInfo.name || 'Calendar').replace(/\s+/g, '-')}-BulletinBoard.pdf`)
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Template 7 — Parchment Scroll
+// Portrait A4, 11 pages (one per month), ketubah/yeshiva document feel.
+// Parchment background, sepia text, double-rule border, warm gold accents.
+// ─────────────────────────────────────────────────────────────────────────────
+async function exportParchmentScroll(state, { preview, monthIndex = null }) {
+  const { events, categories, schoolInfo, settings } = state
+  const PARCH_BG  = '#F5EFD8'
+  const SEPIA     = '#3B2206'
+  const CRIMSON   = '#8B1A1A'
+  const GOLD      = '#C8A96E'
+  const [bgR, bgG, bgB]  = hexToRgbLocal(PARCH_BG)
+  const [sR, sG, sB]     = hexToRgbLocal(SEPIA)
+  const [crR, crG, crB]  = hexToRgbLocal(CRIMSON)
+  const [gR, gG, gB]     = hexToRgbLocal(GOLD)
 
+  const PW = 210, PH = 297  // A4 portrait
+  const MARGIN = 12
+  const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
+  await loadMontserrat(doc)
+
+  const months = getAcademicMonths(settings.academicYear)
+  const roshChodeshMap = getRoshChodeshMap(settings.academicYear)
+  const holidayMap     = getHolidayMap    (settings.academicYear)
+  const shabbatLabel   = settings.shabbatLabel || 'Shabbat'
+
+  const monthList = monthIndex != null ? [months[monthIndex]] : months
+
+  for (let pageIdx = 0; pageIdx < monthList.length; pageIdx++) {
+    const { year, month } = monthList[pageIdx]
+    if (pageIdx > 0) doc.addPage()
+
+    // Parchment background
+    doc.setFillColor(bgR, bgG, bgB)
+    doc.rect(0, 0, PW, PH, 'F')
+
+    // Double-rule border in gold
+    drawPageBorder(doc, PW, PH, GOLD)
+
+    // School name at top
+    const schoolName = schoolInfo.name || 'School Calendar'
+    doc.setFont('helvetica', 'bold')
+    doc.setFontSize(9)
+    doc.setTextColor(crR, crG, crB)
+    doc.text(schoolName.toUpperCase(), PW / 2, 18, { align: 'center' })
+
+    // Month title
+    const monthName = new Date(year, month, 1).toLocaleString('default', { month: 'long' })
+    const hebrewLabel = getHebrewMonthLabel(year, month)
+    doc.setFont('helvetica', 'bold')
+    doc.setFontSize(16)
+    doc.setTextColor(sR, sG, sB)
+    doc.text(`${monthName} ${year}`, PW / 2, 28, { align: 'center' })
+    doc.setFont('helvetica', 'normal')
+    doc.setFontSize(8)
+    doc.setTextColor(gR, gG, gB)
+    doc.text(hebrewLabel, PW / 2, 34, { align: 'center' })
+
+    // Decorative rule below title
+    doc.setDrawColor(gR, gG, gB)
+    doc.setLineWidth(0.5)
+    doc.line(MARGIN + 5, 36.5, PW - MARGIN - 5, 36.5)
+    doc.setLineWidth(0.2)
+    doc.line(MARGIN + 5, 38, PW - MARGIN - 5, 38)
+
+    // Logo
+    if (schoolInfo.logo) {
+      try {
+        doc.addImage(schoolInfo.logo, 'PNG', MARGIN + 2, 13, 12, 12)
+      } catch {}
+    }
+
+    // Grid
+    const gridTop = 41
+    const gridH = PH - gridTop - MARGIN - 4
+    const cellW = (PW - MARGIN * 2) / 7
+    const firstDay = getFirstDayOfWeek(year, month)
+    const daysInMonth = getDaysInMonth(year, month)
+    const totalCells = Math.ceil((firstDay + daysInMonth) / 7) * 7
+    const rows = totalCells / 7
+    const cellH = gridH / rows
+
+    // Day headers
+    const DAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', shabbatLabel.slice(0, 3)]
+    DAY_LABELS.forEach((d, i) => {
+      const cx = MARGIN + i * cellW + cellW / 2
+      if (i === 6) {
+        doc.setFillColor(sR, sG, sB)
+        doc.rect(MARGIN + i * cellW, gridTop, cellW, 5, 'F')
+        doc.setTextColor(bgR, bgG, bgB)
+      } else {
+        doc.setTextColor(crR, crG, crB)
+      }
+      doc.setFont('helvetica', 'bold')
+      doc.setFontSize(5.5)
+      doc.text(d, cx, gridTop + 3.5, { align: 'center' })
+    })
+
+    // Cells
+    for (let i = 0; i < totalCells; i++) {
+      const dayNum = i - firstDay + 1
+      const col = i % 7
+      const row = Math.floor(i / 7)
+      const cx = MARGIN + col * cellW
+      const cy = gridTop + 5 + row * cellH
+      const dateKey = dayNum >= 1 && dayNum <= daysInMonth ? formatDateKey(year, month, dayNum) : null
+
+      // Shabbat column tint
+      if (col === 6 && dateKey) {
+        doc.setFillColor(sR, sG, sB, 0.08)
+        doc.setFillColor(Math.min(255, sR + 175), Math.min(255, sG + 145), Math.min(255, sB + 115))
+        doc.rect(cx, cy, cellW, cellH, 'F')
+      }
+
+      // Cell border — gold
+      doc.setDrawColor(gR, gG, gB)
+      doc.setLineWidth(0.2)
+      doc.rect(cx, cy, cellW, cellH)
+
+      if (!dateKey) continue
+
+      // Day number
+      doc.setFont('helvetica', 'bold')
+      doc.setFontSize(7)
+      doc.setTextColor(sR, sG, sB)
+      doc.text(String(dayNum), cx + 1.5, cy + 4.5)
+
+      // Rosh Chodesh
+      if (roshChodeshMap[dateKey]) {
+        doc.setFontSize(3.8)
+        doc.setTextColor(crR, crG, crB)
+        doc.text('ר"ח', cx + cellW - 1.5, cy + 4, { align: 'right' })
+      }
+
+      // Holiday badge
+      const holiday = holidayMap[dateKey]
+      if (holiday) {
+        doc.setFont('helvetica', 'normal')
+        doc.setFontSize(3.8)
+        doc.setTextColor(crR, crG, crB)
+        const label = settings.shabbatLabel === 'Shabbos' ? holiday.ashkenaz : holiday.sephardi
+        doc.text(label, cx + cellW / 2, cy + 8.5, { align: 'center', maxWidth: cellW - 2 })
+      }
+
+      // Events
+      const dayEvents = (events[dateKey] || []).slice(0, 3)
+      dayEvents.forEach((ev, ei) => {
+        const [er, eg, eb] = hexToRgbLocal(ev.color || '#888')
+        doc.setFillColor(er, eg, eb)
+        doc.rect(cx + 1, cy + 11 + ei * 4.5, cellW - 2, 3.5, 'F')
+        doc.setTextColor(255, 255, 255)
+        doc.setFontSize(3.2)
+        doc.setFont('helvetica', 'normal')
+        doc.text(ev.label, cx + 1.5, cy + 13.5 + ei * 4.5, { maxWidth: cellW - 3 })
+      })
+    }
+
+    // Footer
+    doc.setFont('helvetica', 'normal')
+    doc.setFontSize(4)
+    doc.setTextColor(gR, gG, gB)
+    if (schoolInfo.address) doc.text(schoolInfo.address, PW / 2, PH - 9, { align: 'center' })
+    const contact = [schoolInfo.phone, schoolInfo.email].filter(Boolean).join('  •  ')
+    if (contact) doc.text(contact, PW / 2, PH - 6, { align: 'center' })
+  }
+
+  if (preview) return doc.output('datauristring')
+  doc.save(`${(schoolInfo.name || 'Calendar').replace(/\s+/g, '-')}-ParchmentScroll.pdf`)
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Template 8 — Dual Heritage
+// Landscape A4, single page, 4×3 grid. Hebrew month name is the dominant header
+// text (gold, large), English below. Israeli blue + warm gold palette.
+// ─────────────────────────────────────────────────────────────────────────────
+async function exportDualHeritage(state, { preview, theme, doc, titleFont, shabbatLabel }) {
+  const { events, categories, schoolInfo, settings } = state
+  const BLUE   = '#1C3557'
+  const GOLD   = '#C5922A'
+  const [bR, bG, bB] = hexToRgbLocal(BLUE)
+  const [gR, gG, gB] = hexToRgbLocal(GOLD)
+
+  const PW = 297, PH = 210
+  const MARGIN = 7
+  const COL = 4, ROWS = 3
+  const months = getAcademicMonths(settings.academicYear)
+  const roshChodeshMap = getRoshChodeshMap(settings.academicYear)
+  const HEADER_H = 14
+
+  // Page header
+  doc.setFillColor(bR, bG, bB)
+  doc.rect(0, 0, PW, HEADER_H, 'F')
+  doc.setFillColor(gR, gG, gB)
+  doc.rect(0, HEADER_H - 1.5, PW, 1.5, 'F')
+
+  const schoolName = schoolInfo.name || 'School Calendar'
+  doc.setFont(titleFont, 'bold')
+  doc.setFontSize(9)
+  doc.setTextColor(255, 255, 255)
+  doc.text(schoolName, MARGIN + 15, 9, { baseline: 'middle' })
+  doc.setFontSize(5.5)
+  doc.setTextColor(gR, gG, gB)
+  doc.text(settings.academicYear?.replace('-', '–') || '', PW - MARGIN, 9, { align: 'right', baseline: 'middle' })
+
+  if (schoolInfo.logo) {
+    try {
+      const shaped = await cropLogoImage(schoolInfo.logo, settings.logoShape || 'circle')
+      doc.addImage(shaped, 'PNG', MARGIN, 1.5, 11, 11)
+    } catch {}
+  }
+
+  const gridTop = HEADER_H + 2
+  const monthW = (PW - MARGIN * 2) / COL - 2
+  const monthH = (PH - gridTop - MARGIN) / ROWS - 2
+
+  months.forEach(({ year, month }, idx) => {
+    const col = idx % COL
+    const row = Math.floor(idx / COL)
+    const mx = MARGIN + col * (monthW + 2)
+    const my = gridTop + row * (monthH + 2)
+
+    // Month header — Hebrew name dominant (large gold), English smaller (white)
+    doc.setFillColor(bR, bG, bB)
+    doc.roundedRect(mx, my, monthW, 10, 1, 1, 'F')
+
+    const hebrewLabel = getHebrewMonthLabel(year, month)
+    doc.setFont('helvetica', 'bold')
+    doc.setFontSize(7.5)
+    doc.setTextColor(gR, gG, gB)
+    doc.text(hebrewLabel, mx + monthW / 2, my + 4.5, { align: 'center' })
+
+    const engLabel = new Date(year, month, 1).toLocaleString('default', { month: 'short' }) + ' ' + year
+    doc.setFontSize(5)
+    doc.setTextColor(200, 220, 255)
+    doc.text(engLabel, mx + monthW / 2, my + 8.5, { align: 'center' })
+
+    // Day headers
+    const DAY_H = 4.5
+    const cellW = monthW / 7
+    const firstDay = getFirstDayOfWeek(year, month)
+    const daysInMonth = getDaysInMonth(year, month)
+    const DAY_ABBR = ['S', 'M', 'T', 'W', 'T', 'F', 'S']
+    DAY_ABBR.forEach((d, i) => {
+      doc.setFont('helvetica', 'bold')
+      doc.setFontSize(4)
+      doc.setTextColor(i === 6 ? gR : bR, i === 6 ? gG : bG, i === 6 ? gB : bB)
+      doc.text(d, mx + i * cellW + cellW / 2, my + 10 + DAY_H * 0.75, { align: 'center' })
+    })
+
+    const totalCells = Math.ceil((firstDay + daysInMonth) / 7) * 7
+    const rows = totalCells / 7
+    const cellH = (monthH - 10 - DAY_H) / rows
+
+    for (let i = 0; i < totalCells; i++) {
+      const dayNum = i - firstDay + 1
+      const col2 = i % 7
+      const row2 = Math.floor(i / 7)
+      const cx = mx + col2 * cellW
+      const cy = my + 10 + DAY_H + row2 * cellH
+      const dateKey = dayNum >= 1 && dayNum <= daysInMonth ? formatDateKey(year, month, dayNum) : null
+
+      if (!dateKey) continue
+
+      // Rosh Chodesh: gold crescent arc instead of background
+      if (roshChodeshMap[dateKey]) {
+        doc.setDrawColor(gR, gG, gB)
+        doc.setLineWidth(0.4)
+        doc.ellipse(cx + cellW - 1.5, cy + 1, 1, 1.2)
+      }
+
+      // Shabbat column
+      if (col2 === 6) {
+        doc.setFillColor(230, 238, 250)
+        doc.rect(cx, cy, cellW, cellH, 'F')
+      }
+
+      doc.setDrawColor(200, 210, 225)
+      doc.setLineWidth(0.1)
+      doc.rect(cx, cy, cellW, cellH)
+
+      doc.setFont('helvetica', 'bold')
+      doc.setFontSize(4.5)
+      doc.setTextColor(bR, bG, bB)
+      doc.text(String(dayNum), cx + 1, cy + 3.5)
+
+      const dayEvents = (events[dateKey] || []).slice(0, 2)
+      dayEvents.forEach((ev, ei) => {
+        const [er, eg, eb] = hexToRgbLocal(ev.color || '#888')
+        doc.setFillColor(er, eg, eb)
+        doc.rect(cx + 0.5, cy + 4.5 + ei * 3.5, cellW - 1, 3, 'F')
+        doc.setTextColor(255, 255, 255)
+        doc.setFontSize(2.8)
+        doc.setFont('helvetica', 'normal')
+        doc.text(ev.label, cx + 1, cy + 6.5 + ei * 3.5, { maxWidth: cellW - 2 })
+      })
+    }
+  })
+
+  if (preview) return doc.output('datauristring')
+  doc.save(`${(schoolInfo.name || 'Calendar').replace(/\s+/g, '-')}-DualHeritage.pdf`)
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Template 9 — Regal Triptych
+// Landscape A4, single page. 3 vertical term columns separated by gold rules.
+// Columns: Elul Zman (Aug–Nov), Winter Zman (Dec–Mar), Spring Zman (Apr–Jun).
+// Deep navy + antique gold.
+// ─────────────────────────────────────────────────────────────────────────────
+async function exportRegalTriptych(state, { preview, theme, doc, titleFont, shabbatLabel }) {
+  const { events, categories, schoolInfo, settings } = state
+  const NAVY = '#1A3A5C'
+  const GOLD = '#B8943F'
+  const [nR, nG, nB] = hexToRgbLocal(NAVY)
+  const [gR, gG, gB] = hexToRgbLocal(GOLD)
+
+  const PW = 297, PH = 210
+  const MARGIN = 7
+  const HEADER_H = 14
+
+  // Page header
+  doc.setFillColor(nR, nG, nB)
+  doc.rect(0, 0, PW, HEADER_H, 'F')
+  doc.setFillColor(gR, gG, gB)
+  doc.rect(0, HEADER_H - 1.5, PW, 1.5, 'F')
+
+  const schoolName = schoolInfo.name || 'School Calendar'
+  doc.setFont(titleFont, 'bold')
+  doc.setFontSize(9)
+  doc.setTextColor(255, 255, 255)
+  doc.text(schoolName, MARGIN + 15, 9, { baseline: 'middle' })
+  doc.setFontSize(5)
+  doc.setTextColor(gR, gG, gB)
+  doc.text(settings.academicYear?.replace('-', '–') || '', PW - MARGIN, 9, { align: 'right', baseline: 'middle' })
+
+  if (schoolInfo.logo) {
+    try {
+      const shaped = await cropLogoImage(schoolInfo.logo, settings.logoShape || 'circle')
+      doc.addImage(shaped, 'PNG', MARGIN, 1.5, 11, 11)
+    } catch {}
+  }
+
+  const months = getAcademicMonths(settings.academicYear)
+  const roshChodeshMap = getRoshChodeshMap(settings.academicYear)
+
+  // Three terms
+  const TERMS = [
+    { label: 'FIRST TERM', subLabel: 'ELUL ZMAN',   indices: [0, 1, 2, 3]  },  // Aug–Nov
+    { label: 'SECOND TERM', subLabel: 'WINTER ZMAN', indices: [4, 5, 6, 7]  },  // Dec–Mar
+    { label: 'THIRD TERM',  subLabel: 'SPRING ZMAN', indices: [8, 9, 10]    },  // Apr–Jun
+  ]
+
+  const colW = (PW - MARGIN * 2) / 3
+  const gridTop = HEADER_H + 2
+
+  TERMS.forEach((term, ti) => {
+    const colX = MARGIN + ti * colW
+    const termMonths = term.indices.map(i => months[i]).filter(Boolean)
+
+    // Term header band
+    doc.setFillColor(nR, nG, nB)
+    doc.rect(colX, gridTop, colW, 10, 'F')
+    doc.setFont('helvetica', 'bold')
+    doc.setFontSize(6.5)
+    doc.setTextColor(gR, gG, gB)
+    doc.text(term.label, colX + colW / 2, gridTop + 4, { align: 'center' })
+    doc.setFontSize(4.5)
+    doc.setTextColor(180, 200, 230)
+    doc.text(term.subLabel, colX + colW / 2, gridTop + 8, { align: 'center' })
+
+    // Gold vertical divider (except after last column)
+    if (ti < 2) {
+      doc.setDrawColor(gR, gG, gB)
+      doc.setLineWidth(0.6)
+      doc.line(colX + colW, gridTop, colX + colW, PH - MARGIN)
+    }
+
+    // Months within this column
+    const monthH = (PH - gridTop - MARGIN - 10) / termMonths.length
+    const monthW = colW - 2
+
+    termMonths.forEach(({ year, month }, mi) => {
+      const mx = colX + 1
+      const my = gridTop + 10 + mi * monthH
+
+      // Month sub-header
+      const monthName = new Date(year, month, 1).toLocaleString('default', { month: 'long' })
+      const hebrewLabel = getHebrewMonthLabel(year, month)
+      doc.setFillColor(Math.min(255, nR + 15), Math.min(255, nG + 20), Math.min(255, nB + 30))
+      doc.rect(mx, my, monthW, 6, 'F')
+      doc.setFont('helvetica', 'bold')
+      doc.setFontSize(5.5)
+      doc.setTextColor(255, 255, 255)
+      doc.text(monthName + ' ' + year, mx + 2, my + 4)
+      doc.setFont('helvetica', 'normal')
+      doc.setFontSize(4)
+      doc.setTextColor(gR, gG, gB)
+      doc.text(hebrewLabel, mx + monthW - 2, my + 4, { align: 'right' })
+
+      // Day labels
+      const cellW = monthW / 7
+      const DAY_ABBR = ['S', 'M', 'T', 'W', 'T', 'F', 'S']
+      DAY_ABBR.forEach((d, i) => {
+        doc.setFont('helvetica', 'bold')
+        doc.setFontSize(3.5)
+        doc.setTextColor(i === 6 ? gR : 100, i === 6 ? gG : 110, i === 6 ? gB : 120)
+        doc.text(d, mx + i * cellW + cellW / 2, my + 9, { align: 'center' })
+      })
+
+      const firstDay = getFirstDayOfWeek(year, month)
+      const daysInMonth = getDaysInMonth(year, month)
+      const totalCells = Math.ceil((firstDay + daysInMonth) / 7) * 7
+      const rows = totalCells / 7
+      const cellH = (monthH - 10) / rows
+
+      for (let i = 0; i < totalCells; i++) {
+        const dayNum = i - firstDay + 1
+        const c = i % 7
+        const r = Math.floor(i / 7)
+        const cx = mx + c * cellW
+        const cy = my + 10 + r * cellH
+        const dateKey = dayNum >= 1 && dayNum <= daysInMonth ? formatDateKey(year, month, dayNum) : null
+
+        if (c === 6 && dateKey) {
+          doc.setFillColor(235, 240, 250)
+          doc.rect(cx, cy, cellW, cellH, 'F')
+        }
+        doc.setDrawColor(200, 208, 220)
+        doc.setLineWidth(0.1)
+        doc.rect(cx, cy, cellW, cellH)
+
+        if (!dateKey) continue
+
+        doc.setFont('helvetica', 'bold')
+        doc.setFontSize(4)
+        doc.setTextColor(nR, nG, nB)
+        doc.text(String(dayNum), cx + 0.8, cy + 3)
+
+        const dayEvents = (events[dateKey] || []).slice(0, 2)
+        dayEvents.forEach((ev, ei) => {
+          const [er, eg, eb] = hexToRgbLocal(ev.color || '#888')
+          doc.setFillColor(er, eg, eb)
+          doc.rect(cx + 0.3, cy + 3.5 + ei * 3, cellW - 0.6, 2.8, 'F')
+          doc.setTextColor(255, 255, 255)
+          doc.setFontSize(2.5)
+          doc.setFont('helvetica', 'normal')
+          doc.text(ev.label, cx + 0.6, cy + 5.5 + ei * 3, { maxWidth: cellW - 1 })
+        })
+      }
+    })
+  })
+
+  if (preview) return doc.output('datauristring')
+  doc.save(`${(schoolInfo.name || 'Calendar').replace(/\s+/g, '-')}-RegalTriptych.pdf`)
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Template 10 — Photo Showcase
+// Landscape A4, 11 pages (one per month). Top 65mm = school photo banner.
+// If no bannerImage: gradient fill + diagonal line texture fallback.
+// ─────────────────────────────────────────────────────────────────────────────
+async function exportPhotoShowcase(state, { preview, monthIndex = null }) {
+  const { events, categories, schoolInfo, settings } = state
+  const theme = getTheme(settings.theme, settings.customPrimary, settings.customAccent)
+  const [pr, pg, pb] = hexToRgbLocal(theme.primary)
+  const [ar, ag, ab] = hexToRgbLocal(theme.accent)
+
+  const PW = 297, PH = 210
+  const MARGIN = 8
+  const BANNER_H = 60
+  const HEADER_OVERLAY_H = 18
+
+  const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' })
+  await loadMontserrat(doc)
+
+  const months = getAcademicMonths(settings.academicYear)
+  const roshChodeshMap = getRoshChodeshMap(settings.academicYear)
+  const holidayMap     = getHolidayMap    (settings.academicYear)
+  const shabbatLabel   = settings.shabbatLabel || 'Shabbat'
+
+  const monthList = monthIndex != null ? [months[monthIndex]] : months
+
+  for (let pageIdx = 0; pageIdx < monthList.length; pageIdx++) {
+    if (pageIdx > 0) doc.addPage()
+    const { year, month } = monthList[pageIdx]
+
+    // ── Banner ──
+    if (schoolInfo.bannerImage) {
+      try {
+        doc.addImage(schoolInfo.bannerImage, 'JPEG', 0, 0, PW, BANNER_H)
+      } catch {
+        // fallback if image fails
+        doc.setFillColor(Math.min(255, pr + 20), Math.min(255, pg + 30), Math.min(255, pb + 40))
+        doc.rect(0, 0, PW, BANNER_H, 'F')
+      }
+    } else {
+      // Gradient simulation: two overlapping rects
+      doc.setFillColor(pr, pg, pb)
+      doc.rect(0, 0, PW, BANNER_H, 'F')
+      doc.setFillColor(Math.min(255, pr + 30), Math.min(255, pg + 35), Math.min(255, pb + 45))
+      doc.rect(PW * 0.4, 0, PW * 0.6, BANNER_H, 'F')
+      // Diagonal gold line texture
+      doc.setDrawColor(ar, ag, ab)
+      doc.setLineWidth(0.3)
+      for (let lx = -BANNER_H; lx < PW + BANNER_H; lx += 8) {
+        doc.line(lx, 0, lx + BANNER_H, BANNER_H)
+      }
+    }
+
+    // Semi-transparent primary band over banner bottom for month name
+    doc.setFillColor(pr, pg, pb)
+    doc.saveGraphicsState()
+    // Approximate opacity by blending: draw a rect then overlay text
+    doc.rect(0, BANNER_H - HEADER_OVERLAY_H, PW, HEADER_OVERLAY_H, 'F')
+    doc.restoreGraphicsState()
+
+    // Month title over the band
+    const monthName = new Date(year, month, 1).toLocaleString('default', { month: 'long' })
+    const hebrewLabel = getHebrewMonthLabel(year, month)
+    doc.setFont('helvetica', 'bold')
+    doc.setFontSize(13)
+    doc.setTextColor(255, 255, 255)
+    doc.text(monthName + ' ' + year, MARGIN, BANNER_H - 5)
+    doc.setFont('helvetica', 'normal')
+    doc.setFontSize(7)
+    doc.setTextColor(ar, ag, ab)
+    doc.text(hebrewLabel, MARGIN, BANNER_H - 1)
+
+    // School name top-left of banner
+    const schoolName = schoolInfo.name || 'School Calendar'
+    doc.setFont('helvetica', 'bold')
+    doc.setFontSize(7)
+    doc.setTextColor(255, 255, 255)
+    doc.text(schoolName, MARGIN + 14, 9)
+    if (schoolInfo.logo) {
+      try {
+        const shaped = await cropLogoImage(schoolInfo.logo, settings.logoShape || 'circle')
+        doc.addImage(shaped, 'PNG', MARGIN, 2, 12, 12)
+      } catch {}
+    }
+
+    // ── Grid below banner ──
+    const gridTop = BANNER_H + 3
+    const gridH = PH - gridTop - MARGIN + 2
+    const cellW = (PW - MARGIN * 2) / 7
+    const firstDay = getFirstDayOfWeek(year, month)
+    const daysInMonth = getDaysInMonth(year, month)
+    const totalCells = Math.ceil((firstDay + daysInMonth) / 7) * 7
+    const rows = totalCells / 7
+    const cellH = gridH / rows
+
+    // Day headers
+    const DAY_LABELS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', shabbatLabel]
+    DAY_LABELS.forEach((d, i) => {
+      doc.setFillColor(i === 6 ? pr : (i === 5 ? Math.min(255,pr+20) : 245), i === 6 ? pg : 245, i === 6 ? pb : 247)
+      doc.rect(MARGIN + i * cellW, gridTop, cellW, 5, 'F')
+      doc.setFont('helvetica', 'bold')
+      doc.setFontSize(4)
+      doc.setTextColor(i === 6 ? 255 : pr, i === 6 ? 255 : pg, i === 6 ? 255 : pb)
+      doc.text(d.slice(0, 3).toUpperCase(), MARGIN + i * cellW + cellW / 2, gridTop + 3.5, { align: 'center' })
+    })
+
+    for (let i = 0; i < totalCells; i++) {
+      const dayNum = i - firstDay + 1
+      const col = i % 7
+      const row = Math.floor(i / 7)
+      const cx = MARGIN + col * cellW
+      const cy = gridTop + 5 + row * cellH
+      const dateKey = dayNum >= 1 && dayNum <= daysInMonth ? formatDateKey(year, month, dayNum) : null
+
+      if (col === 6 && dateKey) {
+        doc.setFillColor(Math.min(255, pr + 195), Math.min(255, pg + 200), Math.min(255, pb + 210))
+        doc.rect(cx, cy, cellW, cellH, 'F')
+      }
+      doc.setDrawColor(210, 215, 225)
+      doc.setLineWidth(0.15)
+      doc.rect(cx, cy, cellW, cellH)
+
+      if (!dateKey) continue
+
+      doc.setFont('helvetica', 'bold')
+      doc.setFontSize(6)
+      doc.setTextColor(pr, pg, pb)
+      doc.text(String(dayNum), cx + 1.5, cy + 5)
+
+      const holiday = holidayMap[dateKey]
+      if (holiday) {
+        doc.setFont('helvetica', 'normal')
+        doc.setFontSize(4)
+        doc.setTextColor(ar, ag, ab)
+        const label = settings.shabbatLabel === 'Shabbos' ? holiday.ashkenaz : holiday.sephardi
+        doc.text(label, cx + cellW / 2, cy + 10, { align: 'center', maxWidth: cellW - 2 })
+      }
+
+      const dayEvents = (events[dateKey] || []).slice(0, 3)
+      dayEvents.forEach((ev, ei) => {
+        const [er, eg, eb] = hexToRgbLocal(ev.color || '#888')
+        doc.setFillColor(er, eg, eb)
+        doc.rect(cx + 1, cy + 13 + ei * 5, cellW - 2, 4, 'F')
+        doc.setTextColor(255, 255, 255)
+        doc.setFontSize(3.5)
+        doc.setFont('helvetica', 'normal')
+        doc.text(ev.label, cx + 1.5, cy + 16.2 + ei * 5, { maxWidth: cellW - 3 })
+      })
+    }
+  }
+
+  if (preview) return doc.output('datauristring')
+  doc.save(`${(schoolInfo.name || 'Calendar').replace(/\s+/g, '-')}-PhotoShowcase.pdf`)
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Template 11 — Hebrew Date Focus
+// Landscape A4, single page, 4×3 grid. Every day cell shows both the Gregorian
+// date (top-left) AND the Hebrew date number (bottom-right, in gold).
+// Rosh Chodesh gets a thick gold left-edge line instead of background fill.
+// ─────────────────────────────────────────────────────────────────────────────
+async function exportHebrewDateFocus(state, { preview, theme, doc, titleFont, shabbatLabel }) {
+  const { events, categories, schoolInfo, settings } = state
+  const [pr, pg, pb] = hexToRgbLocal(theme.primary)
+  const [ar, ag, ab] = hexToRgbLocal(theme.accent)
+
+  const PW = 297, PH = 210
+  const MARGIN = 7
+  const HEADER_H = 14
+  const COL = 4, ROWS = 3
+  const months = getAcademicMonths(settings.academicYear)
+  const roshChodeshMap = getRoshChodeshMap(settings.academicYear)
+  const holidayMap     = getHolidayMap    (settings.academicYear)
+
+  // Page header
+  doc.setFillColor(pr, pg, pb)
+  doc.rect(0, 0, PW, HEADER_H, 'F')
+  doc.setFillColor(ar, ag, ab)
+  doc.rect(0, HEADER_H - 1.5, PW, 1.5, 'F')
+
+  const schoolName = schoolInfo.name || 'School Calendar'
+  doc.setFont(titleFont, 'bold')
+  doc.setFontSize(9)
+  doc.setTextColor(255, 255, 255)
+  doc.text(schoolName, MARGIN + 15, 9, { baseline: 'middle' })
+  doc.setFontSize(5)
+  doc.setTextColor(ar, ag, ab)
+  doc.text(settings.academicYear?.replace('-', '–') || '', PW - MARGIN, 9, { align: 'right', baseline: 'middle' })
+
+  // "Hebrew Dates" subtitle
+  doc.setFont('helvetica', 'normal')
+  doc.setFontSize(5)
+  doc.setTextColor(180, 210, 255)
+  doc.text('Hebrew / Gregorian Date Reference', PW / 2, 9, { align: 'center', baseline: 'middle' })
+
+  if (schoolInfo.logo) {
+    try {
+      const shaped = await cropLogoImage(schoolInfo.logo, settings.logoShape || 'circle')
+      doc.addImage(shaped, 'PNG', MARGIN, 1.5, 11, 11)
+    } catch {}
+  }
+
+  const gridTop = HEADER_H + 2
+  const monthW = (PW - MARGIN * 2) / COL - 2
+  const monthH = (PH - gridTop - MARGIN) / ROWS - 2
+
+  months.forEach(({ year, month }, idx) => {
+    const col = idx % COL
+    const row = Math.floor(idx / COL)
+    const mx = MARGIN + col * (monthW + 2)
+    const my = gridTop + row * (monthH + 2)
+
+    // Month header
+    doc.setFillColor(pr, pg, pb)
+    doc.roundedRect(mx, my, monthW, 8, 1, 1, 'F')
+    const monthName = new Date(year, month, 1).toLocaleString('default', { month: 'long' })
+    const hebrewLabel = getHebrewMonthLabel(year, month)
+    doc.setFont('helvetica', 'bold')
+    doc.setFontSize(6)
+    doc.setTextColor(255, 255, 255)
+    doc.text(monthName + ' ' + year, mx + 2, my + 5.5)
+    doc.setFont('helvetica', 'normal')
+    doc.setFontSize(4.5)
+    doc.setTextColor(ar, ag, ab)
+    doc.text(hebrewLabel, mx + monthW - 2, my + 5.5, { align: 'right' })
+
+    // Day headers
+    const cellW = monthW / 7
+    const DAY_ABBR = ['S', 'M', 'T', 'W', 'T', 'F', shabbatLabel.slice(0, 1)]
+    DAY_ABBR.forEach((d, i) => {
+      doc.setFont('helvetica', 'bold')
+      doc.setFontSize(3.8)
+      doc.setTextColor(i === 6 ? pr : 80, i === 6 ? pg : 85, i === 6 ? pb : 95)
+      doc.text(d, mx + i * cellW + cellW / 2, my + 11.5, { align: 'center' })
+    })
+
+    const firstDay = getFirstDayOfWeek(year, month)
+    const daysInMonth = getDaysInMonth(year, month)
+    const totalCells = Math.ceil((firstDay + daysInMonth) / 7) * 7
+    const rows = totalCells / 7
+    const cellH = (monthH - 12) / rows
+
+    for (let i = 0; i < totalCells; i++) {
+      const dayNum = i - firstDay + 1
+      const c = i % 7
+      const r = Math.floor(i / 7)
+      const cx = mx + c * cellW
+      const cy = my + 12 + r * cellH
+      const dateKey = dayNum >= 1 && dayNum <= daysInMonth ? formatDateKey(year, month, dayNum) : null
+
+      if (c === 6 && dateKey) {
+        doc.setFillColor(Math.min(255, pr + 195), Math.min(255, pg + 200), Math.min(255, pb + 210))
+        doc.rect(cx, cy, cellW, cellH, 'F')
+      }
+      doc.setDrawColor(200, 208, 220)
+      doc.setLineWidth(0.1)
+      doc.rect(cx, cy, cellW, cellH)
+
+      if (!dateKey) continue
+
+      // Rosh Chodesh: thick gold left-edge instead of background
+      if (roshChodeshMap[dateKey]) {
+        doc.setDrawColor(ar, ag, ab)
+        doc.setLineWidth(1.2)
+        doc.line(cx, cy, cx, cy + cellH)
+        doc.setLineWidth(0.1)
+      }
+
+      // Gregorian date top-left (small, blue-gray)
+      doc.setFont('helvetica', 'bold')
+      doc.setFontSize(4.5)
+      doc.setTextColor(pr, pg, pb)
+      doc.text(String(dayNum), cx + 1, cy + 3.5)
+
+      // Hebrew date bottom-right (gold)
+      const hebrewDay = getHebrewDayNumber(dateKey)
+      if (hebrewDay != null) {
+        doc.setFont('helvetica', 'normal')
+        doc.setFontSize(3.2)
+        doc.setTextColor(ar, ag, ab)
+        doc.text(String(hebrewDay), cx + cellW - 1, cy + cellH - 0.8, { align: 'right' })
+      }
+
+      // Events
+      const dayEvents = (events[dateKey] || []).slice(0, 2)
+      dayEvents.forEach((ev, ei) => {
+        const [er, eg, eb] = hexToRgbLocal(ev.color || '#888')
+        doc.setFillColor(er, eg, eb)
+        doc.rect(cx + 0.5, cy + 4 + ei * 3.5, cellW - 1, 3, 'F')
+        doc.setTextColor(255, 255, 255)
+        doc.setFontSize(2.6)
+        doc.setFont('helvetica', 'normal')
+        doc.text(ev.label, cx + 1, cy + 6.2 + ei * 3.5, { maxWidth: cellW - 2 })
+      })
+    }
+  })
+
+  if (preview) return doc.output('datauristring')
+  doc.save(`${(schoolInfo.name || 'Calendar').replace(/\s+/g, '-')}-HebrewDateFocus.pdf`)
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Template 12 — Elegant Feminine
+// Portrait A4, 11 pages (one per month). Plum + champagne gold, warm off-white
+// background, diamond band decoration, lavender Shabbat column. 4 events/cell.
+// ─────────────────────────────────────────────────────────────────────────────
+async function exportElegantFeminine(state, { preview, monthIndex = null }) {
+  const { events, categories, schoolInfo, settings } = state
+  const PLUM   = '#7B4F72'
+  const CHAMP  = '#C8A97E'
+  const BG     = '#FDFAF6'
+  const LAVENDER = '#F3EDF8'
+  const BORDER = '#E2D5E8'
+  const [pR, pG, pB]   = hexToRgbLocal(PLUM)
+  const [chR, chG, chB] = hexToRgbLocal(CHAMP)
+  const [bgR, bgG, bgB] = hexToRgbLocal(BG)
+  const [lvR, lvG, lvB] = hexToRgbLocal(LAVENDER)
+  const [bdR, bdG, bdB] = hexToRgbLocal(BORDER)
+
+  const PW = 210, PH = 297  // A4 portrait
+  const MARGIN = 12
+  const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
+  await loadMontserrat(doc)
+
+  const months = getAcademicMonths(settings.academicYear)
+  const roshChodeshMap = getRoshChodeshMap(settings.academicYear)
+  const holidayMap     = getHolidayMap    (settings.academicYear)
+  const shabbatLabel   = settings.shabbatLabel || 'Shabbat'
+
+  const monthList = monthIndex != null ? [months[monthIndex]] : months
+
+  for (let pageIdx = 0; pageIdx < monthList.length; pageIdx++) {
+    const { year, month } = monthList[pageIdx]
+    if (pageIdx > 0) doc.addPage()
+
+    // Warm off-white background
+    doc.setFillColor(bgR, bgG, bgB)
+    doc.rect(0, 0, PW, PH, 'F')
+
+    // ── Header ──
+    doc.setFillColor(pR, pG, pB)
+    doc.rect(0, 0, PW, 22, 'F')
+
+    const schoolName = schoolInfo.name || 'School Calendar'
+    doc.setFont('helvetica', 'bold')
+    doc.setFontSize(7)
+    doc.setTextColor(chR, chG, chB)
+    doc.text(schoolName.toUpperCase(), PW / 2, 7, { align: 'center' })
+
+    const monthName = new Date(year, month, 1).toLocaleString('default', { month: 'long' })
+    const hebrewLabel = getHebrewMonthLabel(year, month)
+    doc.setFontSize(13)
+    doc.setTextColor(255, 255, 255)
+    doc.text(monthName + ' ' + year, PW / 2, 15, { align: 'center' })
+    doc.setFont('helvetica', 'normal')
+    doc.setFontSize(6.5)
+    doc.setTextColor(chR, chG, chB)
+    doc.text(hebrewLabel, PW / 2, 20, { align: 'center' })
+
+    if (schoolInfo.logo) {
+      try {
+        const shaped = await cropLogoImage(schoolInfo.logo, 'rounded')
+        doc.addImage(shaped, 'PNG', MARGIN, 4, 12, 12)
+      } catch {}
+    }
+
+    // ── Diamond band decoration between header and grid ──
+    drawDecorativeDiamondBand(doc, 26, PW, [pR, pG, pB], [chR, chG, chB], MARGIN)
+
+    // ── Grid ──
+    const gridTop = 30
+    const gridH = PH - gridTop - MARGIN - 4
+    const cellW = (PW - MARGIN * 2) / 7
+    const firstDay = getFirstDayOfWeek(year, month)
+    const daysInMonth = getDaysInMonth(year, month)
+    const totalCells = Math.ceil((firstDay + daysInMonth) / 7) * 7
+    const rows = totalCells / 7
+    const cellH = gridH / rows
+
+    // Day headers
+    const DAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', shabbatLabel.slice(0, 3)]
+    DAY_LABELS.forEach((d, i) => {
+      const hx = MARGIN + i * cellW
+      doc.setFillColor(i === 6 ? pR : Math.min(255, pR + 140), i === 6 ? pG : Math.min(255, pG + 120), i === 6 ? pB : Math.min(255, pB + 130))
+      doc.rect(hx, gridTop, cellW, 5, 'F')
+      doc.setFont('helvetica', 'bold')
+      doc.setFontSize(4.5)
+      doc.setTextColor(i === 6 ? 255 : pR, i === 6 ? 255 : pG, i === 6 ? 255 : pB)
+      doc.text(d, hx + cellW / 2, gridTop + 3.5, { align: 'center' })
+    })
+
+    for (let i = 0; i < totalCells; i++) {
+      const dayNum = i - firstDay + 1
+      const col = i % 7
+      const row = Math.floor(i / 7)
+      const cx = MARGIN + col * cellW
+      const cy = gridTop + 5 + row * cellH
+      const dateKey = dayNum >= 1 && dayNum <= daysInMonth ? formatDateKey(year, month, dayNum) : null
+
+      // Shabbat column lavender bg
+      if (col === 6 && dateKey) {
+        doc.setFillColor(lvR, lvG, lvB)
+        doc.rect(cx, cy, cellW, cellH, 'F')
+      }
+
+      // Cell border — soft lavender-gray
+      doc.setDrawColor(bdR, bdG, bdB)
+      doc.setLineWidth(0.2)
+      doc.rect(cx, cy, cellW, cellH)
+
+      if (!dateKey) continue
+
+      // Day number
+      doc.setFont('helvetica', 'bold')
+      doc.setFontSize(6.5)
+      doc.setTextColor(pR, pG, pB)
+      doc.text(String(dayNum), cx + 1.5, cy + 5)
+
+      // Rosh Chodesh indicator
+      if (roshChodeshMap[dateKey]) {
+        doc.setFont('helvetica', 'normal')
+        doc.setFontSize(3.5)
+        doc.setTextColor(chR, chG, chB)
+        doc.text('ר"ח', cx + cellW - 1.5, cy + 4.5, { align: 'right' })
+      }
+
+      // Holiday
+      const holiday = holidayMap[dateKey]
+      if (holiday) {
+        doc.setFont('helvetica', 'normal')
+        doc.setFontSize(3.8)
+        doc.setTextColor(pR, pG, pB)
+        const label = settings.shabbatLabel === 'Shabbos' ? holiday.ashkenaz : holiday.sephardi
+        doc.text(label, cx + cellW / 2, cy + 10, { align: 'center', maxWidth: cellW - 2 })
+      }
+
+      // Up to 4 events (taller portrait cells allow it)
+      const dayEvents = (events[dateKey] || []).slice(0, 4)
+      dayEvents.forEach((ev, ei) => {
+        const [er, eg, eb] = hexToRgbLocal(ev.color || '#888')
+        doc.setFillColor(er, eg, eb)
+        doc.rect(cx + 1, cy + 12 + ei * 4.5, cellW - 2, 3.8, 'F')
+        doc.setTextColor(255, 255, 255)
+        doc.setFontSize(3)
+        doc.setFont('helvetica', 'normal')
+        doc.text(ev.label, cx + 1.5, cy + 14.8 + ei * 4.5, { maxWidth: cellW - 3 })
+      })
+    }
+
+    // Footer with contact
+    doc.setFont('helvetica', 'normal')
+    doc.setFontSize(4)
+    doc.setTextColor(pR, pG, pB)
+    if (schoolInfo.address) doc.text(schoolInfo.address, PW / 2, PH - 9, { align: 'center' })
+    const contact = [schoolInfo.phone, schoolInfo.email].filter(Boolean).join('  •  ')
+    if (contact) doc.text(contact, PW / 2, PH - 6, { align: 'center' })
+    if (schoolInfo.website) {
+      doc.setTextColor(chR, chG, chB)
+      doc.text(schoolInfo.website, PW / 2, PH - 3, { align: 'center' })
+    }
+  }
+
+  if (preview) return doc.output('datauristring')
+  doc.save(`${(schoolInfo.name || 'Calendar').replace(/\s+/g, '-')}-ElegantFeminine.pdf`)
+}

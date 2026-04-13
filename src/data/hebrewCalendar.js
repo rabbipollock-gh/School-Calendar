@@ -331,3 +331,64 @@ export function getHolidaySuggestions(academicYear) {
   if (academicYear === '2027-2028') return HOLIDAY_SUGGESTIONS_5788
   return HOLIDAY_SUGGESTIONS
 }
+
+// ── Hebrew Month Start Map ────────────────────────────────────────────────
+// Maps "YYYY-MM" → { startDay, monthName } where startDay is the Hebrew
+// day-of-month that falls on the 1st of that Gregorian month.
+// Used by Template 11 (Hebrew Date Focus) to display Hebrew dates in each cell.
+// Formula: hebrewDateForGregorianDay = (startDay + gregDay - 2) % monthLength + 1
+//
+// 5787 academic year (Aug 2026 – Jun 2027):
+//   Anchors: 1 Elul = Aug 13; 1 Tishrei = Sep 12; 1 Cheshvan = Oct 11;
+//            1 Kislev = Nov 10; 1 Tevet = Dec 10; 1 Shvat = Jan 9;
+//            1 Adar I = Feb 7; 1 Adar II = Mar 9; 1 Nissan = Apr 8;
+//            1 Iyar = May 7; 1 Sivan = Jun 5
+// 5788 academic year (Aug 2027 – Jun 2028):
+//   Anchors: 1 Av = Aug 4; 1 Elul = Sep 2; 1 Tishrei = Oct 2;
+//            1 Cheshvan = Oct 31; 1 Kislev = Nov 30; 1 Tevet = Dec 30;
+//            1 Shvat = Jan 29; 1 Adar = Feb 27; 1 Nissan = Mar 28;
+//            1 Iyar = Apr 26; 1 Sivan = May 26
+export const HEBREW_MONTH_START_MAP = {
+  // ── 5787 (2026-2027) ──
+  '2026-08': { startDay: 19, monthName: 'Av',       hebrewMonthLen: 30 }, // Aug 1 = 19 Av
+  '2026-09': { startDay: 20, monthName: 'Elul',     hebrewMonthLen: 29 }, // Sep 1 = 20 Elul
+  '2026-10': { startDay: 20, monthName: 'Tishrei',  hebrewMonthLen: 30 }, // Oct 1 = 20 Tishrei
+  '2026-11': { startDay: 22, monthName: 'Cheshvan', hebrewMonthLen: 29 }, // Nov 1 = 22 Cheshvan
+  '2026-12': { startDay: 22, monthName: 'Kislev',   hebrewMonthLen: 30 }, // Dec 1 = 22 Kislev
+  '2027-01': { startDay: 23, monthName: 'Tevet',    hebrewMonthLen: 29 }, // Jan 1 = 23 Tevet
+  '2027-02': { startDay: 24, monthName: 'Shvat',    hebrewMonthLen: 30 }, // Feb 1 = 24 Shvat
+  '2027-03': { startDay: 23, monthName: 'Adar I',   hebrewMonthLen: 30 }, // Mar 1 = 23 Adar I
+  '2027-04': { startDay: 24, monthName: 'Adar II',  hebrewMonthLen: 29 }, // Apr 1 = 24 Adar II
+  '2027-05': { startDay: 24, monthName: 'Nissan',   hebrewMonthLen: 30 }, // May 1 = 24 Nissan
+  '2027-06': { startDay: 26, monthName: 'Iyar',     hebrewMonthLen: 29 }, // Jun 1 = 26 Iyar
+
+  // ── 5788 (2027-2028) ──
+  '2027-08': { startDay: 28, monthName: 'Tammuz',   hebrewMonthLen: 29 }, // Aug 1 = 28 Tammuz
+  '2027-09': { startDay: 30, monthName: 'Av',       hebrewMonthLen: 30 }, // Sep 1 = 30 Av
+  '2027-10': { startDay: 30, monthName: 'Elul',     hebrewMonthLen: 29 }, // Oct 1 = 30 Elul
+  '2027-11': { startDay:  2, monthName: 'Cheshvan', hebrewMonthLen: 30 }, // Nov 1 = 2 Cheshvan
+  '2027-12': { startDay:  2, monthName: 'Kislev',   hebrewMonthLen: 30 }, // Dec 1 = 2 Kislev
+  '2028-01': { startDay:  3, monthName: 'Tevet',    hebrewMonthLen: 29 }, // Jan 1 = 3 Tevet
+  '2028-02': { startDay:  4, monthName: 'Shvat',    hebrewMonthLen: 30 }, // Feb 1 = 4 Shvat
+  '2028-03': { startDay:  3, monthName: 'Adar',     hebrewMonthLen: 29 }, // Mar 1 = 3 Adar
+  '2028-04': { startDay:  5, monthName: 'Nissan',   hebrewMonthLen: 30 }, // Apr 1 = 5 Nissan
+  '2028-05': { startDay:  6, monthName: 'Iyar',     hebrewMonthLen: 29 }, // May 1 = 6 Iyar
+  '2028-06': { startDay:  7, monthName: 'Sivan',    hebrewMonthLen: 30 }, // Jun 1 = 7 Sivan
+}
+
+/**
+ * Returns the Hebrew day number for a given Gregorian date string "YYYY-MM-DD".
+ * Used by Template 11 to render Hebrew dates in every calendar cell.
+ * Returns null if the month is not in HEBREW_MONTH_START_MAP.
+ */
+export function getHebrewDayNumber(dateKey) {
+  const [year, month, day] = dateKey.split('-')
+  const key = `${year}-${month}`
+  const entry = HEBREW_MONTH_START_MAP[key]
+  if (!entry) return null
+  const gregDay = parseInt(day, 10)
+  const raw = entry.startDay + gregDay - 1
+  // Roll over into next Hebrew month if past the end of this one
+  if (raw > entry.hebrewMonthLen) return raw - entry.hebrewMonthLen
+  return raw
+}

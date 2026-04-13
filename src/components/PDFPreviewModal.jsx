@@ -130,6 +130,60 @@ const PDF_STYLES = [
     tagColor: 'bg-orange-100 text-orange-700',
     previewBg: 'from-orange-400 to-pink-400',
   },
+  {
+    id: 'parchment-scroll',
+    name: 'Parchment Scroll',
+    description: 'Portrait · ketubah-style double border · warm sepia tones · one month per page',
+    icon: '📜',
+    tag: 'Heritage',
+    tagColor: 'bg-amber-100 text-amber-800',
+    previewBg: 'from-[#3B2206] to-[#7A4010]',
+  },
+  {
+    id: 'dual-heritage',
+    name: 'Dual Heritage',
+    description: 'Landscape · Hebrew month name dominant · Israeli blue & gold · Rosh Chodesh crescent',
+    icon: '✡️',
+    tag: 'Bilingual',
+    tagColor: 'bg-blue-100 text-blue-800',
+    previewBg: 'from-[#1C3557] to-[#2E5480]',
+  },
+  {
+    id: 'regal-triptych',
+    name: 'Regal Triptych',
+    description: 'Landscape · 3 zman term columns · gold dividers · Elul / Winter / Spring',
+    icon: '🏛️',
+    tag: 'By Term',
+    tagColor: 'bg-indigo-100 text-indigo-800',
+    previewBg: 'from-[#1A3A5C] to-[#2A5280]',
+  },
+  {
+    id: 'photo-showcase',
+    name: 'Photo Showcase',
+    description: 'Landscape · school photo banner · one month per page · premium donor style',
+    icon: '📷',
+    tag: 'Premium',
+    tagColor: 'bg-purple-100 text-purple-800',
+    previewBg: 'from-[#1e3a5f] to-[#6b21a8]',
+  },
+  {
+    id: 'hebrew-date-focus',
+    name: 'Hebrew Date Focus',
+    description: 'Landscape · every cell shows Hebrew + Gregorian date · Rosh Chodesh gold border',
+    icon: '🗓️',
+    tag: 'Hebrew Dates',
+    tagColor: 'bg-green-100 text-green-800',
+    previewBg: 'from-[#14532d] to-[#166534]',
+  },
+  {
+    id: 'elegant-feminine',
+    name: 'Elegant Feminine',
+    description: "Portrait · plum & champagne gold · diamond band · lavender Shabbat · 4 events/cell",
+    icon: '🌸',
+    tag: "Girls' Schools",
+    tagColor: 'bg-pink-100 text-pink-800',
+    previewBg: 'from-[#7B4F72] to-[#A0708A]',
+  },
 ]
 
 export default function PDFPreviewModal({ onClose }) {
@@ -172,9 +226,11 @@ export default function PDFPreviewModal({ onClose }) {
   // Auto-generate preview on mount
   useEffect(() => { handlePreview('classic') }, [])
 
+  const PER_MONTH_STYLES = ['portrait-monthly', 'parchment-scroll', 'photo-showcase', 'elegant-feminine']
+
   const handlePreview = async (styleId, monthIdx) => {
     const id = styleId ?? selectedStyle
-    const mIdx = monthIdx !== undefined ? monthIdx : (id === 'portrait-monthly' ? portraitMonth : null)
+    const mIdx = monthIdx !== undefined ? monthIdx : (PER_MONTH_STYLES.includes(id) ? portraitMonth : null)
     setSelectedStyle(id)
     setUrl(null)
     setError(null)
@@ -194,7 +250,7 @@ export default function PDFPreviewModal({ onClose }) {
   const handleDownload = async () => {
     setDownloading(true)
     try {
-      const mIdx = selectedStyle === 'portrait-monthly' ? portraitMonth : null
+      const mIdx = PER_MONTH_STYLES.includes(selectedStyle) ? portraitMonth : null
       await exportPDF(stateRef.current, { preview: false, pdfStyle: selectedStyle, monthIndex: mIdx })
     } catch (err) {
       alert('Export failed: ' + err.message)
@@ -276,8 +332,8 @@ export default function PDFPreviewModal({ onClose }) {
             </button>
           ))}
 
-          {/* Month selector — only for portrait-monthly */}
-          {selectedStyle === 'portrait-monthly' && (
+          {/* Month selector — for per-month styles */}
+          {PER_MONTH_STYLES.includes(selectedStyle) && (
             <div className="pt-2 border-t border-gray-100 dark:border-gray-700">
               <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest px-1 pb-1.5">Choose Month</p>
               <div className="space-y-1">

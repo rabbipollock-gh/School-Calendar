@@ -8,6 +8,7 @@ import { getSchoolCode } from '../utils/schoolCode.js'
 import { getTheme, applyThemeToCss } from '../utils/themeUtils.js'
 import { loadFromCloud, saveToCloud, debounce } from '../lib/supabaseSync.js'
 import { useAuth } from './AuthContext.jsx'
+import { logger } from '../utils/logger.js'
 
 function getStorageKey() {
   return `yayoe-calendar-v1-${getSchoolCode() || 'default'}`
@@ -22,6 +23,7 @@ const DEFAULT_SCHOOL_INFO = {
   email: '',
   website: 'www.yayoe.org',
   logo: null,
+  bannerImage: null,
   hours: 'Boys: 8:30 AM – 4:00 PM\nGirls: 8:30 AM – 3:30 PM\nFriday: 8:30 AM – 1:30 PM',
   otherInfo: '',
 }
@@ -69,7 +71,7 @@ function buildInitialState() {
   const sourceEvents = isYayoe ? YAYOE_EVENTS : DEFAULT_EVENTS
   const events = normalizeEvents(sourceEvents)
   const schoolInfo = isYayoe ? DEFAULT_SCHOOL_INFO : {
-    name: '', address: '', phone: '', fax: '', email: '', website: '', logo: null, hours: '', otherInfo: '',
+    name: '', address: '', phone: '', fax: '', email: '', website: '', logo: null, bannerImage: null, hours: '', otherInfo: '',
   }
   return {
     events,
@@ -340,36 +342,36 @@ export function CalendarProvider({ children, readOnly = false }) {
 
   // ── Cloud sync: load when userId becomes available ────────────────────────
   useEffect(() => {
-    console.log('[CalendarContext] sync effect fired, userId:', userId, 'sharedState:', !!sharedState)
+    logger.debug('sync', 'sync effect fired', { userId, hasSharedState: !!sharedState })
     if (sharedState || !userId) return
 
     loadFromCloud(userId).then(cloud => {
       if (!cloud) {
         const hasLocalEvents = Object.keys(state.events || {}).length > 0
         if (hasLocalEvents) {
-          console.log('[CalendarContext] no cloud data, uploading local state with events')
+          logger.info('sync', 'no cloud data — uploading local state with events')
           saveToCloud(userId, state).then(() => {
             setCloudToast('synced')
             setTimeout(() => setCloudToast(null), 3500)
           })
         } else {
-          console.log('[CalendarContext] no cloud data and no local events — skipping upload')
+          logger.info('sync', 'no cloud data and no local events — skipping upload')
         }
         return
       }
 
       const localRaw = localStorage.getItem(getStorageKey())
       const localSavedAt = localRaw ? JSON.parse(localRaw)?._savedAt : null
-      console.log('[CalendarContext] cloud updatedAt:', cloud.updatedAt, 'local savedAt:', localSavedAt)
+      logger.debug('sync', 'comparing timestamps', { cloudUpdatedAt: cloud.updatedAt, localSavedAt })
 
       if (!localSavedAt || new Date(cloud.updatedAt) > new Date(localSavedAt)) {
-        console.log('[CalendarContext] cloud is newer — showing prompt')
+        logger.info('sync', 'cloud is newer — showing prompt')
         setNewerCloudState(cloud.data)
         setCloudToast('newer')
       } else {
-        console.log('[CalendarContext] local is same or newer — no prompt needed')
+        logger.info('sync', 'local is same or newer — no prompt needed')
       }
-    }).catch(err => console.error('[CalendarContext] cloud load failed:', err))
+    }).catch(err => logger.error('sync', 'cloud load failed', { error: err?.message }))
   }, [userId]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Cloud sync: save on every state change (debounced 2s) ─────────────────

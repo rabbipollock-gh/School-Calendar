@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react'
 import { useCalendar } from '../context/CalendarContext.jsx'
 import { useAuth } from '../context/AuthContext.jsx'
 import { getLog, clearLog, getLastCloudSave } from '../utils/errorLog.js'
+import { APP_VERSION } from '../version.js'
 
 const LEVEL_COLORS = {
   error: 'text-red-400',
@@ -27,6 +28,7 @@ export default function DiagnosticsModal({ onClose }) {
   const lastSave = getLastCloudSave() ?? '(no save this session)'
 
   const summaryText = [
+    `App version:   v${APP_VERSION}`,
     `User ID:       ${userId}`,
     `School code:   ${schoolCode}`,
     `Academic year: ${academicYear}`,
@@ -58,6 +60,7 @@ export default function DiagnosticsModal({ onClose }) {
 
         {/* System info */}
         <div className="px-5 py-3 border-b border-gray-700 text-xs space-y-1 font-mono text-gray-300">
+          <div><span className="text-gray-500">App version:</span> v{APP_VERSION}</div>
           <div><span className="text-gray-500">User ID:</span> {userId}</div>
           <div><span className="text-gray-500">School code:</span> {schoolCode}</div>
           <div><span className="text-gray-500">Academic year:</span> {academicYear}</div>

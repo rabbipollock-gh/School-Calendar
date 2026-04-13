@@ -19,6 +19,9 @@ function push(level, args) {
   if (_log.length > MAX_ENTRIES) _log.shift()
 }
 
+// Exported so logger.js can forward structured log entries here
+export function _pushToLog(level, args) { push(level, args) }
+
 console.error = (...args) => { push('error', args); _origError(...args) }
 console.warn  = (...args) => { push('warn',  args); _origWarn(...args)  }
 console.log   = (...args) => {

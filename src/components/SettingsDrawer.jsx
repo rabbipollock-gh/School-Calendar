@@ -2,6 +2,7 @@ import React, { useRef, useState, useCallback } from 'react'
 import { useCalendar } from '../context/CalendarContext.jsx'
 import { THEME_MAP } from '../utils/themeUtils.js'
 import { HEBREW_HOLIDAY_GROUPS } from '../data/hebrewCalendar.js'
+import { APP_VERSION } from '../version.js'
 
 // Group themes for display
 const THEME_GROUPS = [
@@ -41,6 +42,15 @@ export default function SettingsDrawer({ isOpen, onClose, onOpenCategories, onOp
     if (!file) return
     const reader = new FileReader()
     reader.onload = (ev) => updateInfo('logo', ev.target.result)
+    reader.readAsDataURL(file)
+  }
+
+  const bannerInputRef = useRef(null)
+  const handleBannerUpload = (e) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    const reader = new FileReader()
+    reader.onload = (ev) => updateInfo('bannerImage', ev.target.result)
     reader.readAsDataURL(file)
   }
 
@@ -163,6 +173,35 @@ export default function SettingsDrawer({ isOpen, onClose, onOpenCategories, onOp
                 </div>
               </div>
             )}
+
+            {/* Banner image — for Photo Showcase PDF template */}
+            <div className="mt-4 pt-3 border-t border-gray-100 dark:border-gray-700">
+              <label className="text-xs font-medium text-gray-500 dark:text-gray-400 block mb-1.5">
+                Banner Photo <span className="text-gray-400 font-normal">(for Photo Showcase PDF)</span>
+              </label>
+              {schoolInfo.bannerImage ? (
+                <div className="flex items-center gap-3">
+                  <img src={schoolInfo.bannerImage} alt="Banner" className="h-12 w-24 object-cover rounded-lg border border-gray-200" />
+                  <div className="flex flex-col gap-1">
+                    {!readOnly && (
+                      <button onClick={() => bannerInputRef.current?.click()} className="text-xs bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:text-white px-2 py-1 rounded-lg transition">
+                        Change
+                      </button>
+                    )}
+                    {!readOnly && (
+                      <button onClick={() => updateInfo('bannerImage', null)} className="text-xs text-red-500 hover:text-red-700 transition">Remove</button>
+                    )}
+                  </div>
+                </div>
+              ) : (
+                !readOnly && (
+                  <button onClick={() => bannerInputRef.current?.click()} className="text-xs bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:text-white px-3 py-1.5 rounded-lg transition">
+                    Upload Banner Photo
+                  </button>
+                )
+              )}
+              <input ref={bannerInputRef} type="file" accept="image/*" onChange={handleBannerUpload} className="sr-only" />
+            </div>
           </section>
 
           {/* Calendar Settings */}
@@ -489,12 +528,15 @@ export default function SettingsDrawer({ isOpen, onClose, onOpenCategories, onOp
           <span className={`text-sm font-semibold transition-opacity duration-300 ${savedToast ? 'text-green-600 opacity-100' : 'opacity-0'}`}>
             ✓ Changes saved
           </span>
-          <button
-            onClick={onClose}
-            className="text-sm font-medium text-gray-500 hover:text-gray-800 dark:hover:text-gray-200 transition px-3 py-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700"
-          >
-            Close
-          </button>
+          <div className="flex items-center gap-4">
+            <span className="text-xs text-gray-300 dark:text-gray-600 font-mono">v{APP_VERSION}</span>
+            <button
+              onClick={onClose}
+              className="text-sm font-medium text-gray-500 hover:text-gray-800 dark:hover:text-gray-200 transition px-3 py-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700"
+            >
+              Close
+            </button>
+          </div>
         </div>
       </div>
     </>

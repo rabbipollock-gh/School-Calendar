@@ -236,7 +236,6 @@ export default function Header({
                 <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Export</span>
               </div>
               <button onClick={() => handleExport('pdf')} className="w-full text-left px-4 py-2.5 hover:bg-blue-50 text-sm flex items-center gap-2">📄 Download PDF</button>
-              <button onClick={() => handleExport('pptx')} className="w-full text-left px-4 py-2.5 hover:bg-blue-50 text-sm flex items-center gap-2">📊 Download PPTX</button>
               <div className="relative">
                 <button
                   onClick={() => setIcsMenuOpen(o => !o)}
@@ -252,8 +251,8 @@ export default function Header({
                 )}
               </div>
               <button onClick={() => handleExport('csv')} className="w-full text-left px-4 py-2.5 hover:bg-blue-50 text-sm flex items-center gap-2">📋 Export CSV</button>
-              <button onClick={() => handleExport('print')} className="w-full text-left px-4 py-2.5 hover:bg-blue-50 text-sm flex items-center gap-2">🖨️ Print / Save PDF</button>
               <button onClick={() => handleExport('json')} className="w-full text-left px-4 py-2.5 hover:bg-gray-50 text-sm flex items-center gap-2 text-gray-500">💾 Export Backup JSON</button>
+              <button onClick={() => handleExport('print')} className="w-full text-left px-4 py-2.5 hover:bg-gray-50 text-sm flex items-center gap-2 text-gray-400 text-xs">🖨️ Print (browser dialog)</button>
               <div className="border-t border-gray-100">
                 <div className="px-4 py-1.5 bg-gray-50">
                   <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Import</span>
