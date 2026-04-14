@@ -320,7 +320,7 @@ function drawMonth(doc, { year, month }, events, categories, settings, x, y, w, 
       doc.setFontSize(2.8)
       doc.setFont('helvetica', 'normal')
       doc.setTextColor(isFilled && dayEvs.length > 0 ? 255 : 160, isFilled && dayEvs.length > 0 ? 230 : 120, isFilled && dayEvs.length > 0 ? 100 : 20)
-      doc.text(`${icon} ${hName}`, cx + 0.5, cy + cellH - 0.5, { maxWidth: cellW - 1 })
+      doc.text(hName, cx + 0.5, cy + cellH - 0.5, { maxWidth: cellW - 1 })
     }
   })
 
@@ -743,7 +743,8 @@ function drawMiniMonth(doc, { year, month }, events, categories, settings, {
       const icon = customIcons[hebrewHolidayMini.group] || hebrewHolidayMini.icon
       doc.setFontSize(2.5); doc.setFont('helvetica', 'normal')
       doc.setTextColor(160, 100, 20)
-      doc.text(`${icon}`, cx + cellW - 2.5, cy + cellH - 0.6, { align: 'right', maxWidth: cellW - 1 })
+      const hNameMini = settings.shabbatLabel === 'Shabbos' ? hebrewHolidayMini.ashkenaz : hebrewHolidayMini.sephardi
+      doc.text(hNameMini.slice(0, 6), cx + cellW - 0.5, cy + cellH - 0.6, { align: 'right', maxWidth: cellW - 1 })
     }
   })
 }
