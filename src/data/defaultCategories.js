@@ -3,7 +3,7 @@ export const DEFAULT_CATEGORIES = [
   {
     id: 'no-school',
     name: 'No School',
-    color: '#F4A261',
+    color: '#C0392B',
     icon: '🚫',
     visible: true,
     deletable: true,
@@ -11,7 +11,7 @@ export const DEFAULT_CATEGORIES = [
   {
     id: 'early-dismissal',
     name: 'Early Dismissal',
-    color: '#A8E6CF',
+    color: '#D68910',
     icon: '🕐',
     visible: true,
     deletable: true,
@@ -27,7 +27,7 @@ export const DEFAULT_CATEGORIES = [
   {
     id: 'staff',
     name: 'Staff / In-Service',
-    color: '#FFD3A5',
+    color: '#7D3C98',
     icon: '👩‍🏫',
     visible: true,
     deletable: true,
@@ -35,7 +35,7 @@ export const DEFAULT_CATEGORIES = [
   {
     id: 'school-event',
     name: 'School Event / BTSN',
-    color: '#A8D8EA',
+    color: '#1A7ABF',
     icon: '🏫',
     visible: true,
     deletable: true,
@@ -43,7 +43,7 @@ export const DEFAULT_CATEGORIES = [
   {
     id: 'chanukah',
     name: 'Chanukah 3:45 Dismissal',
-    color: '#FFF0A0',
+    color: '#C7960A',
     icon: '🕎',
     visible: true,
     deletable: true,
@@ -51,7 +51,7 @@ export const DEFAULT_CATEGORIES = [
   {
     id: 'hebrew-only',
     name: 'Hebrew Only',
-    color: '#D4EAFF',
+    color: '#148F77',
     icon: '✡️',
     visible: true,
     deletable: true,

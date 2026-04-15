@@ -9,15 +9,32 @@ import { getTheme, hexToRgb } from './themeUtils.js'
 
 const DAYS = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SHA']
 const COL_COUNT = 4
-const PAGE_W = 297  // A4 landscape mm
-const PAGE_H = 210
-const MARGIN = 8
-const SIDEBAR_W = 52
-const HEADER_H = 18
+const PAGE_W = 279.4  // US Letter landscape mm
+const PAGE_H = 215.9
+const MARGIN = 5
+const SIDEBAR_W = 46
+const HEADER_H = 14
 const BOTTOM_PANEL_H = 38
 
 function hexToRgbLocal(hex) {
   return hexToRgb(hex)
+}
+
+// Render an emoji character to a PNG data URL via canvas (workaround for jsPDF font limits)
+function renderEmojiToImage(emoji, size = 40) {
+  return new Promise((resolve) => {
+    try {
+      const canvas = document.createElement('canvas')
+      canvas.width = size; canvas.height = size
+      const ctx = canvas.getContext('2d')
+      ctx.clearRect(0, 0, size, size)
+      ctx.font = `${Math.round(size * 0.78)}px serif`
+      ctx.textAlign = 'center'
+      ctx.textBaseline = 'middle'
+      ctx.fillText(emoji, size / 2, size / 2 + 1)
+      resolve(canvas.toDataURL('image/png'))
+    } catch { resolve(null) }
+  })
 }
 
 // Converts "13:30" → "1:30pm", "09:00" → "9am"
@@ -51,12 +68,13 @@ function renderSidebarBlock(doc, blockId, startY, { sbX, sbCx, SIDEBAR_W, ruleW,
       doc.text('SCHOOL HOURS', sbCx, y, { align: 'center' })
       doc.setDrawColor(ar, ag, ab); doc.setLineWidth(0.5)
       doc.line(sbCx - ruleW / 2, y + 1.8, sbCx + ruleW / 2, y + 1.8)
-      doc.setFont('helvetica', 'normal'); doc.setFontSize(5); doc.setTextColor(tr, tg, tb)
-      hourLines.forEach((line, i) => doc.text(line.trim(), sbCx, y + 7 + i * 5.5, { align: 'center' }))
-      y += 7 + hourLines.length * 5.5 + 4
+      // Large, highly readable hours — this is daily reference info
+      doc.setFont('helvetica', 'bold'); doc.setFontSize(8); doc.setTextColor(tr, tg, tb)
+      hourLines.forEach((line, i) => doc.text(line.trim(), sbCx, y + 8 + i * 7, { align: 'center', maxWidth: SIDEBAR_W - 4 }))
+      y += 8 + hourLines.length * 7 + 4
       doc.setDrawColor(ar, ag, ab); doc.setLineWidth(0.5)
       doc.line(sbX + 3, y, sbX + SIDEBAR_W - 3, y)
-      return y + 6
+      return y + 5
     }
     case 'legend': {
       const visibleCats = categories.filter(c => c.visible && c.id !== 'rosh-chodesh')
@@ -68,15 +86,16 @@ function renderSidebarBlock(doc, blockId, startY, { sbX, sbCx, SIDEBAR_W, ruleW,
       y += 6
       visibleCats.forEach((cat, idx) => {
         const [r, g, b] = hexToRgbLocal(cat.color || '#999')
-        const itemY = y + idx * 5.5
-        doc.setFillColor(r, g, b); doc.rect(sbX + 5, itemY - 2.5, 5, 3.2, 'F')
-        doc.setTextColor(tr, tg, tb); doc.setFontSize(5); doc.setFont('helvetica', 'normal')
-        doc.text(cat.name, sbX + 12, itemY, { maxWidth: SIDEBAR_W - 14 })
+        const itemY = y + idx * 7.5
+        // Large bold swatch — 3× bigger, matches actual calendar cell colors
+        doc.setFillColor(r, g, b); doc.roundedRect(sbX + 3, itemY - 3.5, 8, 5.5, 0.5, 0.5, 'F')
+        doc.setTextColor(tr, tg, tb); doc.setFontSize(5.5); doc.setFont('helvetica', 'bold')
+        doc.text(cat.name, sbX + 13, itemY, { maxWidth: SIDEBAR_W - 15 })
       })
-      y += visibleCats.length * 5.5 + 4
+      y += visibleCats.length * 7.5 + 4
       doc.setDrawColor(ar, ag, ab); doc.setLineWidth(0.5)
       doc.line(sbX + 3, y, sbX + SIDEBAR_W - 3, y)
-      return y + 6
+      return y + 5
     }
     case 'otherInfo': {
       if (!schoolInfo.otherInfo) return y
@@ -186,15 +205,16 @@ function drawDecorativeDiamondBand(doc, bandY, pageW, primaryRgb, accentRgb, mar
   }
 }
 
-function drawMonth(doc, { year, month }, events, categories, settings, x, y, w, h, shabbatLabel, notesStripH, theme) {
+function drawMonth(doc, { year, month }, events, categories, settings, x, y, w, h, shabbatLabel, notesStripH, theme, emojiCache = {}) {
   const catMap = {}
   categories.forEach(c => { catMap[c.id] = c })
   const isFilled = settings.cellStyle === 'filled'
   const isCompact = settings.template === 'compact'
-  const s = isCompact ? 0.82 : 1  // scale factor for compact mode
+  const s = isCompact ? 0.82 : 1
   const [pr, pg, pb] = hexToRgbLocal(theme.primary)
   const [ar, ag, ab] = hexToRgbLocal(theme.accent)
-  const [sr, sg, sb] = hexToRgbLocal(theme.shabbatBg || '#e1e8f2')
+  // Medium grey for Shabbat — consistent weekly visual rhythm, theme-independent
+  const SHABBAT_R = 192, SHABBAT_G = 192, SHABBAT_B = 198
 
   // Month header
   const headerH = 8 * s
@@ -207,7 +227,7 @@ function drawMonth(doc, { year, month }, events, categories, settings, x, y, w, 
   const hebrewLabel = getHebrewMonthLabel(year, month)
   doc.text(monthName, x + 1.5, y + 3.8 * s)
   const monthNameW = doc.getTextWidth(monthName)
-  doc.setTextColor(ar, ag, ab)
+  doc.setTextColor(255, 255, 255)
   doc.setFontSize(6.5 * s)
   doc.text(` ${String(year)}`, x + 1.5 + monthNameW, y + 3.8 * s)
   doc.setTextColor(180, 210, 255)
@@ -221,11 +241,11 @@ function drawMonth(doc, { year, month }, events, categories, settings, x, y, w, 
   DAYS.forEach((d, i) => {
     const labelStr = i === 6 ? shabbatLabel.slice(0, 3).toUpperCase() : d
     if (i === 6) {
-      doc.setFillColor(sr, sg, sb)
+      doc.setFillColor(SHABBAT_R, SHABBAT_G, SHABBAT_B)
       doc.rect(x + i * cellW, dayLabelY - 2, cellW, 3 * s, 'F')
     }
-    doc.setTextColor(i === 6 ? pr : 80, i === 6 ? pg : 80, i === 6 ? pb : 80)
-    doc.setFontSize(3.8 * s)
+    doc.setTextColor(i === 6 ? 88 : 80, i === 6 ? 88 : 80, i === 6 ? 96 : 80)
+    doc.setFontSize(4.5 * s)
     doc.setFont('helvetica', 'bold')
     doc.text(labelStr, x + i * cellW + cellW / 2, dayLabelY, { align: 'center' })
   })
@@ -235,6 +255,24 @@ function drawMonth(doc, { year, month }, events, categories, settings, x, y, w, 
   const startDow = getFirstDayOfWeek(year, month)
   const headerOffset = isCompact ? 9 : 11
   const cellH = (h - headerOffset - (notesStripH || 0)) / 6
+
+  // ── Pre-pass: classify events by type for special rendering ──────────────
+  const noSchoolMap = {}      // dateKey → { label }
+  const earlyDismissMap = {}  // dateKey → { label, time, color }
+  days.forEach(date => {
+    const dateKey = formatDateKey(date)
+    ;(events[dateKey] || []).filter(e => e.category !== 'rosh-chodesh').forEach(ev => {
+      const cat = catMap[ev.category]
+      const cname = cat?.name?.toLowerCase() || ''
+      if (ev.category === 'no-school' || cname.includes('no school')) {
+        noSchoolMap[dateKey] = { label: ev.label }
+      }
+      if (ev.category === 'early-dismissal' || cname.includes('dismissal')) {
+        earlyDismissMap[dateKey] = { label: ev.label, time: ev.time, color: ev.color || cat?.color || '#D68910' }
+      }
+    })
+  })
+
   doc.setFont('helvetica', 'normal')
 
   days.forEach(date => {
@@ -247,93 +285,158 @@ function drawMonth(doc, { year, month }, events, categories, settings, x, y, w, 
     const dayEvs = (events[dateKey] || []).filter(e => e.category !== 'rosh-chodesh')
     const rcMonth = getRoshChodeshMap(settings.academicYear)[dateKey]
     const hebrewHoliday = getHolidayMap(settings.academicYear)[dateKey]
+    const isNoSchool = !!noSchoolMap[dateKey]
+    const isEarlyDismiss = !!earlyDismissMap[dateKey]
 
-    // Shabbat background — always apply theme tint first
+    // Shabbat background — medium grey regardless of theme
     if (dow === 6) {
-      doc.setFillColor(sr, sg, sb)
+      doc.setFillColor(SHABBAT_R, SHABBAT_G, SHABBAT_B)
       doc.rect(cx, cy, cellW, cellH, 'F')
     }
 
-    if (isFilled && dayEvs.length > 0) {
-      // Filled cell mode — color the whole cell with the first event's color
+    if (isNoSchool) {
+      // ── No-school: solid brick red + diagonal hatch for B&W resilience ──
+      doc.setFillColor(192, 57, 43)
+      doc.roundedRect(cx + 0.15, cy + 0.15, cellW - 0.3, cellH - 0.3, 0.5, 0.5, 'F')
+      // Diagonal lines for B&W printing distinction
+      doc.setDrawColor(222, 95, 78)
+      doc.setLineWidth(0.18)
+      const step = 2
+      for (let hx = step; hx < cellW + cellH - 0.3; hx += step) {
+        const ax = cx + 0.15 + Math.min(hx, cellW - 0.3)
+        const ay = cy + 0.15 + Math.max(0, hx - (cellW - 0.3))
+        const bx = cx + 0.15 + Math.max(0, hx - (cellH - 0.3))
+        const by = cy + 0.15 + Math.min(hx, cellH - 0.3)
+        doc.line(ax, ay, bx, by)
+      }
+      // Date number — white bold
+      doc.setTextColor(255, 255, 255)
+      doc.setFontSize(6.5 * s)
+      doc.setFont('helvetica', 'bold')
+      doc.text(String(dayNum), cx + 0.8, cy + 3.5 * s)
+      doc.setFont('helvetica', 'normal')
+    } else if (isEarlyDismiss) {
+      // ── Early dismissal: amber fill + date number + dismissal time ──
+      const ed = earlyDismissMap[dateKey]
+      const [r, g, b] = hexToRgbLocal(ed.color)
+      doc.setFillColor(r, g, b)
+      doc.roundedRect(cx + 0.15, cy + 0.15, cellW - 0.3, cellH - 0.3, 0.5, 0.5, 'F')
+      // Date number
+      doc.setTextColor(255, 255, 255)
+      doc.setFontSize(5.5 * s)
+      doc.setFont('helvetica', 'bold')
+      doc.text(String(dayNum), cx + 0.8, cy + 3 * s)
+      // Dismissal time — the key info people need at a glance
+      if (ed.time && cellH > 6) {
+        doc.setFontSize(3.2 * s)
+        doc.setFont('helvetica', 'normal')
+        doc.text(formatTime(ed.time), cx + 0.8, cy + 3 * s + 3.5, { maxWidth: cellW - 1.2 })
+      }
+    } else if (isFilled && dayEvs.length > 0) {
+      // Filled cell mode for other events
       const firstEv = dayEvs[0]
       const cat = catMap[firstEv.category]
       const color = firstEv.color || cat?.color || '#999999'
       const [r, g, b] = hexToRgb(color)
       doc.setFillColor(r, g, b)
       doc.roundedRect(cx + 0.2, cy + 0.2, cellW - 0.4, cellH - 0.4, 0.5, 0.5, 'F')
-      // Day number in white
       doc.setTextColor(255, 255, 255)
-      doc.setFontSize(4 * s)
+      doc.setFontSize(5.5 * s)
       doc.setFont('helvetica', 'bold')
-      doc.text(String(dayNum), cx + 0.8, cy + 2.5 * s)
-      // Event label below day number
+      doc.text(String(dayNum), cx + 0.8, cy + 3 * s)
       if (cellH > 7 && firstEv.label) {
-        doc.setFontSize(2.8 * s)
+        doc.setFontSize(3.5 * s)
         doc.setFont('helvetica', 'normal')
         const lbl = firstEv.label.length > 12 ? firstEv.label.slice(0, 11) + '…' : firstEv.label
-        doc.text(lbl, cx + 0.8, cy + 2.5 * s + 2.8 * s, { maxWidth: cellW - 1.2 })
+        doc.text(lbl, cx + 0.8, cy + 3 * s + 3.5 * s, { maxWidth: cellW - 1.2 })
       }
       doc.setFont('helvetica', 'normal')
     } else {
       // Dot mode — day number + colored dot + tiny label
       doc.setTextColor(50, 50, 50)
-      doc.setFontSize(4 * s)
-      doc.text(String(dayNum), cx + 0.8, cy + 2.5 * s)
+      doc.setFontSize(5.5 * s)
+      doc.text(String(dayNum), cx + 0.8, cy + 3 * s)
       dayEvs.slice(0, 2).forEach((ev, evIdx) => {
         const cat = catMap[ev.category]
         const color = ev.color || cat?.color || '#999999'
         const [r, g, b] = hexToRgb(color)
-        const dotY = cy + 3.8 * s + evIdx * 2.8 * s
-        // Color dot
+        const dotY = cy + 4.8 * s + evIdx * 3.5 * s
         doc.setFillColor(r, g, b)
-        doc.circle(cx + 1, dotY, 0.65 * s, 'F')
-        // Event label next to dot
+        doc.circle(cx + 1.2, dotY, 0.9 * s, 'F')
         if (ev.label && cellW > 8) {
-          doc.setFontSize(2.6 * s)
+          doc.setFontSize(3.5 * s)
           doc.setTextColor(r, g, b)
           const lbl = ev.label.length > 11 ? ev.label.slice(0, 10) + '…' : ev.label
-          doc.text(lbl, cx + 2.4, dotY + 0.5, { maxWidth: cellW - 2.8 })
+          doc.text(lbl, cx + 3, dotY + 0.6, { maxWidth: cellW - 3.5 })
         }
       })
     }
 
-    // Cell border — thin faint line around every day cell
+    // Cell border
     doc.setDrawColor(200, 200, 205)
     doc.setLineWidth(0.15)
     doc.rect(cx, cy, cellW, cellH, 'S')
 
-    // Rosh Chodesh badge
+    // Rosh Chodesh badge — abbreviated month name to prevent overflow; top of cell when holiday also present
     if (rcMonth) {
+      const RC_ABBREV = {
+        'Tishrei':'Tish.','Cheshvan':'Ches.','Kislev':'Kis.','Tevet':'Tev.',
+        'Shvat':'Shv.','Adar':'Adar','Adar I':'Ad.I','Adar II':'Ad.II',
+        'Nisan':'Nis.','Iyar':'Iyar','Sivan':'Siv.','Tamuz':'Tam.',
+        'Av':'Av','Elul':'Elul',
+      }
+      const rcShort = RC_ABBREV[rcMonth] || rcMonth.slice(0, 5)
+      // When a Hebrew holiday icon occupies the cell bottom-right, move R.Ch. to just below the date number
+      // Use consistent 5.8*s offset regardless of cell type so both days of a 2-day R.Ch. align
+      const rcY = hebrewHoliday
+        ? cy + 5.8 * s
+        : cy + cellH - 0.5
       doc.setFontSize(2.8)
       doc.setFont('helvetica', 'italic')
-      doc.setTextColor(isFilled && dayEvs.length > 0 ? 230 : 120, isFilled && dayEvs.length > 0 ? 200 : 100, isFilled && dayEvs.length > 0 ? 255 : 180)
-      doc.text(`R.Ch. ${rcMonth}`, cx + 0.5, cy + cellH - (hebrewHoliday ? 2.2 : 0.5), { maxWidth: cellW - 1 })
+      doc.setTextColor(isNoSchool ? 230 : 120, isNoSchool ? 200 : 100, isNoSchool ? 255 : 180)
+      doc.text(`R.Ch. ${rcShort}`, cx + 0.5, rcY, { maxWidth: cellW - 1 })
       doc.setFont('helvetica', 'normal')
     }
-    // Hebrew holiday badge
+    // Hebrew holiday — emoji icon image (small, bottom-right of cell)
     if (hebrewHoliday && settings.hebrewHolidayToggles?.[hebrewHoliday.group] !== false) {
       const customIcons = settings.hebrewHolidayIcons || {}
       const icon = customIcons[hebrewHoliday.group] || hebrewHoliday.icon
-      const isAshkenaz = settings.shabbatLabel === 'Shabbos'
-      const hName = isAshkenaz ? hebrewHoliday.ashkenaz : hebrewHoliday.sephardi
-      doc.setFontSize(2.8)
-      doc.setFont('helvetica', 'normal')
-      doc.setTextColor(isFilled && dayEvs.length > 0 ? 255 : 160, isFilled && dayEvs.length > 0 ? 230 : 120, isFilled && dayEvs.length > 0 ? 100 : 20)
-      doc.text(hName, cx + 0.5, cy + cellH - 0.5, { maxWidth: cellW - 1 })
+      const iconImg = emojiCache[icon]
+      if (iconImg) {
+        const iconSz = Math.min(cellW * 0.38, cellH * 0.42, 4.5)
+        doc.addImage(iconImg, 'PNG', cx + cellW - iconSz - 0.3, cy + cellH - iconSz - 0.3, iconSz, iconSz)
+      }
     }
   })
 
-  // Notes strip (when eventsPanel === 'inline')
+  // ── Notes strip (when eventsPanel === 'inline') ───────────────────────────
   if (settings.eventsPanel !== 'bottom' && notesStripH > 0) {
     const stripH = notesStripH
     const notesY = y + h - stripH
-    // Light background so text is readable over cell colors
     doc.setFillColor(248, 249, 251)
     doc.rect(x, notesY, w, stripH, 'F')
     doc.setDrawColor(200, 205, 215)
     doc.setLineWidth(0.2)
     doc.line(x, notesY, x + w, notesY)
+
+    // Build cross-month date ranges, split into consecutive run-groups per (category, label).
+    // A single continuous run (e.g. Pesach Break Apr 16–May 2) gets one combined note entry
+    // showing the full date range. Non-consecutive same-name events (e.g. PTC Nov 15 + Feb 14,
+    // School Resumes, In-Service) stay as separate entries — one per run.
+    const allEventRanges = {}
+    Object.entries(events).forEach(([dk, dayEvs]) => {
+      ;(dayEvs || []).filter(e => e.category !== 'rosh-chodesh').forEach(ev => {
+        const key = `${ev.category}::${ev.label}`
+        if (!allEventRanges[key]) allEventRanges[key] = []
+        allEventRanges[key].push(dk)
+      })
+    })
+    // Split each key's dates into consecutive run-groups
+    const allEventRunGroups = {}
+    Object.entries(allEventRanges).forEach(([key, dates]) => {
+      allEventRunGroups[key] = groupConsecutiveDates([...dates].sort())
+    })
+    const thisMonthStr = `${year}-${String(month + 1).padStart(2, '0')}`
 
     const notesEvents = {}
     days.forEach(date => {
@@ -341,28 +444,49 @@ function drawMonth(doc, { year, month }, events, categories, settings, x, y, w, 
       const dayEvs = (events[dateKey] || []).filter(e => e.category !== 'rosh-chodesh')
       dayEvs.forEach(ev => {
         const key = `${ev.category}::${ev.label}`
-        if (!notesEvents[key]) notesEvents[key] = { ev, dates: [] }
-        notesEvents[key].dates.push(dateKey)
+        const runGroups = allEventRunGroups[key] || [[dateKey]]
+        const groupIdx = runGroups.findIndex(g => g.includes(dateKey))
+        const idx = groupIdx >= 0 ? groupIdx : 0
+        // Multiple separate runs → unique key per run so each appears as its own note entry
+        const entryKey = runGroups.length > 1 ? `${key}::r${idx}` : key
+        if (!notesEvents[entryKey]) {
+          const runDates = runGroups[idx] || [dateKey]
+          notesEvents[entryKey] = { ev, dates: runDates }
+        }
       })
     })
 
     const maxNoteY = y + h - 0.5
     let noteLineY = notesY + 2.5
-    doc.setFontSize(3.2)
     for (const { ev, dates } of Object.values(notesEvents)) {
       if (noteLineY > maxNoteY) break
       const cat = catMap[ev.category]
       const color = ev.color || cat?.color || '#999999'
       const [r, g, b] = hexToRgb(color)
+      // Filled square swatch
       doc.setFillColor(r, g, b)
-      doc.circle(x + 1, noteLineY - 0.5, 0.5, 'F')
-      const groups = groupConsecutiveDates(dates)
+      doc.rect(x + 1, noteLineY - 2.2, 2.5, 2.5, 'F')
+      // Build suffix: category name + time for early dismissal
+      const isED = ev.category === 'early-dismissal' || (cat?.name?.toLowerCase() || '').includes('dismissal')
+      const catName = cat?.name || ''
+      const timeStr = (isED && ev.time) ? ` ${formatTime(ev.time)}` : ''
+      const suffix = catName ? ` – ${catName}${timeStr}` : timeStr
+      // Use full cross-month date range
+      const groups = groupConsecutiveDates([...dates].sort())
       const rangeStr = groups.map(g => formatRangeLabel(g)).join(', ')
-      const lineText = `${rangeStr} | ${ev.label}`
-      const wrappedLines = doc.splitTextToSize(lineText, w - 3.5)
-      doc.setTextColor(60, 60, 60)
-      doc.text(wrappedLines, x + 2.5, noteLineY, { maxWidth: w - 3.5 })
-      noteLineY += wrappedLines.length * 1.5 + 0.6
+      // Bold event label — show as-is (full cross-month range already shown in the date string)
+      doc.setFontSize(3.8)
+      doc.setFont('helvetica', 'bold')
+      doc.setTextColor(r, g, b)
+      const labelTrunc = ev.label.length > 18 ? ev.label.slice(0, 17) + '…' : ev.label
+      doc.text(labelTrunc, x + 4.5, noteLineY, { maxWidth: (w - 5) * 0.48 })
+      const usedLabelW = Math.min(doc.getTextWidth(labelTrunc), (w - 5) * 0.48)
+      // Normal: date range then category name
+      doc.setFont('helvetica', 'normal')
+      doc.setFontSize(3.5)
+      doc.setTextColor(70, 70, 70)
+      doc.text(` – ${rangeStr}${suffix}`, x + 4.5 + usedLabelW, noteLineY, { maxWidth: w - 5 - usedLabelW })
+      noteLineY += 2.8
     }
   }
 }
@@ -465,20 +589,20 @@ function drawNotesStrip(doc, events, catMap, x, y, w, h, year, month) {
   })
   let lineY = y + 2.5
   const maxY = y + h - 0.5
-  doc.setFontSize(3.2); doc.setFont('helvetica', 'normal')
+  doc.setFontSize(4); doc.setFont('helvetica', 'normal')
   for (const { ev, dates } of Object.values(notesEvents)) {
     if (lineY > maxY) break
     const cat = catMap[ev.category]
     const color = ev.color || cat?.color || '#999'
     const [r, g, b] = hexToRgbLocal(color)
-    doc.setFillColor(r, g, b); doc.circle(x + 1, lineY - 0.5, 0.5, 'F')
+    doc.setFillColor(r, g, b); doc.circle(x + 1, lineY - 0.5, 0.6, 'F')
     const groups = groupConsecutiveDates([...dates].sort())
     const rangeStr = groups.map(g => formatRangeLabel(g)).join(', ')
     const lineText = `${rangeStr} | ${ev.label}`
     const lines = doc.splitTextToSize(lineText, w - 3.5)
     doc.setTextColor(60, 60, 60)
     doc.text(lines, x + 2.5, lineY, { maxWidth: w - 3.5 })
-    lineY += lines.length * 1.5 + 0.6
+    lineY += lines.length * 1.8 + 0.6
   }
 }
 
@@ -487,7 +611,9 @@ export async function exportPDF(state, { preview = false, pdfStyle = 'classic', 
   const theme = getTheme(settings.theme, settings.customPrimary, settings.customAccent)
   const [pr, pg, pb] = hexToRgbLocal(theme.primary)
   const [ar, ag, ab] = hexToRgbLocal(theme.accent)
-  const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' })
+  // Minimal and Year at a Glance draw at A4 dimensions (297×210mm); all others use Letter
+  const isA4Style = pdfStyle === 'minimal' || pdfStyle === 'year-at-a-glance'
+  const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: isA4Style ? 'a4' : 'letter' })
   const hasMontserrat = await loadMontserrat(doc)
   const titleFont = hasMontserrat ? 'Montserrat' : 'helvetica'
   const shabbatLabel = settings.shabbatLabel || 'Shabbat'
@@ -518,11 +644,11 @@ export async function exportPDF(state, { preview = false, pdfStyle = 'classic', 
   const dynamicPanelH = showBottomPanel
     ? Math.min(Math.max(BOTTOM_PANEL_H, 11 + maxEvPerMonth * 4 + 4), 90)
     : 0
-  // Dynamic inline notes strip height: grows per-event count, capped at 20mm
-  // Each event line ≈ 2.1mm + 3mm header. Cells need at least 4mm each (24mm for 6 rows).
+  // Dynamic inline notes strip height: 2.8mm per event line + 2.5mm top pad, capped at 26mm
+  // (was 2.2mm/20mm — increased to prevent events from being cut off)
   const maxInlineEvents = !showBottomPanel ? computeMaxEventsPerMonth(events, settings.academicYear) : 0
   const globalNotesStripH = maxInlineEvents > 0
-    ? Math.min(Math.max(12, maxInlineEvents * 2.2 + 3), 20)
+    ? Math.min(Math.max(12, maxInlineEvents * 2.8 + 2.5), 26)
     : 0
   const availH = showBottomPanel
     ? PAGE_H - (HEADER_H + 2) - MARGIN - dynamicPanelH - 4
@@ -540,11 +666,13 @@ export async function exportPDF(state, { preview = false, pdfStyle = 'classic', 
   doc.setFillColor(ar, ag, ab)
   doc.rect(0, HEADER_H - 1.5, PAGE_W, 1.5, 'F')
 
-  // Logo — circular crop via canvas
+  // Logo — circular crop, centered vertically in header
+  const LOGO_SIZE = 11
+  const logoY = (HEADER_H - LOGO_SIZE) / 2   // vertically centered
   if (schoolInfo.logo) {
     try {
       const circularLogo = await cropLogoImage(schoolInfo.logo, settings.logoShape || 'circle')
-      doc.addImage(circularLogo, 'PNG', MARGIN, 2, 13, 13)
+      doc.addImage(circularLogo, 'PNG', MARGIN, logoY, LOGO_SIZE, LOGO_SIZE)
     } catch {}
   }
 
@@ -552,13 +680,21 @@ export async function exportPDF(state, { preview = false, pdfStyle = 'classic', 
   doc.setFillColor(ar, ag, ab)
   doc.rect(0, 0, 3, HEADER_H - 1.5, 'F')
 
-  // School name / custom title — ACCENT color, prominent
+  // School name / custom title — centered vertically in header
+  // Two-line block: title (12pt ≈ 4mm) + year (7pt ≈ 2.5mm) + 2mm gap ≈ 8.5mm total
+  // Center in usable height (HEADER_H - 1.5 accent bar = 12.5mm): top = (12.5-8.5)/2 = 2mm
+  const titleX = MARGIN + LOGO_SIZE + 3
+  const titleY = 2 + 4.2        // ≈ 6.2mm baseline for title
+  const yearLineY = titleY + 4.5 // ≈ 10.7mm baseline for year line
+
   const displayTitle = settings.calendarTitle || schoolInfo.name || 'YAYOE Calendar'
-  doc.setTextColor(ar, ag, ab)
+  // White — always readable on dark primary header regardless of theme accent color
   doc.setFontSize(12)
   doc.setFont(titleFont, 'bold')
-  doc.text(displayTitle, MARGIN + 16, 9)
-  // Secondary line: "Academic Year 2026–2027  •  5787" (Hebrew year optional)
+  doc.setTextColor(255, 255, 255)
+  doc.text(displayTitle, titleX, titleY)
+
+  // Secondary line: "Academic Year 2026–2027  •  5787"
   doc.setFontSize(7)
   doc.setFont(titleFont, 'normal')
   doc.setTextColor(255, 255, 255)
@@ -566,7 +702,7 @@ export async function exportPDF(state, { preview = false, pdfStyle = 'classic', 
   const yearLine = settings.showHebrewYear !== false && hebrewYear
     ? `Academic Year  ${settings.academicYear || '2026–2027'}  •  ${hebrewYear}`
     : `Academic Year  ${settings.academicYear || '2026–2027'}`
-  doc.text(yearLine, MARGIN + 16, 14)
+  doc.text(yearLine, titleX, yearLineY)
 
   // ── Draft Watermark ──────────────────────────────────
   if (settings.draftWatermark) {
@@ -578,15 +714,32 @@ export async function exportPDF(state, { preview = false, pdfStyle = 'classic', 
     doc.setGState(doc.GState({ opacity: 1.0 }))
   }
 
+  // ── Pre-render holiday emoji icons to PNG (jsPDF can't render emoji in text) ──
+  const holidayMap = getHolidayMap(settings.academicYear)
+  const emojiCache = {}
+  await Promise.all(
+    [...new Set(Object.values(holidayMap).map(h => (settings.hebrewHolidayIcons || {})[h.group] || h.icon).filter(Boolean))].map(
+      async icon => { emojiCache[icon] = await renderEmojiToImage(icon) }
+    )
+  )
+
   // ── Calendar Grid ──────────────────────────────────
   const startY = HEADER_H + 2
 
   getAcademicMonths(settings.academicYear).forEach(({ year, month }, idx) => {
     const col = idx % COL_COUNT
     const row = Math.floor(idx / COL_COUNT)
-    const x = MARGIN + col * (MONTH_W + 2)
+    // Last row: expand remaining months to fill the full grid width (no empty column gap)
+    const totalMonths = getAcademicMonths(settings.academicYear).length
+    const lastRowStart = Math.floor((totalMonths - 1) / COL_COUNT) * COL_COUNT
+    const isLastRow = idx >= lastRowStart
+    const lastRowCount = totalMonths - lastRowStart
+    const mw = isLastRow ? (GRID_W / lastRowCount) - 2 : MONTH_W
+    const mx = isLastRow
+      ? MARGIN + col * (mw + 2)
+      : MARGIN + col * (MONTH_W + 2)
     const y = startY + row * (MONTH_H + 3)
-    drawMonth(doc, { year, month }, events, categories, settings, x, y, MONTH_W, MONTH_H, shabbatLabel, globalNotesStripH, theme)
+    drawMonth(doc, { year, month }, events, categories, settings, mx, y, mw, MONTH_H, shabbatLabel, globalNotesStripH, theme, emojiCache)
   })
 
   // ── Bottom Events Panel ──────────────────────────────
@@ -650,8 +803,58 @@ export async function exportPDF(state, { preview = false, pdfStyle = 'classic', 
 // ────────────────────────────────────────────────────────────────────────────
 // Shared helper: draw a single mini month grid onto an existing doc
 // ────────────────────────────────────────────────────────────────────────────
+// Short display names for Hebrew holidays in mini month cells (limited space)
+const MINI_HOLIDAY_ABBREV = {
+  'Rosh Hashana': 'R.H.',
+  'Yom Kippur': 'Y.K.',
+  'Sukkos': 'Sukkos',
+  'Sukkot': 'Sukkot',
+  'Chol HaMoed': 'Ch.H.',
+  'Hoshana Raba': 'H.R.',
+  'Shmini Atzeres': 'Shm.A.',
+  'Shemini Atzeret': 'Shm.A.',
+  'Simchas Torah': 'Sim.T.',
+  'Simchat Torah': 'Sim.T.',
+  'Chanukah': 'Chanukah',
+  'Tzom Gedalya': 'Tzm.G.',
+  'Tzom Gedalyah': 'Tzm.G.',
+  "Asara B'Teves": "Asara B.",
+  "Asara B'Tevet": "Asara B.",
+  'Taanis Esther': 'Taan.E.',
+  "Ta'anit Esther": 'Taan.E.',
+  'Erev Shavuos': 'E.Shav.',
+  'Erev Shavuot': 'E.Shav.',
+  'Purim': 'Purim',
+  'Shushan Purim': 'Shsh.P.',
+  'Pesach': 'Pesach',
+  'Shavuos': 'Shavuos',
+  'Shavuot': 'Shavuot',
+  "Tu B'Shvat": "Tu B'Sh.",
+  'Yom HaZikaron': 'Yom Z.',
+  'Yom HaAtzmaut': 'Yom H.',
+  "Lag B'Omer": "Lag B'O.",
+  'Fast Day': 'Fast',
+}
+
+// Smart label abbreviation: MINI_HOLIDAY_ABBREV first, then word-boundary truncation
+function smartAbbrevLabel(label) {
+  if (!label) return ''
+  if (MINI_HOLIDAY_ABBREV[label]) return MINI_HOLIDAY_ABBREV[label]
+  if (label.length <= 12) return label
+  const words = label.split(' ')
+  let result = ''
+  for (const word of words) {
+    const candidate = result ? `${result} ${word}` : word
+    if (candidate.length > 11) break
+    result = candidate
+  }
+  if (!result || result.length < 3) return label.slice(0, 11)
+  return result.length < label.length ? result + '.' : result
+}
+
 function drawMiniMonth(doc, { year, month }, events, categories, settings, {
-  x, y, w, h, pr, pg, pb, ar, ag, ab, titleFont, shabbatLabel, showEvents = true
+  x, y, w, h, pr, pg, pb, ar, ag, ab, titleFont, shabbatLabel, showEvents = true,
+  glanceMode = false,   // Year at a Glance: smart labels, multi-day run detection, no double badges
 }) {
   const days = getDaysInMonth(year, month)
   const startDow = getFirstDayOfWeek(year, month)
@@ -659,6 +862,35 @@ function drawMiniMonth(doc, { year, month }, events, categories, settings, {
   const HEADER_H = 8
   const DAY_H = 5
   const cellH = (h - HEADER_H - DAY_H) / 6
+
+  // glanceMode: pre-detect multi-day runs so we only show label text in the first cell per row-segment
+  let runDateKeys = null, runLabelDateKeys = null
+  if (glanceMode) {
+    const runArr = []
+    let cur = null
+    days.forEach(date => {
+      const dayNum = date.getDate()
+      const weekRow = Math.floor((startDow + dayNum - 1) / 7)
+      const dateKey = formatDateKey(date)
+      const ev = (events[dateKey] || []).filter(e => e.category !== 'rosh-chodesh')[0] || null
+      const cont = ev && cur && cur.label === ev.label && cur.category === ev.category
+      if (cont) { cur.count++; cur.dates.push({ dateKey, weekRow }) }
+      else {
+        if (cur && cur.count >= 2) runArr.push(cur)
+        cur = ev ? { label: ev.label, category: ev.category, count: 1, dates: [{ dateKey, weekRow }] } : null
+      }
+    })
+    if (cur && cur.count >= 2) runArr.push(cur)
+    runDateKeys = new Set()
+    runLabelDateKeys = new Set()
+    runArr.forEach(run => {
+      let lastRow = -1
+      run.dates.forEach(({ dateKey, weekRow }) => {
+        runDateKeys.add(dateKey)
+        if (weekRow !== lastRow) { runLabelDateKeys.add(dateKey); lastRow = weekRow }
+      })
+    })
+  }
 
   // Month header bar
   doc.setFillColor(pr, pg, pb)
@@ -669,26 +901,28 @@ function drawMiniMonth(doc, { year, month }, events, categories, settings, {
   doc.setFontSize(6); doc.setFont(titleFont, 'bold')
   const mName = new Date(year, month, 1).toLocaleString('default', { month: 'long' })
   const heLabel = getHebrewMonthLabel(year, month)
-  doc.text(mName, x + 2, y + 5.5)
+  doc.text(mName, x + 2, y + 5.5, { maxWidth: w - 4 })
   if (heLabel) {
     doc.setFontSize(4.5); doc.setFont('helvetica', 'normal')
     doc.setTextColor(ar, ag, ab)
-    doc.text(heLabel, x + w - 1.5, y + 5.5, { align: 'right' })
+    doc.text(heLabel, x + w - 1.5, y + 5.5, { align: 'right', maxWidth: w * 0.45 })
   }
 
   // Day-of-week header row
   const headY = y + HEADER_H + DAY_H - 1
   DAYS.forEach((d, i) => {
     const isSha = i === 6
+    const colX = x + i * cellW
+    const colW = isSha ? (x + w) - colX : cellW
     if (isSha) {
-      doc.setFillColor(pr, pg, pb)
-      doc.setGState(doc.GState({ opacity: 0.1 }))
-      doc.rect(x + i * cellW, y + HEADER_H, cellW, DAY_H, 'F')
+      doc.setFillColor(188, 188, 196)
+      doc.setGState(doc.GState({ opacity: 0.35 }))
+      doc.rect(colX, y + HEADER_H, colW, DAY_H, 'F')
       doc.setGState(doc.GState({ opacity: 1.0 }))
     }
-    doc.setTextColor(isSha ? pr : 120, isSha ? pg : 120, isSha ? pb : 120)
+    doc.setTextColor(isSha ? 100 : 120, isSha ? 100 : 120, isSha ? 118 : 120)
     doc.setFontSize(3.5); doc.setFont('helvetica', 'bold')
-    doc.text(isSha ? shabbatLabel.slice(0, 3).toUpperCase() : d, x + i * cellW + cellW / 2, headY, { align: 'center' })
+    doc.text(isSha ? shabbatLabel.slice(0, 3).toUpperCase() : d, colX + colW / 2, headY, { align: 'center' })
   })
 
   // Day cells
@@ -697,54 +931,63 @@ function drawMiniMonth(doc, { year, month }, events, categories, settings, {
     const dow = (startDow + dayNum - 1) % 7
     const weekRow = Math.floor((startDow + dayNum - 1) / 7)
     const cx = x + dow * cellW
+    // For the last column (SHA), compute exact width to avoid floating-point gap at right edge
+    const cw = dow === 6 ? (x + w) - cx : cellW
     const cy = y + HEADER_H + DAY_H + weekRow * cellH
     const dateKey = formatDateKey(date)
     const dayEvs = (events[dateKey] || []).filter(e => e.category !== 'rosh-chodesh')
     const isSha = dow === 6
     const hebrewHolidayMini = getHolidayMap(settings.academicYear)[dateKey]
 
-    // Shabbat tint
+    // Shabbat tint — neutral grey (avoids clash with themed primary or event colors)
     if (isSha) {
-      doc.setFillColor(pr, pg, pb)
-      doc.setGState(doc.GState({ opacity: 0.07 }))
-      doc.rect(cx, cy, cellW, cellH, 'F')
+      doc.setFillColor(188, 188, 196)
+      doc.setGState(doc.GState({ opacity: 0.28 }))
+      doc.rect(cx, cy, cw, cellH, 'F')
       doc.setGState(doc.GState({ opacity: 1.0 }))
     }
+
+    // In glance mode, determine if this cell is part of a multi-day run
+    const isInRun = glanceMode && runDateKeys?.has(dateKey)
+    const isRunLabelCell = glanceMode && runLabelDateKeys?.has(dateKey)
+    const showLabel = cellH >= 5 && showEvents && dayEvs.length > 0 && (!isInRun || isRunLabelCell)
 
     // Event fill
     if (showEvents && dayEvs.length > 0) {
       const cat = categories.find(c => c.id === dayEvs[0].category)
       const [er, eg, eb] = hexToRgbLocal(dayEvs[0].color || cat?.color || '#999')
       doc.setFillColor(er, eg, eb)
-      doc.roundedRect(cx + 0.2, cy + 0.2, cellW - 0.4, cellH - 0.4, 0.4, 0.4, 'F')
+      doc.roundedRect(cx + 0.2, cy + 0.2, cw - 0.4, cellH - 0.4, 0.4, 0.4, 'F')
       doc.setTextColor(255, 255, 255)
       doc.setFontSize(3.5); doc.setFont('helvetica', 'bold')
-      doc.text(String(dayNum), cx + 1, cy + 3.2)
-      // Event label (truncated to cell width)
-      if (cellH >= 5) {
+      doc.text(String(dayNum), cx + 1, cy + 3.2, { maxWidth: cw - 1.5 })
+      // Event label — smart abbreviation in glance mode, word-truncation otherwise
+      if (showLabel) {
+        const rawLabel = dayEvs[0].label || ''
+        const displayLabel = glanceMode
+          ? smartAbbrevLabel(rawLabel)
+          : (rawLabel.length > 12 ? rawLabel.slice(0, 11) + '…' : rawLabel)
         doc.setFontSize(2.8); doc.setFont('helvetica', 'normal')
-        const label = dayEvs[0].label || ''
-        doc.text(label.length > 12 ? label.slice(0, 11) + '…' : label, cx + 1, cy + 5.8, { maxWidth: cellW - 1.5 })
+        doc.text(displayLabel, cx + 1, cy + 5.8, { maxWidth: cw - 1.5 })
       }
     } else {
       // Normal day number
-      doc.setTextColor(isSha ? pr : 50, isSha ? pg : 50, isSha ? pb : 50)
+      doc.setTextColor(isSha ? 95 : 50, isSha ? 95 : 50, isSha ? 112 : 50)
       doc.setFontSize(3.8); doc.setFont('helvetica', isSha ? 'bold' : 'normal')
-      doc.text(String(dayNum), cx + 1, cy + 3.2)
+      doc.text(String(dayNum), cx + 1, cy + 3.2, { maxWidth: cw - 1.5 })
     }
 
     // Cell border
     doc.setDrawColor(210, 215, 220); doc.setLineWidth(0.15)
-    doc.rect(cx, cy, cellW, cellH, 'S')
+    doc.rect(cx, cy, cw, cellH, 'S')
 
-    // Hebrew holiday badge
-    if (hebrewHolidayMini && settings.hebrewHolidayToggles?.[hebrewHolidayMini.group] !== false) {
-      const customIcons = settings.hebrewHolidayIcons || {}
-      const icon = customIcons[hebrewHolidayMini.group] || hebrewHolidayMini.icon
+    // Hebrew holiday badge — only when no user event (prevents double-labeling)
+    if (dayEvs.length === 0 && hebrewHolidayMini && settings.hebrewHolidayToggles?.[hebrewHolidayMini.group] !== false) {
+      const hNameFull = settings.shabbatLabel === 'Shabbos' ? hebrewHolidayMini.ashkenaz : hebrewHolidayMini.sephardi
+      const hNameMini = MINI_HOLIDAY_ABBREV[hNameFull] || (hNameFull.length > 9 ? hNameFull.slice(0, 8) + '.' : hNameFull)
       doc.setFontSize(2.5); doc.setFont('helvetica', 'normal')
       doc.setTextColor(160, 100, 20)
-      const hNameMini = settings.shabbatLabel === 'Shabbos' ? hebrewHolidayMini.ashkenaz : hebrewHolidayMini.sephardi
-      doc.text(hNameMini.slice(0, 6), cx + cellW - 0.5, cy + cellH - 0.6, { align: 'right', maxWidth: cellW - 1 })
+      doc.text(hNameMini, cx + cw - 0.5, cy + cellH - 0.6, { align: 'right', maxWidth: cw - 1 })
     }
   })
 }
@@ -778,11 +1021,15 @@ async function exportMinimal(state, { preview, theme, doc, titleFont, shabbatLab
   doc.line(0, HEADER_H, PAGE_W, HEADER_H)
   doc.setFillColor(ar, ag, ab); doc.rect(0, HEADER_H - 2, PAGE_W, 2, 'F')
   if (circLogoMin) doc.addImage(circLogoMin, 'PNG', MARGIN, 1, 11, 11)
+  // Year label — draw first so title can be measured against it
+  const yearLabel = settings.academicYear || '2026-2027'
+  doc.setFontSize(8); doc.setFont(titleFont, 'normal'); doc.setTextColor(130, 130, 130)
+  doc.text(yearLabel, PAGE_W - MARGIN, 9, { align: 'right' })
+  // Title — reserve space for logo (if present) and year label on right
+  const titleStartX = circLogoMin ? MARGIN + 13 : MARGIN
   doc.setTextColor(pr, pg, pb)
   doc.setFontSize(11); doc.setFont(titleFont, 'bold')
-  doc.text(settings.calendarTitle || schoolInfo.name || 'Academic Calendar', circLogoMin ? MARGIN + 13 : MARGIN, 9)
-  doc.setFontSize(7); doc.setFont(titleFont, 'normal'); doc.setTextColor(130, 130, 130)
-  doc.text(settings.academicYear || '2026-2027', PAGE_W - MARGIN, 9, { align: 'right' })
+  doc.text(settings.calendarTitle || schoolInfo.name || 'Academic Calendar', titleStartX, 9, { maxWidth: PAGE_W - titleStartX - MARGIN - 28 })
 
   if (settings.draftWatermark) {
     doc.setTextColor(200, 50, 50); doc.setFontSize(72); doc.setFont('helvetica', 'bold')
@@ -812,17 +1059,18 @@ async function exportMinimal(state, { preview, theme, doc, titleFont, shabbatLab
     drawBottomEventsPanel(doc, events, categories, panelY, PAGE_W, MARGIN, 0, BOTTOM_H, settings.academicYear)
   }
 
-  // Legend strip at bottom
+  // Legend strip at bottom — solid rounded rect swatches matching cell style
   const legY = PAGE_H - 7
   doc.setFillColor(248, 249, 252); doc.rect(0, legY - 2, PAGE_W, 10, 'F')
   doc.setDrawColor(220, 220, 220); doc.setLineWidth(0.2); doc.line(0, legY - 2, PAGE_W, legY - 2)
   let legX = MARGIN
   categories.filter(c => c.visible && c.id !== 'rosh-chodesh').slice(0, 8).forEach(cat => {
     const [cr, cg, cb] = hexToRgbLocal(cat.color || '#999')
-    doc.setFillColor(cr, cg, cb); doc.circle(legX + 1.5, legY + 1, 1.5, 'F')
-    doc.setTextColor(60, 60, 60); doc.setFontSize(4.5); doc.setFont('helvetica', 'normal')
-    doc.text(cat.name, legX + 4.5, legY + 2)
-    legX += doc.getTextWidth(cat.name) + 11
+    doc.setFillColor(cr, cg, cb)
+    doc.roundedRect(legX, legY - 1.5, 8, 5, 0.5, 0.5, 'F')
+    doc.setTextColor(60, 60, 60); doc.setFontSize(5); doc.setFont('helvetica', 'bold')
+    doc.text(cat.name, legX + 10, legY + 2)
+    legX += doc.getTextWidth(cat.name) + 16
   })
 
   if (preview) return doc.output('datauristring')
@@ -972,10 +1220,17 @@ async function exportYearAtAGlance(state, { preview, theme, doc, titleFont, shab
   doc.setFillColor(pr, pg, pb); doc.rect(0, 0, PAGE_W, HEADER_H, 'F')
   doc.setFillColor(ar, ag, ab); doc.rect(0, HEADER_H - 1.5, PAGE_W, 1.5, 'F')
   if (circLogoGlance) doc.addImage(circLogoGlance, 'PNG', MARGIN, 1, 9, 9)
+  // Draw year label first (right-aligned anchor) — fixes "202" truncation from Letter/A4 mismatch
+  const glanceYearStr = `Year at a Glance  ·  ${settings.academicYear || '2026-2027'}`
+  doc.setTextColor(ar, ag, ab); doc.setFontSize(7); doc.setFont(titleFont, 'normal')
+  doc.text(glanceYearStr, PAGE_W - MARGIN - 2, 8, { align: 'right' })
+  // School name — maxWidth leaves room for year label
   doc.setTextColor(255, 255, 255); doc.setFontSize(9); doc.setFont(titleFont, 'bold')
-  doc.text(settings.calendarTitle || schoolInfo.name || 'Academic Calendar', circLogoGlance ? MARGIN + 11 : MARGIN + 2, 8)
-  doc.setTextColor(ar, ag, ab); doc.setFontSize(7)
-  doc.text(`Year at a Glance  ·  ${settings.academicYear || '2026-2027'}`, PAGE_W - MARGIN - 2, 8, { align: 'right' })
+  const glanceTitleX = circLogoGlance ? MARGIN + 11 : MARGIN + 2
+  const glanceYearW = doc.getTextWidth(glanceYearStr)
+  doc.text(settings.calendarTitle || schoolInfo.name || 'Academic Calendar', glanceTitleX, 8, {
+    maxWidth: PAGE_W - glanceTitleX - glanceYearW - MARGIN - 4
+  })
 
   if (settings.draftWatermark) {
     doc.setTextColor(200, 50, 50); doc.setFontSize(72); doc.setFont('helvetica', 'bold')
@@ -990,19 +1245,23 @@ async function exportYearAtAGlance(state, { preview, theme, doc, titleFont, shab
     const mx = MARGIN + col * (MONTH_W + 2)
     const my = startY + row * (MONTH_H + 2)
     drawMiniMonth(doc, { year, month }, events, categories, settings, {
-      x: mx, y: my, w: MONTH_W, h: MONTH_H, pr, pg, pb, ar, ag, ab, titleFont, shabbatLabel
+      x: mx, y: my, w: MONTH_W, h: MONTH_H, pr, pg, pb, ar, ag, ab, titleFont, shabbatLabel,
+      glanceMode: true,
     })
   })
 
-  // Legend
-  const legY = PAGE_H - 5.5
+  // Legend — solid rounded rect swatches matching cell style
+  const legY = PAGE_H - 6
+  doc.setFillColor(248, 249, 252); doc.rect(0, legY - 2, PAGE_W, 9, 'F')
+  doc.setDrawColor(220, 220, 220); doc.setLineWidth(0.2); doc.line(0, legY - 2, PAGE_W, legY - 2)
   let lx = MARGIN
   categories.filter(c => c.visible && c.id !== 'rosh-chodesh').slice(0, 10).forEach(cat => {
     const [cr, cg, cb] = hexToRgbLocal(cat.color || '#999')
-    doc.setFillColor(cr, cg, cb); doc.circle(lx + 1.2, legY, 1.2, 'F')
-    doc.setTextColor(60, 60, 60); doc.setFontSize(3.8); doc.setFont('helvetica', 'normal')
-    doc.text(cat.name, lx + 3.5, legY + 1.2)
-    lx += doc.getTextWidth(cat.name) + 9
+    doc.setFillColor(cr, cg, cb)
+    doc.roundedRect(lx, legY - 1.5, 7, 4.5, 0.4, 0.4, 'F')
+    doc.setTextColor(60, 60, 60); doc.setFontSize(4.5); doc.setFont('helvetica', 'bold')
+    doc.text(cat.name, lx + 9, legY + 1.8)
+    lx += doc.getTextWidth(cat.name) + 15
   })
 
   if (preview) return doc.output('datauristring')

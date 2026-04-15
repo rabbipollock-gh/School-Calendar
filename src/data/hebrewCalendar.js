@@ -113,7 +113,7 @@ export const HEBREW_HOLIDAY_MAP = {
   // ── Yom Kippur ──
   '2026-09-21': { group: 'yom-kippur', ashkenaz: 'Yom Kippur', sephardi: 'Yom Kippur', icon: '📿' },
   // ── Sukkos / Sukkot ──
-  '2026-09-25': { group: 'sukkos', ashkenaz: 'Sukkos',          sephardi: 'Sukkot',           icon: '🌿' },
+  // Sep 25 = 14 Tishrei (Erev Sukkos, Friday) — no icon; holiday begins at sundown = Shabbos night
   '2026-09-26': { group: 'sukkos', ashkenaz: 'Sukkos',          sephardi: 'Sukkot',           icon: '🌿' },
   '2026-09-27': { group: 'sukkos', ashkenaz: 'Chol HaMoed',     sephardi: 'Chol HaMoed',      icon: '🌿' },
   '2026-09-28': { group: 'sukkos', ashkenaz: 'Chol HaMoed',     sephardi: 'Chol HaMoed',      icon: '🌿' },
@@ -121,7 +121,7 @@ export const HEBREW_HOLIDAY_MAP = {
   '2026-09-30': { group: 'sukkos', ashkenaz: 'Chol HaMoed',     sephardi: 'Chol HaMoed',      icon: '🌿' },
   '2026-10-01': { group: 'sukkos', ashkenaz: 'Chol HaMoed',     sephardi: 'Chol HaMoed',      icon: '🌿' },
   '2026-10-02': { group: 'sukkos', ashkenaz: 'Hoshana Raba',    sephardi: 'Hoshana Raba',     icon: '🌿' },
-  '2026-10-03': { group: 'sukkos', ashkenaz: 'Shmini Atzeres',  sephardi: 'Shemini Atzeret',  icon: '🌿' },
+  '2026-10-03': { group: 'sukkos', ashkenaz: 'Shmini Atzeres',  sephardi: 'Shemini Atzeret',  icon: '📜' },
   '2026-10-04': { group: 'sukkos', ashkenaz: 'Simchas Torah',   sephardi: 'Simchat Torah',    icon: '📜' },
   // ── Chanukah ──
   '2026-12-05': { group: 'chanuka', ashkenaz: 'Chanukah',  sephardi: 'Chanukah',  icon: '🕎' },
@@ -174,14 +174,14 @@ const HEBREW_HOLIDAY_MAP_5788 = {
   // ── Yom Kippur ──
   '2027-10-11': { group: 'yom-kippur', ashkenaz: 'Yom Kippur', sephardi: 'Yom Kippur', icon: '📿' },
   // ── Sukkos / Sukkot ──
-  '2027-10-16': { group: 'sukkos', ashkenaz: 'Sukkos',          sephardi: 'Sukkot',           icon: '🌿' },
+  // Oct 16 = Erev Sukkos (Friday) — no icon; holiday begins at sundown = Shabbos night
   '2027-10-17': { group: 'sukkos', ashkenaz: 'Sukkos',          sephardi: 'Sukkot',           icon: '🌿' },
   '2027-10-18': { group: 'sukkos', ashkenaz: 'Chol HaMoed',     sephardi: 'Chol HaMoed',      icon: '🌿' },
   '2027-10-19': { group: 'sukkos', ashkenaz: 'Chol HaMoed',     sephardi: 'Chol HaMoed',      icon: '🌿' },
   '2027-10-20': { group: 'sukkos', ashkenaz: 'Chol HaMoed',     sephardi: 'Chol HaMoed',      icon: '🌿' },
   '2027-10-21': { group: 'sukkos', ashkenaz: 'Chol HaMoed',     sephardi: 'Chol HaMoed',      icon: '🌿' },
   '2027-10-22': { group: 'sukkos', ashkenaz: 'Hoshana Raba',    sephardi: 'Hoshana Raba',     icon: '🌿' },
-  '2027-10-23': { group: 'sukkos', ashkenaz: 'Shmini Atzeres',  sephardi: 'Shemini Atzeret',  icon: '🌿' },
+  '2027-10-23': { group: 'sukkos', ashkenaz: 'Shmini Atzeres',  sephardi: 'Shemini Atzeret',  icon: '📜' },
   '2027-10-24': { group: 'sukkos', ashkenaz: 'Simchas Torah',   sephardi: 'Simchat Torah',    icon: '📜' },
   // ── Chanukah ──
   '2027-12-25': { group: 'chanuka', ashkenaz: 'Chanukah', sephardi: 'Chanukah', icon: '🕎' },

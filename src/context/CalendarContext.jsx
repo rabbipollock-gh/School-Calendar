@@ -98,7 +98,17 @@ function loadFromStorage() {
 
 // Strip legacy Rosh Chodesh events and remap old early-dismissal category ids
 const EARLY_LEGACY_IDS = new Set(['early-130', 'early-1200', 'early-1130'])
-const EARLY_DISMISSAL_DEFAULT = { id: 'early-dismissal', name: 'Early Dismissal', color: '#A8E6CF', icon: '🕐', visible: true, deletable: true }
+const EARLY_DISMISSAL_DEFAULT = { id: 'early-dismissal', name: 'Early Dismissal', color: '#D68910', icon: '🕐', visible: true, deletable: true }
+
+// Migrate old pastel category colors to new saturated versions
+const CATEGORY_COLOR_UPGRADES = {
+  'no-school':       { from: '#F4A261', to: '#C0392B' },
+  'early-dismissal': { from: '#A8E6CF', to: '#D68910' },
+  'staff':           { from: '#FFD3A5', to: '#7D3C98' },
+  'school-event':    { from: '#A8D8EA', to: '#1A7ABF' },
+  'chanukah':        { from: '#FFF0A0', to: '#C7960A' },
+  'hebrew-only':     { from: '#D4EAFF', to: '#148F77' },
+}
 
 function migrateState(state) {
   if (!state?.events) return state
@@ -117,7 +127,14 @@ function migrateState(state) {
       const noSchoolIdx = filtered.findIndex(c => c.id === 'no-school')
       filtered.splice(noSchoolIdx >= 0 ? noSchoolIdx + 1 : 1, 0, EARLY_DISMISSAL_DEFAULT)
     }
-    result.categories = filtered
+    // Upgrade old pastel colors to new saturated versions
+    result.categories = filtered.map(cat => {
+      const upgrade = CATEGORY_COLOR_UPGRADES[cat.id]
+      if (upgrade && cat.color?.toLowerCase() === upgrade.from.toLowerCase()) {
+        return { ...cat, color: upgrade.to }
+      }
+      return cat
+    })
   }
   return result
 }
