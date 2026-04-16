@@ -142,3 +142,14 @@ export function isShabbat(dateKey) {
 export function getMonthTitle(year, month) {
   return new Date(year, month, 1).toLocaleString('default', { month: 'long', year: 'numeric' })
 }
+
+/**
+ * Formats a "HH:MM" 24-hour time string to 12-hour display, e.g. "1:30pm"
+ */
+export function formatTime(t) {
+  if (!t) return ''
+  const [h, m] = t.split(':').map(Number)
+  const ampm = h >= 12 ? 'pm' : 'am'
+  const hour = h % 12 || 12
+  return m === 0 ? `${hour}${ampm}` : `${hour}:${String(m).padStart(2, '0')}${ampm}`
+}

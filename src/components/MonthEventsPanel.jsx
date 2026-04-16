@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react'
 import { useCalendar } from '../context/CalendarContext.jsx'
-import { groupConsecutiveDates, formatRangeLabel } from '../utils/dateUtils.js'
+import { groupConsecutiveDates, formatRangeLabel, formatTime } from '../utils/dateUtils.js'
 
 const MONTH_NAMES = ['January','February','March','April','May','June','July','August','September','October','November','December']
 
@@ -93,6 +93,9 @@ export default function MonthEventsPanel({ onOpenModal }) {
                   <span className="text-[10px] leading-snug text-white/70 group-hover:text-white transition truncate">
                     <span className="text-white/50 mr-1">{group.rangeStr}</span>
                     {group.ev.label}
+                    {group.ev.time && (
+                      <span className="ml-1 text-white/45 group-hover:text-white/70">{formatTime(group.ev.time)}</span>
+                    )}
                   </span>
                 </button>
               ))}

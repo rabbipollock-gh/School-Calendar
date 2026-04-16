@@ -1,6 +1,6 @@
 import React, { useState, useRef, useCallback } from 'react'
 import { useCalendar } from '../context/CalendarContext.jsx'
-import { formatDateKey } from '../utils/dateUtils.js'
+import { formatDateKey, formatTime } from '../utils/dateUtils.js'
 import { getRoshChodeshMap, getHolidayMap } from '../data/hebrewCalendar.js'
 
 const TOOLTIP_DELAY = 500
@@ -159,10 +159,11 @@ export default function DayCell({ date, onOpenModal, focusedDate, settings }) {
           {dayEvents.map((ev, i) => {
             const cat = catMap[ev.category]
             const color = ev.color || cat?.color || '#999'
+            const timeStr = formatTime(ev.time)
             return (
               <div key={i} className="flex items-center gap-1.5">
                 <span className="w-2 h-2 rounded-full shrink-0" style={{ background: color }} />
-                <span className="truncate">{ev.label}</span>
+                <span className="truncate">{ev.label}{timeStr && <span className="ml-1 text-white/60">{timeStr}</span>}</span>
               </div>
             )
           })}
