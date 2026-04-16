@@ -24,6 +24,33 @@ export default function MonthBlock({ year, month, onOpenModal, focusedDate, onRe
       .reduce((sum, [, evs]) => sum + (evs?.length || 0), 0)
   }, [events, monthKey])
 
+  // Monthly school day count: Mon–Fri, within first/last day bounds, excluding no-school events
+  const monthSchoolDays = useMemo(() => {
+    const firstDay = settings.firstDayOfSchool
+    const lastDay  = settings.lastDayOfSchool
+    const rangeStart = firstDay ? new Date(firstDay + 'T00:00:00') : null
+    const rangeEnd   = lastDay  ? new Date(lastDay  + 'T00:00:00') : null
+
+    // No-school category ids (always 'no-school', but respect custom cats too)
+    const noSchoolCatIds = new Set(categories.filter(c => c.id === 'no-school').map(c => c.id))
+    const noSchoolDates = new Set(
+      Object.entries(events)
+        .filter(([dk, evs]) => dk.startsWith(monthKey) && evs.some(e => noSchoolCatIds.has(e.category)))
+        .map(([dk]) => dk)
+    )
+
+    let count = 0
+    days.forEach(date => {
+      const dow = date.getDay()
+      if (dow === 0 || dow === 6) return // skip weekends
+      if (rangeStart && date < rangeStart) return // before first day of school
+      if (rangeEnd   && date > rangeEnd)   return // after last day of school
+      const dk = formatDateKey(date)
+      if (!noSchoolDates.has(dk)) count++
+    })
+    return count
+  }, [days, events, categories, monthKey, settings.firstDayOfSchool, settings.lastDayOfSchool])
+
   const HEADERS = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', shabbatLabel.slice(0, 3).toUpperCase()]
 
   // Build week grid
@@ -147,6 +174,13 @@ export default function MonthBlock({ year, month, onOpenModal, focusedDate, onRe
               {eventCount}
             </span>
           )}
+          <span
+            className="text-white text-[10px] font-bold px-2 py-0.5 rounded-full leading-none"
+            style={{ backgroundColor: 'rgba(255,255,255,0.15)' }}
+            title={`${monthSchoolDays} school day${monthSchoolDays !== 1 ? 's' : ''} this month`}
+          >
+            📚 {monthSchoolDays}d
+          </span>
           {!readOnly && (
             <button
               onClick={handleReset}
