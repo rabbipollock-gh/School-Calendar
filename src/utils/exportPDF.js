@@ -445,33 +445,39 @@ function drawMonth(doc, { year, month }, events, categories, settings, x, y, w, 
     })
 
     const maxNoteY = y + h - 0.5
-    let noteLineY = notesY + 4
+    let noteLineY = notesY + 5
     for (const { ev, dates } of Object.values(notesEvents)) {
       if (noteLineY > maxNoteY) break
       const cat = catMap[ev.category]
       const color = ev.color || cat?.color || '#999999'
       const [r, g, b] = hexToRgb(color)
+      // Darken the color 40% for text so light yellows/golds are readable on white
+      const tr = Math.round(r * 0.62)
+      const tg = Math.round(g * 0.62)
+      const tb = Math.round(b * 0.62)
       doc.setFillColor(r, g, b)
-      doc.rect(x + 1, noteLineY - 3, 4, 4, 'F')
+      doc.rect(x + 1, noteLineY - 3.2, 4, 4, 'F')
       const isED = ev.category === 'early-dismissal' || (cat?.name?.toLowerCase() || '').includes('dismissal')
       const timeStr = (isED && ev.time) ? ` ${formatTime(ev.time)}` : ''
       const groups = groupConsecutiveDates([...dates].sort())
       const rangeStr = formatRangeGroups(groups)
       const rangePart = `  –  ${rangeStr}`
-      doc.setFontSize(6.5); doc.setFont('helvetica', 'normal')
+      doc.setFontSize(7); doc.setFont('helvetica', 'bold')
       // Reserve space for time + range, then fit label in what's left
       const reservedW = doc.getTextWidth(timeStr + rangePart)
       const maxLabelW = Math.max((w - 7) - reservedW, 8)
       const displayLabel = doc.splitTextToSize(ev.label, maxLabelW)[0] || ev.label
       const labelW = doc.getTextWidth(displayLabel)
-      doc.setTextColor(r, g, b)
+      doc.setTextColor(tr, tg, tb)
       doc.text(displayLabel, x + 6.5, noteLineY)
       if (timeStr) {
+        doc.setFont('helvetica', 'normal')
         doc.text(timeStr, x + 6.5 + labelW, noteLineY)
       }
-      doc.setTextColor(75, 75, 85)
+      doc.setFont('helvetica', 'normal')
+      doc.setTextColor(70, 72, 82)
       doc.text(rangePart, x + 6.5 + labelW + doc.getTextWidth(timeStr), noteLineY)
-      noteLineY += 4
+      noteLineY += 4.5
     }
   }
 }
@@ -638,6 +644,7 @@ export async function exportPDF(state, { preview = false, pdfStyle = 'classic', 
   const HEADER_OFFSET = isCompact ? 7.5 : 8.5
   const allMonths = getAcademicMonths(settings.academicYear)
   // Per-row max events → per-row notes heights (uncapped — grows to fit each row's busiest month)
+  // Notes lines use 7pt font at 4.5mm line spacing, so each event ≈ 4.5mm + top padding
   const perRowNotesH = showBottomPanel
     ? Array(MONTH_ROWS).fill(0)
     : Array.from({ length: MONTH_ROWS }, (_, row) => {
@@ -652,13 +659,14 @@ export async function exportPDF(state, { preview = false, pdfStyle = 'classic', 
           return seen.size
         })
         const maxEv = counts.length > 0 ? Math.max(...counts) : 0
-        return maxEv > 0 ? Math.max(12, maxEv * 4.0 + 3.5) : 0
+        return maxEv > 0 ? Math.max(13, maxEv * 4.5 + 4.5) : 0
       })
   const totalNotesH = perRowNotesH.reduce((a, b) => a + b, 0)
-  // Single CELL_H for all rows — maximized given total notes space consumed
+  // Single CELL_H for all rows — fills all available space exactly (no compact shrink factor;
+  // compact appearance is handled inside drawMonth via font scaling)
   const CELL_H = Math.max(3.5,
     (availH - (MONTH_ROWS - 1) * ROW_GAP - MONTH_ROWS * HEADER_OFFSET - totalNotesH) / (MONTH_ROWS * 6)
-  ) * (isCompact ? 0.85 : 1)
+  )
   const perRowMonthH = perRowNotesH.map(nh => CELL_H * 6 + HEADER_OFFSET + nh)
 
   // ── Header ──────────────────────────────────────────
