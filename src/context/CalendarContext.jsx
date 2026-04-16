@@ -53,8 +53,9 @@ const DEFAULT_SETTINGS = {
     { id: 'otherInfo', label: 'Other Information',  visible: true },
     { id: 'contact',   label: 'Contact Info',       visible: true },
   ],
-  firstDayOfSchool: '',  // YYYY-MM-DD
-  lastDayOfSchool:  '',  // YYYY-MM-DD
+  firstDayOfSchool: '',     // YYYY-MM-DD
+  lastDayOfSchool:  '',     // YYYY-MM-DD
+  showSchoolDayNumbers: false,
 }
 
 // ── ID normalizer for default events ────────────────────────────────────
@@ -405,7 +406,18 @@ export function CalendarProvider({ children, readOnly = false }) {
       const localSavedAt = localRaw ? JSON.parse(localRaw)?._savedAt : null
       logger.debug('sync', 'comparing timestamps', { cloudUpdatedAt: cloud.updatedAt, localSavedAt })
 
-      if (!localSavedAt || new Date(cloud.updatedAt) > new Date(localSavedAt)) {
+      if (!localSavedAt) {
+        // Fresh computer with no local data — auto-apply cloud silently
+        logger.info('sync', 'no local data — auto-applying cloud state')
+        const migrated = migrateState(cloud.data)
+        dispatch({ type: 'LOAD_STATE', state: {
+          ...buildInitialState(), ...migrated,
+          settings: { ...DEFAULT_SETTINGS, ...migrated?.settings },
+          undoPast: [], undoFuture: [],
+        }})
+        setCloudToast('synced')
+        setTimeout(() => setCloudToast(null), 3500)
+      } else if (new Date(cloud.updatedAt) > new Date(localSavedAt)) {
         logger.info('sync', 'cloud is newer — showing prompt')
         setNewerCloudState(cloud.data)
         setCloudToast('newer')
@@ -458,6 +470,30 @@ export function CalendarProvider({ children, readOnly = false }) {
     [state.settings.academicYear]
   )
 
+  // ── School day number map ─────────────────────────────────────────────────
+  // Maps dateKey → school day number (1-based). Only populated when toggle is on.
+  const schoolDayMap = useMemo(() => {
+    const { showSchoolDayNumbers, firstDayOfSchool, lastDayOfSchool } = state.settings
+    if (!showSchoolDayNumbers || !firstDayOfSchool || !lastDayOfSchool) return {}
+    const noSchoolCatIds = new Set(
+      state.categories.filter(c => c.id === 'no-school').map(c => c.id)
+    )
+    const map = {}
+    let count = 0
+    const cur = new Date(firstDayOfSchool + 'T00:00:00')
+    const end = new Date(lastDayOfSchool  + 'T00:00:00')
+    while (cur <= end) {
+      const dow = cur.getDay()
+      if (dow !== 0 && dow !== 6) {
+        const dk = `${cur.getFullYear()}-${String(cur.getMonth()+1).padStart(2,'0')}-${String(cur.getDate()).padStart(2,'0')}`
+        const isNoSchool = (state.events[dk] || []).some(e => noSchoolCatIds.has(e.category))
+        if (!isNoSchool) map[dk] = ++count
+      }
+      cur.setDate(cur.getDate() + 1)
+    }
+    return map
+  }, [state.settings.showSchoolDayNumbers, state.settings.firstDayOfSchool, state.settings.lastDayOfSchool, state.events, state.categories])
+
   function acceptCloudVersion() {
     if (!newerCloudState) return
     const migrated = migrateState(newerCloudState)
@@ -485,6 +521,7 @@ export function CalendarProvider({ children, readOnly = false }) {
     collabUnlocked,
     setCollabUnlocked,
     academicMonths,
+    schoolDayMap,
     cloudToast,
     newerCloudState,
     acceptCloudVersion,

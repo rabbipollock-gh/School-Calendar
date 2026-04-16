@@ -6,10 +6,11 @@ import { getRoshChodeshMap, getHolidayMap } from '../data/hebrewCalendar.js'
 const TOOLTIP_DELAY = 500
 
 export default function DayCell({ date, onOpenModal, focusedDate, settings }) {
-  const { state } = useCalendar()
+  const { state, schoolDayMap } = useCalendar()
   const { events, categories } = state
 
   const dateKey = formatDateKey(date)
+  const schoolDayNum = schoolDayMap?.[dateKey]
   const dayNum = date.getDate()
   const dow = date.getDay()
   const isSha = dow === 6
@@ -97,6 +98,16 @@ export default function DayCell({ date, onOpenModal, focusedDate, settings }) {
       `}>
         {dayNum}
       </span>
+
+      {/* School day number badge */}
+      {schoolDayNum && (
+        <span className={`
+          text-[8px] leading-none font-bold tracking-tight
+          ${isFilled ? 'text-white/70' : 'text-emerald-600/80 dark:text-emerald-400/70'}
+        `}>
+          {schoolDayNum}
+        </span>
+      )}
 
       {/* Event dots — dot mode, non-banner events only */}
       {!isFilled && (

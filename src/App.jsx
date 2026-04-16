@@ -24,7 +24,7 @@ import './utils/errorLog.js'
 
 export default function App() {
   const { session, loading: authLoading, isNewUser } = useAuth()
-  const { state, isSharedView } = useCalendar()
+  const { state, isSharedView, cloudToast, acceptCloudVersion, dismissCloudToast } = useCalendar()
 
   // All hooks must come before any conditional returns (Rules of Hooks)
   const [modalDate, setModalDate] = useState(null)
@@ -241,6 +241,36 @@ export default function App() {
       {isSharedView && (
         <div className="md:hidden fixed top-16 left-0 right-0 bg-amber-500 text-white text-xs text-center py-1.5 z-30">
           👁 Read-only shared view
+        </div>
+      )}
+
+      {/* ── Cloud sync banners ── */}
+      {cloudToast === 'synced' && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 bg-emerald-700 text-white text-sm font-medium px-5 py-2.5 rounded-full shadow-xl flex items-center gap-2 pointer-events-none">
+          <span>☁️</span> Synced from cloud
+        </div>
+      )}
+      {cloudToast === 'newer' && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-2xl shadow-2xl px-5 py-4 flex items-center gap-4 max-w-sm w-[calc(100%-2rem)]">
+          <span className="text-2xl shrink-0">☁️</span>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-bold text-gray-800 dark:text-gray-100">Cloud version available</p>
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">A newer version of your calendar is saved in the cloud. Load it now?</p>
+          </div>
+          <div className="flex flex-col gap-1.5 shrink-0">
+            <button
+              onClick={acceptCloudVersion}
+              className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-lg transition"
+            >
+              Load
+            </button>
+            <button
+              onClick={dismissCloudToast}
+              className="px-3 py-1.5 bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-600 dark:text-gray-300 text-xs rounded-lg transition"
+            >
+              Keep local
+            </button>
+          </div>
         </div>
       )}
     </div>

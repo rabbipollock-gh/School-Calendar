@@ -242,6 +242,18 @@ export default function SettingsDrawer({ isOpen, onClose, onOpenCategories, onOp
                 </Field>
               </div>
               <div className="flex items-center justify-between">
+                <div>
+                  <label className="text-sm text-gray-700 dark:text-gray-300">Show School Day Numbers</label>
+                  <p className="text-[11px] text-gray-400 dark:text-gray-500">Shows "Day 1", "Day 52", etc. in each cell</p>
+                </div>
+                <button
+                  onClick={() => !readOnly && updateSettings('showSchoolDayNumbers', !settings.showSchoolDayNumbers)}
+                  className={`relative w-11 h-6 rounded-full transition shrink-0 ml-3 ${settings.showSchoolDayNumbers ? 'bg-emerald-500' : 'bg-gray-300'}`}
+                >
+                  <span className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-all ${settings.showSchoolDayNumbers ? 'left-5' : 'left-0.5'}`} />
+                </button>
+              </div>
+              <div className="flex items-center justify-between">
                 <label className="text-sm text-gray-700 dark:text-gray-300">Show Hebrew Year in PDF</label>
                 <button
                   onClick={() => updateSettings('showHebrewYear', !settings.showHebrewYear)}
