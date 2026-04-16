@@ -1,6 +1,6 @@
 import { jsPDF } from 'jspdf'
 import { loadMontserrat } from './pdfFonts.js'
-import { getDaysInMonth, getFirstDayOfWeek, formatDateKey, groupConsecutiveDates, formatRangeLabel } from './dateUtils.js'
+import { getDaysInMonth, getFirstDayOfWeek, formatDateKey, groupConsecutiveDates, formatRangeLabel, formatRangeGroups } from './dateUtils.js'
 
 import { getAcademicMonths } from './academicMonths.js'
 import { getHebrewMonthLabel } from '../data/hebrewMonthNames.js'
@@ -205,7 +205,7 @@ function drawDecorativeDiamondBand(doc, bandY, pageW, primaryRgb, accentRgb, mar
   }
 }
 
-function drawMonth(doc, { year, month }, events, categories, settings, x, y, w, h, shabbatLabel, notesStripH, theme, emojiCache = {}) {
+function drawMonth(doc, { year, month }, events, categories, settings, x, y, w, h, shabbatLabel, notesStripH, theme, emojiCache = {}, titleFont = 'helvetica') {
   const catMap = {}
   categories.forEach(c => { catMap[c.id] = c })
   const isFilled = settings.cellStyle === 'filled'
@@ -216,27 +216,24 @@ function drawMonth(doc, { year, month }, events, categories, settings, x, y, w, 
   // Medium grey for Shabbat — consistent weekly visual rhythm, theme-independent
   const SHABBAT_R = 192, SHABBAT_G = 192, SHABBAT_B = 198
 
-  // Month header
-  const headerH = 8 * s
+  // Month header — single line: "October 2026  ·  חשון"
+  const headerH = 5 * s
   doc.setFillColor(pr, pg, pb)
   doc.roundedRect(x, y, w, headerH, 1, 1, 'F')
-  doc.setTextColor(255, 255, 255)
-  doc.setFontSize(7 * s)
-  doc.setFont('helvetica', 'bold')
   const monthName = new Date(year, month, 1).toLocaleString('default', { month: 'long' })
   const hebrewLabel = getHebrewMonthLabel(year, month)
-  doc.text(monthName, x + 1.5, y + 3.8 * s)
-  const monthNameW = doc.getTextWidth(monthName)
   doc.setTextColor(255, 255, 255)
-  doc.setFontSize(6.5 * s)
-  doc.text(` ${String(year)}`, x + 1.5 + monthNameW, y + 3.8 * s)
+  doc.setFontSize(6 * s)
+  doc.setFont('helvetica', 'bold')
+  const engPart = `${monthName} ${String(year)}`
+  doc.text(engPart, x + 1.5, y + 3.5 * s)
+  const engW = doc.getTextWidth(engPart)
   doc.setTextColor(180, 210, 255)
   doc.setFont('helvetica', 'normal')
-  doc.setFontSize(4 * s)
-  if (!isCompact) doc.text(hebrewLabel, x + 1.5, y + 6.5, { maxWidth: w - 3 })
+  doc.text(`  ·  ${hebrewLabel}`, x + 1.5 + engW, y + 3.5 * s, { maxWidth: w - 3 - engW - 1.5 })
 
-  // Day header row
-  const dayLabelY = y + (isCompact ? 7.5 : 9.5)
+  // Day header row — positioned so dayLabelY+2 == y+headerOffset exactly (prevents 6-row overflow)
+  const dayLabelY = y + (isCompact ? 5.5 : 6.5)
   const cellW = w / 7
   DAYS.forEach((d, i) => {
     const labelStr = i === 6 ? shabbatLabel.slice(0, 3).toUpperCase() : d
@@ -253,7 +250,7 @@ function drawMonth(doc, { year, month }, events, categories, settings, x, y, w, 
   // Day cells
   const days = getDaysInMonth(year, month)
   const startDow = getFirstDayOfWeek(year, month)
-  const headerOffset = isCompact ? 9 : 11
+  const headerOffset = isCompact ? 7.5 : 8.5
   const cellH = (h - headerOffset - (notesStripH || 0)) / 6
 
   // ── Pre-pass: classify events by type for special rendering ──────────────
@@ -419,10 +416,6 @@ function drawMonth(doc, { year, month }, events, categories, settings, x, y, w, 
     doc.setLineWidth(0.2)
     doc.line(x, notesY, x + w, notesY)
 
-    // Build cross-month date ranges, split into consecutive run-groups per (category, label).
-    // A single continuous run (e.g. Pesach Break Apr 16–May 2) gets one combined note entry
-    // showing the full date range. Non-consecutive same-name events (e.g. PTC Nov 15 + Feb 14,
-    // School Resumes, In-Service) stay as separate entries — one per run.
     const allEventRanges = {}
     Object.entries(events).forEach(([dk, dayEvs]) => {
       ;(dayEvs || []).filter(e => e.category !== 'rosh-chodesh').forEach(ev => {
@@ -431,62 +424,54 @@ function drawMonth(doc, { year, month }, events, categories, settings, x, y, w, 
         allEventRanges[key].push(dk)
       })
     })
-    // Split each key's dates into consecutive run-groups
     const allEventRunGroups = {}
     Object.entries(allEventRanges).forEach(([key, dates]) => {
       allEventRunGroups[key] = groupConsecutiveDates([...dates].sort())
     })
-    const thisMonthStr = `${year}-${String(month + 1).padStart(2, '0')}`
 
     const notesEvents = {}
     days.forEach(date => {
       const dateKey = formatDateKey(date)
-      const dayEvs = (events[dateKey] || []).filter(e => e.category !== 'rosh-chodesh')
-      dayEvs.forEach(ev => {
+      ;(events[dateKey] || []).filter(e => e.category !== 'rosh-chodesh').forEach(ev => {
         const key = `${ev.category}::${ev.label}`
         const runGroups = allEventRunGroups[key] || [[dateKey]]
         const groupIdx = runGroups.findIndex(g => g.includes(dateKey))
         const idx = groupIdx >= 0 ? groupIdx : 0
-        // Multiple separate runs → unique key per run so each appears as its own note entry
         const entryKey = runGroups.length > 1 ? `${key}::r${idx}` : key
         if (!notesEvents[entryKey]) {
-          const runDates = runGroups[idx] || [dateKey]
-          notesEvents[entryKey] = { ev, dates: runDates }
+          notesEvents[entryKey] = { ev, dates: runGroups[idx] || [dateKey] }
         }
       })
     })
 
     const maxNoteY = y + h - 0.5
-    let noteLineY = notesY + 2.5
+    let noteLineY = notesY + 4
     for (const { ev, dates } of Object.values(notesEvents)) {
       if (noteLineY > maxNoteY) break
       const cat = catMap[ev.category]
       const color = ev.color || cat?.color || '#999999'
       const [r, g, b] = hexToRgb(color)
-      // Filled square swatch
       doc.setFillColor(r, g, b)
-      doc.rect(x + 1, noteLineY - 2.2, 2.5, 2.5, 'F')
-      // Build suffix: category name + time for early dismissal
+      doc.rect(x + 1, noteLineY - 3, 4, 4, 'F')
       const isED = ev.category === 'early-dismissal' || (cat?.name?.toLowerCase() || '').includes('dismissal')
-      const catName = cat?.name || ''
       const timeStr = (isED && ev.time) ? ` ${formatTime(ev.time)}` : ''
-      const suffix = catName ? ` – ${catName}${timeStr}` : timeStr
-      // Use full cross-month date range
       const groups = groupConsecutiveDates([...dates].sort())
-      const rangeStr = groups.map(g => formatRangeLabel(g)).join(', ')
-      // Bold event label — show as-is (full cross-month range already shown in the date string)
-      doc.setFontSize(3.8)
-      doc.setFont('helvetica', 'bold')
+      const rangeStr = formatRangeGroups(groups)
+      const rangePart = `  –  ${rangeStr}`
+      doc.setFontSize(6.5); doc.setFont('helvetica', 'normal')
+      // Reserve space for time + range, then fit label in what's left
+      const reservedW = doc.getTextWidth(timeStr + rangePart)
+      const maxLabelW = Math.max((w - 7) - reservedW, 8)
+      const displayLabel = doc.splitTextToSize(ev.label, maxLabelW)[0] || ev.label
+      const labelW = doc.getTextWidth(displayLabel)
       doc.setTextColor(r, g, b)
-      const labelTrunc = ev.label.length > 18 ? ev.label.slice(0, 17) + '…' : ev.label
-      doc.text(labelTrunc, x + 4.5, noteLineY, { maxWidth: (w - 5) * 0.48 })
-      const usedLabelW = Math.min(doc.getTextWidth(labelTrunc), (w - 5) * 0.48)
-      // Normal: date range then category name
-      doc.setFont('helvetica', 'normal')
-      doc.setFontSize(3.5)
-      doc.setTextColor(70, 70, 70)
-      doc.text(` – ${rangeStr}${suffix}`, x + 4.5 + usedLabelW, noteLineY, { maxWidth: w - 5 - usedLabelW })
-      noteLineY += 2.8
+      doc.text(displayLabel, x + 6.5, noteLineY)
+      if (timeStr) {
+        doc.text(timeStr, x + 6.5 + labelW, noteLineY)
+      }
+      doc.setTextColor(75, 75, 85)
+      doc.text(rangePart, x + 6.5 + labelW + doc.getTextWidth(timeStr), noteLineY)
+      noteLineY += 4
     }
   }
 }
@@ -560,7 +545,7 @@ function drawBottomEventsPanel(doc, events, categories, y, pageW, margin, sideba
       doc.setFillColor(r, g, b)
       doc.circle(colX + 1.2, evY - 0.5, 0.7, 'F')
       const groups = groupConsecutiveDates([...dates].sort())
-      const rangeStr = groups.map(g => formatRangeLabel(g)).join(', ')
+      const rangeStr = formatRangeGroups(groups)
       doc.setFontSize(3)
       const fullText = `${rangeStr} ${ev.label}`
       const labelLines = doc.splitTextToSize(fullText, colW - 3.5)
@@ -597,7 +582,7 @@ function drawNotesStrip(doc, events, catMap, x, y, w, h, year, month) {
     const [r, g, b] = hexToRgbLocal(color)
     doc.setFillColor(r, g, b); doc.circle(x + 1, lineY - 0.5, 0.6, 'F')
     const groups = groupConsecutiveDates([...dates].sort())
-    const rangeStr = groups.map(g => formatRangeLabel(g)).join(', ')
+    const rangeStr = formatRangeGroups(groups)
     const lineText = `${rangeStr} | ${ev.label}`
     const lines = doc.splitTextToSize(lineText, w - 3.5)
     doc.setTextColor(60, 60, 60)
@@ -631,12 +616,14 @@ export async function exportPDF(state, { preview = false, pdfStyle = 'classic', 
   if (pdfStyle === 'photo-showcase')    return exportPhotoShowcase(state, { preview, monthIndex })
   if (pdfStyle === 'hebrew-date-focus') return exportHebrewDateFocus(state, { preview, theme, doc, titleFont, shabbatLabel })
   if (pdfStyle === 'elegant-feminine')  return exportElegantFeminine(state, { preview, monthIndex })
+  if (pdfStyle === 'portrait-classic')  return exportPortraitClassic(state, { preview })
   // default: classic
   const isCompact = settings.template === 'compact'
   const showBottomPanel = settings.eventsPanel === 'bottom'
 
-  // Layout measurements
-  const GRID_W = PAGE_W - MARGIN * 2 - SIDEBAR_W
+  // Layout measurements — full-width grid (sidebar moved to footer bar at page bottom)
+  const CLASSIC_FOOTER_H = 16
+  const GRID_W = PAGE_W - MARGIN * 2
   const MONTH_W = (GRID_W / COL_COUNT) - 2
   const MONTH_ROWS = 3
   // Dynamic bottom panel height: grows to fit the busiest month (capped at 90mm)
@@ -644,16 +631,35 @@ export async function exportPDF(state, { preview = false, pdfStyle = 'classic', 
   const dynamicPanelH = showBottomPanel
     ? Math.min(Math.max(BOTTOM_PANEL_H, 11 + maxEvPerMonth * 4 + 4), 90)
     : 0
-  // Dynamic inline notes strip height: 2.8mm per event line + 2.5mm top pad, capped at 26mm
-  // (was 2.2mm/20mm — increased to prevent events from being cut off)
-  const maxInlineEvents = !showBottomPanel ? computeMaxEventsPerMonth(events, settings.academicYear) : 0
-  const globalNotesStripH = maxInlineEvents > 0
-    ? Math.min(Math.max(12, maxInlineEvents * 2.8 + 2.5), 26)
-    : 0
   const availH = showBottomPanel
-    ? PAGE_H - (HEADER_H + 2) - MARGIN - dynamicPanelH - 4
-    : PAGE_H - (HEADER_H + 2) - MARGIN - 2
-  const MONTH_H = (availH / MONTH_ROWS - 3) * (isCompact ? 0.85 : 1)
+    ? PAGE_H - (HEADER_H + 2) - MARGIN - dynamicPanelH - CLASSIC_FOOTER_H - 4
+    : PAGE_H - (HEADER_H + 2) - MARGIN - CLASSIC_FOOTER_H - 2
+  const ROW_GAP = 3
+  const HEADER_OFFSET = isCompact ? 7.5 : 8.5
+  const allMonths = getAcademicMonths(settings.academicYear)
+  // Per-row max events → per-row notes heights (uncapped — grows to fit each row's busiest month)
+  const perRowNotesH = showBottomPanel
+    ? Array(MONTH_ROWS).fill(0)
+    : Array.from({ length: MONTH_ROWS }, (_, row) => {
+        const rowMonths = allMonths.slice(row * COL_COUNT, (row + 1) * COL_COUNT)
+        const counts = rowMonths.map(({ year, month }) => {
+          const mk = `${year}-${String(month + 1).padStart(2, '0')}`
+          const seen = new Set()
+          Object.entries(events).forEach(([dk, evs]) => {
+            if (!dk.startsWith(mk)) return
+            ;(evs || []).filter(e => e.category !== 'rosh-chodesh').forEach(ev => seen.add(`${ev.category}::${ev.label}`))
+          })
+          return seen.size
+        })
+        const maxEv = counts.length > 0 ? Math.max(...counts) : 0
+        return maxEv > 0 ? Math.max(12, maxEv * 4.0 + 3.5) : 0
+      })
+  const totalNotesH = perRowNotesH.reduce((a, b) => a + b, 0)
+  // Single CELL_H for all rows — maximized given total notes space consumed
+  const CELL_H = Math.max(3.5,
+    (availH - (MONTH_ROWS - 1) * ROW_GAP - MONTH_ROWS * HEADER_OFFSET - totalNotesH) / (MONTH_ROWS * 6)
+  ) * (isCompact ? 0.85 : 1)
+  const perRowMonthH = perRowNotesH.map(nh => CELL_H * 6 + HEADER_OFFSET + nh)
 
   // ── Header ──────────────────────────────────────────
   // Left dark band (~60% width)
@@ -666,13 +672,14 @@ export async function exportPDF(state, { preview = false, pdfStyle = 'classic', 
   doc.setFillColor(ar, ag, ab)
   doc.rect(0, HEADER_H - 1.5, PAGE_W, 1.5, 'F')
 
-  // Logo — circular crop, centered vertically in header
+  // Logo — circular crop, centered vertically in header; captured for footer reuse
   const LOGO_SIZE = 11
   const logoY = (HEADER_H - LOGO_SIZE) / 2   // vertically centered
+  let classicCircularLogo = null
   if (schoolInfo.logo) {
     try {
-      const circularLogo = await cropLogoImage(schoolInfo.logo, settings.logoShape || 'circle')
-      doc.addImage(circularLogo, 'PNG', MARGIN, logoY, LOGO_SIZE, LOGO_SIZE)
+      classicCircularLogo = await cropLogoImage(schoolInfo.logo, settings.logoShape || 'circle')
+      doc.addImage(classicCircularLogo, 'PNG', MARGIN, logoY, LOGO_SIZE, LOGO_SIZE)
     } catch {}
   }
 
@@ -726,11 +733,17 @@ export async function exportPDF(state, { preview = false, pdfStyle = 'classic', 
   // ── Calendar Grid ──────────────────────────────────
   const startY = HEADER_H + 2
 
-  getAcademicMonths(settings.academicYear).forEach(({ year, month }, idx) => {
+  // Precompute row Y positions (rows have variable heights)
+  const rowStartY = Array.from({ length: MONTH_ROWS }, (_, row) => {
+    let y = startY
+    for (let r = 0; r < row; r++) y += perRowMonthH[r] + ROW_GAP
+    return y
+  })
+
+  allMonths.forEach(({ year, month }, idx) => {
     const col = idx % COL_COUNT
     const row = Math.floor(idx / COL_COUNT)
-    // Last row: expand remaining months to fill the full grid width (no empty column gap)
-    const totalMonths = getAcademicMonths(settings.academicYear).length
+    const totalMonths = allMonths.length
     const lastRowStart = Math.floor((totalMonths - 1) / COL_COUNT) * COL_COUNT
     const isLastRow = idx >= lastRowStart
     const lastRowCount = totalMonths - lastRowStart
@@ -738,66 +751,490 @@ export async function exportPDF(state, { preview = false, pdfStyle = 'classic', 
     const mx = isLastRow
       ? MARGIN + col * (mw + 2)
       : MARGIN + col * (MONTH_W + 2)
-    const y = startY + row * (MONTH_H + 3)
-    drawMonth(doc, { year, month }, events, categories, settings, mx, y, mw, MONTH_H, shabbatLabel, globalNotesStripH, theme, emojiCache)
+    const y = rowStartY[row]
+    const monthH = perRowMonthH[row]
+    const notesH = perRowNotesH[row]
+    drawMonth(doc, { year, month }, events, categories, settings, mx, y, mw, monthH, shabbatLabel, notesH, theme, emojiCache, titleFont)
   })
 
   // ── Bottom Events Panel ──────────────────────────────
   if (showBottomPanel) {
-    const panelTop = startY + MONTH_ROWS * (MONTH_H + 3) + 2
-    drawBottomEventsPanel(doc, events, categories, panelTop, PAGE_W, MARGIN, SIDEBAR_W, dynamicPanelH, settings.academicYear)
+    const panelTop = rowStartY[MONTH_ROWS - 1] + perRowMonthH[MONTH_ROWS - 1] + 2
+    drawBottomEventsPanel(doc, events, categories, panelTop, PAGE_W, MARGIN, 0, dynamicPanelH, settings.academicYear)
   }
 
-  // ── Sidebar ──────────────────────────────────────────
-  const sbX = PAGE_W - MARGIN - SIDEBAR_W
-  const sbTop = HEADER_H + 2
-  const sbH = PAGE_H - sbTop - MARGIN
-  const sbCx = sbX + SIDEBAR_W / 2  // horizontal center of sidebar
-
-  // White background + light border
-  doc.setFillColor(255, 255, 255)
-  doc.rect(sbX, sbTop, SIDEBAR_W, sbH, 'F')
+  // ── Footer bar (school info + legend — replaces right sidebar) ─────────────
+  const footerY = PAGE_H - MARGIN - CLASSIC_FOOTER_H
+  // Accent top rule
+  doc.setFillColor(ar, ag, ab)
+  doc.rect(MARGIN, footerY, PAGE_W - MARGIN * 2, 1.5, 'F')
+  // Light background panel
+  doc.setFillColor(248, 249, 252)
+  doc.rect(MARGIN, footerY + 1.5, PAGE_W - MARGIN * 2, CLASSIC_FOOTER_H - 1.5, 'F')
+  // Light border
   doc.setDrawColor(210, 215, 225)
   doc.setLineWidth(0.2)
-  doc.rect(sbX, sbTop, SIDEBAR_W, sbH, 'S')
+  doc.rect(MARGIN, footerY + 1.5, PAGE_W - MARGIN * 2, CLASSIC_FOOTER_H - 1.5, 'S')
 
-  // ── Title strip ──
-  const titleStripH = 32
-  doc.setFillColor(pr, pg, pb)
-  doc.rect(sbX, sbTop, SIDEBAR_W, titleStripH, 'F')
-  // Accent bar along bottom of strip
-  doc.setFillColor(ar, ag, ab)
-  doc.rect(sbX, sbTop + titleStripH - 2, SIDEBAR_W, 2, 'F')
-  // "YAYOE" — large bold white, centered
-  doc.setTextColor(255, 255, 255)
-  doc.setFontSize(20)
-  doc.setFont(titleFont, 'bold')
-  doc.text('YAYOE', sbCx, sbTop + 12, { align: 'center' })
-  // Thin accent decorative rule below YAYOE
-  doc.setDrawColor(ar, ag, ab)
-  doc.setLineWidth(0.4)
-  const stripRuleW = SIDEBAR_W * 0.6
-  doc.line(sbCx - stripRuleW / 2, sbTop + 15, sbCx + stripRuleW / 2, sbTop + 15)
-  // "Academic Year" label — accent, centered
-  doc.setTextColor(ar, ag, ab)
-  doc.setFontSize(6)
-  doc.setFont(titleFont, 'normal')
-  doc.text('Academic Year', sbCx, sbTop + 20, { align: 'center' })
-  // Year value — white, bigger, centered
-  doc.setTextColor(255, 255, 255)
-  doc.setFontSize(9)
-  doc.setFont(titleFont, 'bold')
-  doc.text(settings.academicYear || '2026–2027', sbCx, sbTop + 27, { align: 'center' })
+  // Clipping boundary for all footer text — nothing renders below this Y
+  const footBottom = footerY + CLASSIC_FOOTER_H - 1.5
 
-  // ── Sidebar blocks (user-ordered) ──
-  const ruleW = SIDEBAR_W * 0.78
-  const blocks = (settings.sidebarBlocks || DEFAULT_SIDEBAR_BLOCKS).filter(b => b.visible !== false)
-  let blockY = sbTop + titleStripH + 7
-  const blockOpts = { sbX, sbCx, SIDEBAR_W, ruleW, pr, pg, pb, ar, ag, ab, textRgb: [50, 60, 80], schoolInfo, categories }
-  blocks.forEach(b => { blockY = renderSidebarBlock(doc, b.id, blockY, blockOpts) })
+  // §1: Logo + school name + menahel/principal line + contact info
+  const FOOT_LOGO_SZ = 11
+  const footLogoX = MARGIN + 2
+  const footLogoY = footerY + (CLASSIC_FOOTER_H - FOOT_LOGO_SZ) / 2 + 0.5
+  if (classicCircularLogo) {
+    doc.addImage(classicCircularLogo, 'PNG', footLogoX, footLogoY, FOOT_LOGO_SZ, FOOT_LOGO_SZ)
+  }
+  const footInfoX = footLogoX + FOOT_LOGO_SZ + 2.5
+  const footInfoMaxW = 68
+  doc.setFontSize(6.5); doc.setFont(titleFont, 'bold'); doc.setTextColor(pr, pg, pb)
+  doc.text(schoolInfo.name || 'YAYOE', footInfoX, footerY + 5, { maxWidth: footInfoMaxW })
+
+  // Helper: render one contact line, advance Y, stop if we'd overflow the footer box
+  let fcy = footerY + 8.2
+  const footLine = (text, color) => {
+    if (!text || fcy > footBottom) return
+    doc.setTextColor(...color)
+    // Force single line — take first split segment only
+    const oneLine = doc.splitTextToSize(String(text), footInfoMaxW)[0] || ''
+    doc.text(oneLine, footInfoX, fcy)
+    fcy += 2.8
+  }
+  doc.setFontSize(4); doc.setFont('helvetica', 'italic')
+  footLine(schoolInfo.otherInfo, [pr, pg, pb])           // Menahel / Principal (italic, primary color)
+  doc.setFont('helvetica', 'normal')
+  footLine(schoolInfo.address,                [90, 100, 120])
+  // Phone + fax on same line if both exist
+  const phoneFaxStr = [
+    schoolInfo.phone ? `Tel: ${schoolInfo.phone}` : '',
+    schoolInfo.fax   ? `Fax: ${schoolInfo.fax}`   : '',
+  ].filter(Boolean).join('   ')
+  footLine(phoneFaxStr,                       [90, 100, 120])
+  footLine(schoolInfo.email,                  [42, 100, 180])
+  footLine(schoolInfo.website,                [42, 100, 180])
+
+  // Divider 1
+  const footDiv1X = MARGIN + 88
+  doc.setDrawColor(210, 215, 225); doc.setLineWidth(0.3)
+  doc.line(footDiv1X, footerY + 3, footDiv1X, footerY + CLASSIC_FOOTER_H - 2)
+
+  // §2: School hours — up to 3 lines (Mon–Thu / Fri / Erev Yom Tov)
+  const footHoursX = footDiv1X + 5
+  const hourLines = (schoolInfo.hours || '').split('\n').filter(l => l.trim())
+  if (hourLines.length) {
+    doc.setFontSize(4.5); doc.setFont('helvetica', 'bold'); doc.setTextColor(pr, pg, pb)
+    doc.text('SCHOOL HOURS', footHoursX, footerY + 5)
+    doc.setFontSize(6); doc.setFont('helvetica', 'bold'); doc.setTextColor(50, 60, 80)
+    hourLines.slice(0, 3).forEach((line, i) => {
+      const lineY = footerY + 8.2 + i * 2.8
+      if (lineY <= footBottom) doc.text(line.trim(), footHoursX, lineY, { maxWidth: 60 })
+    })
+  }
+
+  // Divider 2
+  const footDiv2X = MARGIN + 160
+  doc.setDrawColor(210, 215, 225); doc.setLineWidth(0.3)
+  doc.line(footDiv2X, footerY + 3, footDiv2X, footerY + CLASSIC_FOOTER_H - 2)
+
+  // §3: Legend — 3 cols × 2 rows = up to 6 categories
+  const footLegX = footDiv2X + 4
+  const footLegW = PAGE_W - MARGIN - footLegX - 2
+  const visibleCatsFooter = categories.filter(c => c.visible && c.id !== 'rosh-chodesh')
+  doc.setFontSize(4.5); doc.setFont('helvetica', 'bold'); doc.setTextColor(pr, pg, pb)
+  doc.text('LEGEND', footLegX, footerY + 5)
+  const legCols = 3
+  const legColW = footLegW / legCols
+  visibleCatsFooter.slice(0, legCols * 2).forEach((cat, i) => {
+    const col = i % legCols
+    const row = Math.floor(i / legCols)
+    const itemY = footerY + 8.2 + row * 2.8
+    if (itemY > footBottom) return
+    const [r, g, b] = hexToRgbLocal(cat.color || '#999')
+    const itemX = footLegX + col * legColW
+    doc.setFillColor(r, g, b)
+    doc.roundedRect(itemX, itemY - 2.2, 4, 3, 0.3, 0.3, 'F')
+    doc.setTextColor(50, 60, 80); doc.setFontSize(4.5); doc.setFont('helvetica', 'normal')
+    doc.text(cat.name, itemX + 5, itemY, { maxWidth: legColW - 6.5 })
+  })
 
   if (preview) return doc.output('datauristring')
   doc.save(`${(schoolInfo.name || 'YAYOE').replace(/\s+/g, '-')}-Calendar-${settings.academicYear || '2026-27'}-${pdfStyle}.pdf`)
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// Portrait Classic — 2-column portrait, month header on top, notes on right
+// ────────────────────────────────────────────────────────────────────────────
+async function exportPortraitClassic(state, { preview = false } = {}) {
+  const { events, categories, schoolInfo, settings } = state
+  const theme = getTheme(settings.theme, settings.customPrimary, settings.customAccent)
+  const [pr, pg, pb] = hexToRgbLocal(theme.primary)
+  const [ar, ag, ab] = hexToRgbLocal(theme.accent)
+
+  const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'letter' })
+  const hasMontserrat = await loadMontserrat(doc)
+  const titleFont = hasMontserrat ? 'Montserrat' : 'helvetica'
+  const shabbatLabel = settings.shabbatLabel || 'Shabbat'
+
+  const PW = 215.9, PH = 279.4
+  const MARGIN = 5
+  const HEADER_H = 14
+  const FOOTER_H = 16
+  const COL_COUNT = 2
+  const MONTH_ROWS = 6      // 11 months: rows 0–4 have 2 each, row 5 has 1
+  const ROW_GAP = 2
+  const COL_GAP = 2
+  const BLOCK_HEADER_H = 5  // thin blue header on top of each month block
+  const NOTES_W = 36        // right-side notes column
+  const INNER_GAP = 1       // gap between calendar and notes
+  const SHABBAT_R = 192, SHABBAT_G = 192, SHABBAT_B = 198
+
+  const GRID_W = PW - MARGIN * 2                              // 205.9mm
+  const MONTH_W = (GRID_W - COL_GAP) / COL_COUNT             // ~101.95mm
+  const CAL_W = MONTH_W - NOTES_W - INNER_GAP                // ~64.95mm
+  const cellW = CAL_W / 7                                     // ~9.28mm
+  const DOW_H = 3.5
+  const availH = PH - (HEADER_H + 2) - MARGIN - FOOTER_H - 2 // 240.4mm
+  const MONTH_H = (availH - (MONTH_ROWS - 1) * ROW_GAP) / MONTH_ROWS  // 38.4mm
+  // cells start at BLOCK_HEADER_H + DOW_H; exact fit so row 6 never overflows
+  const cellH = (MONTH_H - BLOCK_HEADER_H - DOW_H) / 6       // ~4.98mm
+
+  // ── Header (same as landscape classic) ──────────────────────────────────
+  doc.setFillColor(pr, pg, pb)
+  doc.rect(0, 0, PW * 0.62, HEADER_H, 'F')
+  doc.setFillColor(Math.min(255, pr + 12), Math.min(255, pg + 16), Math.min(255, pb + 25))
+  doc.rect(PW * 0.62, 0, PW * 0.38, HEADER_H, 'F')
+  doc.setFillColor(ar, ag, ab)
+  doc.rect(0, HEADER_H - 1.5, PW, 1.5, 'F')
+  doc.rect(0, 0, 3, HEADER_H - 1.5, 'F')
+
+  const LOGO_SIZE = 11
+  let circularLogo = null
+  if (schoolInfo.logo) {
+    try {
+      circularLogo = await cropLogoImage(schoolInfo.logo, settings.logoShape || 'circle')
+      doc.addImage(circularLogo, 'PNG', MARGIN, (HEADER_H - LOGO_SIZE) / 2, LOGO_SIZE, LOGO_SIZE)
+    } catch {}
+  }
+
+  const titleX = MARGIN + LOGO_SIZE + 3
+  doc.setFontSize(12); doc.setFont(titleFont, 'bold'); doc.setTextColor(255, 255, 255)
+  doc.text(settings.calendarTitle || schoolInfo.name || 'YAYOE Calendar', titleX, 6.2)
+  doc.setFontSize(7); doc.setFont(titleFont, 'normal')
+  const hebrewYearStr = settings.hebrewYear || ''
+  const yearLine = settings.showHebrewYear !== false && hebrewYearStr
+    ? `Academic Year  ${settings.academicYear || '2026–2027'}  •  ${hebrewYearStr}`
+    : `Academic Year  ${settings.academicYear || '2026–2027'}`
+  doc.text(yearLine, titleX, 10.7)
+
+  if (settings.draftWatermark) {
+    doc.setTextColor(200, 50, 50); doc.setFontSize(72); doc.setFont('helvetica', 'bold')
+    doc.setGState(doc.GState({ opacity: 0.18 }))
+    doc.text('DRAFT', PW / 2, PH / 2, { align: 'center', angle: 35 })
+    doc.setGState(doc.GState({ opacity: 1.0 }))
+  }
+
+  // Pre-render Hebrew holiday emoji
+  const holidayMap = getHolidayMap(settings.academicYear)
+  const emojiCache = {}
+  await Promise.all(
+    [...new Set(Object.values(holidayMap).map(h => (settings.hebrewHolidayIcons || {})[h.group] || h.icon).filter(Boolean))].map(
+      async icon => { emojiCache[icon] = await renderEmojiToImage(icon) }
+    )
+  )
+
+  // ── Calendar grid ────────────────────────────────────────────────────────
+  const startY = HEADER_H + 2
+  const allMonths = getAcademicMonths(settings.academicYear)
+  const catMap = {}
+  categories.forEach(c => { catMap[c.id] = c })
+
+  // Build full cross-month run groups once (same approach as landscape classic)
+  // so notes can show the complete date range even when a break spans two months
+  const allEventRanges = {}
+  Object.entries(events).forEach(([dk, dayEvs]) => {
+    ;(dayEvs || []).filter(e => e.category !== 'rosh-chodesh').forEach(ev => {
+      const key = `${ev.category}::${ev.label}`
+      if (!allEventRanges[key]) allEventRanges[key] = []
+      allEventRanges[key].push(dk)
+    })
+  })
+  const allEventRunGroups = {}
+  Object.entries(allEventRanges).forEach(([key, allDates]) => {
+    allEventRunGroups[key] = groupConsecutiveDates([...allDates].sort())
+  })
+  const DOW_LABELS = ['S', 'M', 'T', 'W', 'T', 'F', 'S']
+
+  allMonths.forEach(({ year, month }, idx) => {
+    const col = idx % COL_COUNT
+    const row = Math.floor(idx / COL_COUNT)
+    const mx = MARGIN + col * (MONTH_W + COL_GAP)
+    const my = startY + row * (MONTH_H + ROW_GAP)
+
+    // ── Blue month header bar (full block width) ────────────────────────
+    const mName = new Date(year, month, 1).toLocaleString('default', { month: 'long' })
+    const hLabel = getHebrewMonthLabel(year, month)
+    doc.setFillColor(pr, pg, pb)
+    doc.roundedRect(mx, my, MONTH_W, BLOCK_HEADER_H, 1, 1, 'F')
+    doc.setTextColor(255, 255, 255); doc.setFontSize(6); doc.setFont('helvetica', 'bold')
+    const engPart = `${mName} ${year}`
+    doc.text(engPart, mx + 1.5, my + 3.5 * (BLOCK_HEADER_H / 5))
+    const engW = doc.getTextWidth(engPart)
+    doc.setTextColor(180, 210, 255); doc.setFont('helvetica', 'normal')
+    doc.text(`  ·  ${hLabel}`, mx + 1.5 + engW, my + 3.5 * (BLOCK_HEADER_H / 5), { maxWidth: MONTH_W - 3 - engW - 1.5 })
+
+    // ── Day-of-week header row ───────────────────────────────────────────
+    const calX = mx
+    const dowY = my + BLOCK_HEADER_H + DOW_H - 0.8
+
+    DOW_LABELS.forEach((d, i) => {
+      const lx = calX + i * cellW
+      if (i === 6) {
+        doc.setFillColor(SHABBAT_R, SHABBAT_G, SHABBAT_B)
+        doc.rect(lx, my + BLOCK_HEADER_H, cellW, DOW_H, 'F')
+      }
+      doc.setTextColor(i === 6 ? 88 : 70, i === 6 ? 88 : 70, i === 6 ? 96 : 70)
+      doc.setFontSize(3.5); doc.setFont('helvetica', 'bold')
+      doc.text(d === 'S' && i === 6 ? shabbatLabel.slice(0, 3).toUpperCase() : d,
+        lx + cellW / 2, dowY, { align: 'center' })
+    })
+
+    // ── Day cells ────────────────────────────────────────────────────────
+    const days = getDaysInMonth(year, month)
+    const startDow = getFirstDayOfWeek(year, month)
+
+    // Pre-classify no-school / early-dismissal
+    const noSchoolMap = {}
+    const earlyDismissMap = {}
+    days.forEach(date => {
+      const dk = formatDateKey(date)
+      ;(events[dk] || []).filter(e => e.category !== 'rosh-chodesh').forEach(ev => {
+        const cat = catMap[ev.category]
+        const cname = cat?.name?.toLowerCase() || ''
+        if (ev.category === 'no-school' || cname.includes('no school'))
+          noSchoolMap[dk] = { label: ev.label }
+        if (ev.category === 'early-dismissal' || cname.includes('dismissal'))
+          earlyDismissMap[dk] = { label: ev.label, time: ev.time, color: ev.color || cat?.color || '#D68910' }
+      })
+    })
+
+    days.forEach(date => {
+      const dayNum = date.getDate()
+      const dow = (startDow + dayNum - 1) % 7
+      const weekRow = Math.floor((startDow + dayNum - 1) / 7)
+      const cx = calX + dow * cellW
+      const cy = my + BLOCK_HEADER_H + DOW_H + weekRow * cellH
+      const dk = formatDateKey(date)
+      const isNoSchool = !!noSchoolMap[dk]
+      const isEarlyDismiss = !!earlyDismissMap[dk]
+      const dayEvs = (events[dk] || []).filter(e => e.category !== 'rosh-chodesh')
+
+      if (dow === 6) {
+        doc.setFillColor(SHABBAT_R, SHABBAT_G, SHABBAT_B)
+        doc.rect(cx, cy, cellW, cellH, 'F')
+      }
+
+      if (isNoSchool) {
+        doc.setFillColor(192, 57, 43)
+        doc.roundedRect(cx + 0.1, cy + 0.1, cellW - 0.2, cellH - 0.2, 0.4, 0.4, 'F')
+        doc.setDrawColor(222, 95, 78); doc.setLineWidth(0.15)
+        for (let hx = 2; hx < cellW + cellH; hx += 2) {
+          const ax = cx + 0.1 + Math.min(hx, cellW - 0.2)
+          const ay = cy + 0.1 + Math.max(0, hx - (cellW - 0.2))
+          const bx = cx + 0.1 + Math.max(0, hx - (cellH - 0.2))
+          const by = cy + 0.1 + Math.min(hx, cellH - 0.2)
+          doc.line(ax, ay, bx, by)
+        }
+        doc.setTextColor(255, 255, 255); doc.setFontSize(4.5); doc.setFont('helvetica', 'bold')
+        doc.text(String(dayNum), cx + 0.6, cy + 3.2)
+      } else if (isEarlyDismiss) {
+        const ed = earlyDismissMap[dk]
+        const [r, g, b] = hexToRgbLocal(ed.color)
+        doc.setFillColor(r, g, b)
+        doc.roundedRect(cx + 0.1, cy + 0.1, cellW - 0.2, cellH - 0.2, 0.4, 0.4, 'F')
+        doc.setTextColor(255, 255, 255); doc.setFontSize(4.5); doc.setFont('helvetica', 'bold')
+        doc.text(String(dayNum), cx + 0.6, cy + 2.8)
+        if (ed.time) {
+          doc.setFontSize(3); doc.setFont('helvetica', 'normal')
+          doc.text(formatTime(ed.time), cx + 0.6, cy + 5, { maxWidth: cellW - 1 })
+        }
+      } else if (settings.cellStyle === 'filled' && dayEvs.length > 0) {
+        const firstEv = dayEvs[0]
+        const cat = catMap[firstEv.category]
+        const [r, g, b] = hexToRgbLocal(firstEv.color || cat?.color || '#999')
+        doc.setFillColor(r, g, b)
+        doc.roundedRect(cx + 0.1, cy + 0.1, cellW - 0.2, cellH - 0.2, 0.4, 0.4, 'F')
+        doc.setTextColor(255, 255, 255); doc.setFontSize(4.5); doc.setFont('helvetica', 'bold')
+        doc.text(String(dayNum), cx + 0.6, cy + 3.2)
+        if (firstEv.label) {
+          doc.setFontSize(2.8); doc.setFont('helvetica', 'normal')
+          doc.text(firstEv.label, cx + 0.6, cy + 3.2 + 2.2, { maxWidth: cellW - 1 })
+        }
+      } else {
+        doc.setTextColor(50, 50, 50); doc.setFontSize(4.5); doc.setFont('helvetica', 'normal')
+        doc.text(String(dayNum), cx + 0.6, cy + 3.2)
+        // Rosh Chodesh dot
+        if (getRoshChodeshMap(settings.academicYear)[dk]) {
+          doc.setFillColor(195, 177, 225)
+          doc.circle(cx + cellW - 1.3, cy + 1.3, 0.7, 'F')
+        }
+        // Event color dots (max 2)
+        dayEvs.slice(0, 2).forEach((ev, ei) => {
+          const cat = catMap[ev.category]
+          const [r, g, b] = hexToRgbLocal(ev.color || cat?.color || '#999')
+          doc.setFillColor(r, g, b)
+          doc.circle(cx + 0.9 + ei * 1.8, cy + cellH - 1.1, 0.65, 'F')
+        })
+      }
+
+      // Hebrew holiday emoji (top-right corner)
+      const hHoliday = getHolidayMap(settings.academicYear)[dk]
+      if (hHoliday) {
+        const icon = (settings.hebrewHolidayIcons || {})[hHoliday.group] || hHoliday.icon
+        if (icon && emojiCache[icon]) {
+          try { doc.addImage(emojiCache[icon], 'PNG', cx + cellW - 2.8, cy + 0.2, 2.5, 2.5) } catch {}
+        }
+      }
+    })
+
+    // Subtle cell grid lines (below the block header)
+    const gridTop = my + BLOCK_HEADER_H
+    doc.setDrawColor(220, 222, 230); doc.setLineWidth(0.1)
+    for (let r = 0; r <= 6; r++)
+      doc.line(calX, gridTop + DOW_H + r * cellH, calX + CAL_W, gridTop + DOW_H + r * cellH)
+    for (let c = 0; c <= 7; c++)
+      doc.line(calX + c * cellW, gridTop, calX + c * cellW, my + MONTH_H)
+
+    // ── Notes column ────────────────────────────────────────────────────
+    const notesX = calX + CAL_W + INNER_GAP
+
+    // Collect notes using full run groups so cross-month breaks (Pesach, Sukkos)
+    // show their complete date range, not just the portion within this month
+    const seenEvts = new Map()
+    days.forEach(date => {
+      const dk = formatDateKey(date)
+      ;(events[dk] || []).filter(e => e.category !== 'rosh-chodesh').forEach(ev => {
+        const key = `${ev.category}::${ev.label}`
+        const runGroups = allEventRunGroups[key] || [[dk]]
+        const groupIdx = runGroups.findIndex(g => g.includes(dk))
+        const idx = groupIdx >= 0 ? groupIdx : 0
+        const entryKey = runGroups.length > 1 ? `${key}::r${idx}` : key
+        if (!seenEvts.has(entryKey)) {
+          seenEvts.set(entryKey, { ev, dates: runGroups[idx] || [dk] })
+        }
+      })
+    })
+
+    let noteY = my + BLOCK_HEADER_H + 3.5
+    const maxNoteY = my + MONTH_H - 1.5
+    for (const { ev, dates } of seenEvts.values()) {
+      if (noteY > maxNoteY) break
+      const cat = catMap[ev.category]
+      const [r, g, b] = hexToRgbLocal(ev.color || cat?.color || '#999')
+      // Color swatch
+      doc.setFillColor(r, g, b)
+      doc.roundedRect(notesX, noteY - 2.4, 3, 3, 0.3, 0.3, 'F')
+      // Label (colored) + time (colored) + range (gray) — all on one line
+      const isED = ev.category === 'early-dismissal' || (cat?.name?.toLowerCase() || '').includes('dismissal')
+      const timeStr = isED && ev.time ? ` ${formatTime(ev.time)}` : ''
+      const groups = groupConsecutiveDates([...dates].sort())
+      const rangeStr = formatRangeGroups(groups)
+      const rangePart = `  –  ${rangeStr}`
+      doc.setFontSize(5); doc.setFont('helvetica', 'normal')
+      // Reserve space for time + range, then fit label in what's left
+      const reservedW = doc.getTextWidth(timeStr + rangePart)
+      const maxLabelW = Math.max(NOTES_W - 5 - reservedW, 6)
+      const displayLabel = doc.splitTextToSize(ev.label, maxLabelW)[0] || ev.label
+      const labelW = doc.getTextWidth(displayLabel)
+      doc.setTextColor(r, g, b)
+      doc.text(displayLabel, notesX + 4, noteY)
+      if (timeStr) {
+        doc.text(timeStr, notesX + 4 + labelW, noteY)
+      }
+      doc.setTextColor(90, 95, 110)
+      doc.text(rangePart, notesX + 4 + labelW + doc.getTextWidth(timeStr), noteY)
+      noteY += 3.8
+    }
+  })
+
+  // ── Footer (same layout as Classic, adjusted for portrait width) ─────────
+  const footerY = PH - MARGIN - FOOTER_H
+  doc.setFillColor(ar, ag, ab)
+  doc.rect(MARGIN, footerY, GRID_W, 1.5, 'F')
+  doc.setFillColor(248, 249, 252)
+  doc.rect(MARGIN, footerY + 1.5, GRID_W, FOOTER_H - 1.5, 'F')
+  doc.setDrawColor(210, 215, 225); doc.setLineWidth(0.2)
+  doc.rect(MARGIN, footerY + 1.5, GRID_W, FOOTER_H - 1.5, 'S')
+
+  const footBottom = footerY + FOOTER_H - 1.5
+
+  // §1: Logo + school name + contact
+  const FOOT_LOGO_SZ = 11
+  const footLogoX = MARGIN + 2
+  const footLogoY = footerY + (FOOTER_H - FOOT_LOGO_SZ) / 2 + 0.5
+  if (circularLogo) doc.addImage(circularLogo, 'PNG', footLogoX, footLogoY, FOOT_LOGO_SZ, FOOT_LOGO_SZ)
+  const footInfoX = footLogoX + FOOT_LOGO_SZ + 2.5
+  const footInfoMaxW = 52
+  doc.setFontSize(6.5); doc.setFont(titleFont, 'bold'); doc.setTextColor(pr, pg, pb)
+  doc.text(schoolInfo.name || 'YAYOE', footInfoX, footerY + 5, { maxWidth: footInfoMaxW })
+  let fcy = footerY + 8.2
+  const footLine = (text, color) => {
+    if (!text || fcy > footBottom) return
+    doc.setTextColor(...color)
+    doc.text(doc.splitTextToSize(String(text), footInfoMaxW)[0] || '', footInfoX, fcy)
+    fcy += 2.8
+  }
+  doc.setFontSize(4); doc.setFont('helvetica', 'italic')
+  footLine(schoolInfo.otherInfo, [pr, pg, pb])
+  doc.setFont('helvetica', 'normal')
+  footLine(schoolInfo.address, [90, 100, 120])
+  const phoneFaxStr = [schoolInfo.phone ? `Tel: ${schoolInfo.phone}` : '', schoolInfo.fax ? `Fax: ${schoolInfo.fax}` : ''].filter(Boolean).join('   ')
+  footLine(phoneFaxStr, [90, 100, 120])
+  footLine(schoolInfo.email, [42, 100, 180])
+  footLine(schoolInfo.website, [42, 100, 180])
+
+  // §2: Hours
+  const footDiv1X = MARGIN + 70
+  doc.setDrawColor(210, 215, 225); doc.setLineWidth(0.3)
+  doc.line(footDiv1X, footerY + 3, footDiv1X, footerY + FOOTER_H - 2)
+  const footHoursX = footDiv1X + 5
+  const hourLines = (schoolInfo.hours || '').split('\n').filter(l => l.trim())
+  if (hourLines.length) {
+    doc.setFontSize(4.5); doc.setFont('helvetica', 'bold'); doc.setTextColor(pr, pg, pb)
+    doc.text('SCHOOL HOURS', footHoursX, footerY + 5)
+    doc.setFontSize(6); doc.setFont('helvetica', 'bold'); doc.setTextColor(50, 60, 80)
+    hourLines.slice(0, 3).forEach((line, i) => {
+      const lineY = footerY + 8.2 + i * 2.8
+      if (lineY <= footBottom) doc.text(line.trim(), footHoursX, lineY, { maxWidth: 52 })
+    })
+  }
+
+  // §3: Legend
+  const footDiv2X = MARGIN + 125
+  doc.setDrawColor(210, 215, 225); doc.setLineWidth(0.3)
+  doc.line(footDiv2X, footerY + 3, footDiv2X, footerY + FOOTER_H - 2)
+  const footLegX = footDiv2X + 4
+  const footLegW = PW - MARGIN - footLegX - 2
+  const visibleCatsFooter = categories.filter(c => c.visible && c.id !== 'rosh-chodesh')
+  doc.setFontSize(4.5); doc.setFont('helvetica', 'bold'); doc.setTextColor(pr, pg, pb)
+  doc.text('LEGEND', footLegX, footerY + 5)
+  const legCols = 3
+  const legColW = footLegW / legCols
+  visibleCatsFooter.slice(0, legCols * 2).forEach((cat, i) => {
+    const col = i % legCols
+    const row = Math.floor(i / legCols)
+    const itemY = footerY + 8.2 + row * 2.8
+    if (itemY > footBottom) return
+    const [r, g, b] = hexToRgbLocal(cat.color || '#999')
+    const itemX = footLegX + col * legColW
+    doc.setFillColor(r, g, b)
+    doc.roundedRect(itemX, itemY - 2.2, 4, 3, 0.3, 0.3, 'F')
+    doc.setTextColor(50, 60, 80); doc.setFontSize(4.5); doc.setFont('helvetica', 'normal')
+    doc.text(cat.name, itemX + 5, itemY, { maxWidth: legColW - 6.5 })
+  })
+
+  if (preview) return doc.output('datauristring')
+  doc.save(`${(schoolInfo.name || 'YAYOE').replace(/\s+/g, '-')}-Calendar-${settings.academicYear || '2026-27'}-portrait-classic.pdf`)
 }
 
 // ────────────────────────────────────────────────────────────────────────────

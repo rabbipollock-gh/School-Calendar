@@ -89,6 +89,16 @@ const PDF_STYLES = [
     type: 'yearly',
   },
   {
+    id: 'portrait-classic',
+    name: 'Classic Portrait',
+    description: 'Portrait · 2 columns · month label on side · notes beside each calendar',
+    icon: '📋',
+    tag: 'New',
+    tagColor: 'bg-emerald-100 text-emerald-700',
+    previewBg: 'from-[#1e3a5f] to-[#2a4d7a]',
+    type: 'yearly',
+  },
+  {
     id: 'minimal',
     name: 'Clean Minimal',
     description: 'Landscape · no sidebar · white background · hairline grid',

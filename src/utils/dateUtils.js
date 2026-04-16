@@ -98,6 +98,31 @@ export function formatRangeLabel(dateKeys) {
 }
 
 /**
+ * Formats multiple consecutive-date groups into a compact string,
+ * suppressing the month name on same-month follow-on groups.
+ * e.g. [["2026-08-20","2026-08-21"],["2026-08-24","2026-08-25"]] → "Aug 20–21, 24–25"
+ */
+export function formatRangeGroups(groups) {
+  let lastMonth = -1
+  return groups.map(g => {
+    if (!g || g.length === 0) return ''
+    const start = parseDateKey(g[0])
+    const end = parseDateKey(g[g.length - 1])
+    const startDay = start.getDate()
+    const endDay = end.getDate()
+    const startMonth = start.getMonth()
+    const endMonth = end.getMonth()
+    const monthName = start.toLocaleString('default', { month: 'short' })
+    const sameAsLast = startMonth === lastMonth
+    lastMonth = endMonth
+    if (g.length === 1) return sameAsLast ? `${startDay}` : `${monthName} ${startDay}`
+    if (startMonth === endMonth) return sameAsLast ? `${startDay}–${endDay}` : `${monthName} ${startDay}–${endDay}`
+    const endMonthName = end.toLocaleString('default', { month: 'short' })
+    return sameAsLast ? `${startDay}–${endMonthName} ${endDay}` : `${monthName} ${startDay}–${endMonthName} ${endDay}`
+  }).filter(Boolean).join(', ')
+}
+
+/**
  * Returns the month key "YYYY-MM" from a date key
  */
 export function getMonthKey(dateKey) {
