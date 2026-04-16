@@ -233,6 +233,14 @@ export default function SettingsDrawer({ isOpen, onClose, onOpenCategories, onOp
               <Field label="Hebrew Year (e.g. 5787)">
                 <input type="text" value={settings.hebrewYear || ''} onChange={e => updateSettings('hebrewYear', e.target.value)} readOnly={readOnly} className={inputCls} placeholder="5787" />
               </Field>
+              <div className="grid grid-cols-2 gap-2">
+                <Field label="First Day of School">
+                  <input type="date" value={settings.firstDayOfSchool || ''} onChange={e => updateSettings('firstDayOfSchool', e.target.value)} readOnly={readOnly} className={inputCls} />
+                </Field>
+                <Field label="Last Day of School">
+                  <input type="date" value={settings.lastDayOfSchool || ''} onChange={e => updateSettings('lastDayOfSchool', e.target.value)} readOnly={readOnly} className={inputCls} />
+                </Field>
+              </div>
               <div className="flex items-center justify-between">
                 <label className="text-sm text-gray-700 dark:text-gray-300">Show Hebrew Year in PDF</label>
                 <button

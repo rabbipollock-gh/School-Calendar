@@ -11,11 +11,48 @@ function getInitials(name) {
     .toUpperCase()
 }
 
+function computeSchoolDays(firstDay, lastDay, events, categories) {
+  if (!firstDay || !lastDay) return null
+  const start = new Date(firstDay + 'T00:00:00')
+  const end   = new Date(lastDay  + 'T00:00:00')
+  if (isNaN(start) || isNaN(end) || end < start) return null
+
+  // Collect all date keys that have at least one no-school event
+  const noSchoolCatIds = new Set(
+    categories.filter(c => c.id === 'no-school').map(c => c.id)
+  )
+  const noSchoolDates = new Set()
+  Object.entries(events).forEach(([dateKey, evs]) => {
+    if (evs.some(e => noSchoolCatIds.has(e.category))) {
+      noSchoolDates.add(dateKey)
+    }
+  })
+
+  let total = 0
+  let noSchoolCount = 0
+  const cur = new Date(start)
+  while (cur <= end) {
+    const dow = cur.getDay() // 0=Sun, 6=Sat
+    if (dow !== 0 && dow !== 6) {
+      total++
+      const key = cur.toISOString().slice(0, 10)
+      if (noSchoolDates.has(key)) noSchoolCount++
+    }
+    cur.setDate(cur.getDate() + 1)
+  }
+  return { total, noSchoolCount, schoolDays: total - noSchoolCount }
+}
+
 export default function Sidebar({ onOpenCategories, onOpenSettings, onOpenBulk }) {
   const { state, dispatch } = useCalendar()
   const { categories, schoolInfo, settings } = state
   const importRef = useRef(null)
   const [importToast, setImportToast] = React.useState(null)
+
+  const schoolDayStats = React.useMemo(
+    () => computeSchoolDays(settings.firstDayOfSchool, settings.lastDayOfSchool, state.events, categories),
+    [settings.firstDayOfSchool, settings.lastDayOfSchool, state.events, categories]
+  )
 
   const handleImportFile = (e) => {
     const file = e.target.files?.[0]
@@ -91,6 +128,37 @@ export default function Sidebar({ onOpenCategories, onOpenSettings, onOpenBulk }
             <pre className="text-[11px] text-gray-600 dark:text-gray-300 whitespace-pre-wrap font-sans leading-relaxed">
               {schoolInfo.hours}
             </pre>
+          </div>
+        </div>
+      )}
+
+      {/* ── School Days Counter ── */}
+      {schoolDayStats ? (
+        <div className="mx-3 mt-3 shrink-0">
+          <div className="bg-emerald-50 dark:bg-emerald-900/20 rounded-xl p-3 border border-emerald-100 dark:border-emerald-800/50">
+            <h3 className="text-[10px] font-bold text-emerald-700 dark:text-emerald-300 uppercase tracking-widest mb-2 flex items-center gap-1">
+              <span>📚</span> School Days
+            </h3>
+            <div className="flex items-end justify-between">
+              <div>
+                <span className="text-2xl font-bold text-emerald-700 dark:text-emerald-300 leading-none">
+                  {schoolDayStats.schoolDays}
+                </span>
+                <span className="text-[11px] text-emerald-600 dark:text-emerald-400 ml-1">days</span>
+              </div>
+              <div className="text-right text-[10px] text-gray-500 dark:text-gray-400 leading-snug">
+                <div>{schoolDayStats.total} weekdays</div>
+                <div>− {schoolDayStats.noSchoolCount} no-school</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : (settings.firstDayOfSchool || settings.lastDayOfSchool) ? null : (
+        <div className="mx-3 mt-3 shrink-0">
+          <div className="bg-gray-50 dark:bg-gray-700/30 rounded-xl p-3 border border-dashed border-gray-200 dark:border-gray-600">
+            <p className="text-[10px] text-gray-400 dark:text-gray-500 text-center leading-snug">
+              Set First &amp; Last Day of School in Settings to see school day count
+            </p>
           </div>
         </div>
       )}

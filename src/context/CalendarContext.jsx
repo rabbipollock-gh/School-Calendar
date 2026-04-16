@@ -53,6 +53,8 @@ const DEFAULT_SETTINGS = {
     { id: 'otherInfo', label: 'Other Information',  visible: true },
     { id: 'contact',   label: 'Contact Info',       visible: true },
   ],
+  firstDayOfSchool: '',  // YYYY-MM-DD
+  lastDayOfSchool:  '',  // YYYY-MM-DD
 }
 
 // ── ID normalizer for default events ────────────────────────────────────
