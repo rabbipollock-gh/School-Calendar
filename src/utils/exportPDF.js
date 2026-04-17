@@ -559,8 +559,9 @@ function bpLptPack(groups, numCols, sepH) {
 
 // Full layout computation: measure → LPT-pack → shrink-if-needed → return layout.
 // panelW is passed so measurement uses the real column width.
-function bpComputeLayout(doc, events, academicYear, panelW) {
-  const MAX_PANEL_H = 110
+// maxPanelH is derived by the caller from page geometry so the footer never overlaps.
+function bpComputeLayout(doc, events, academicYear, panelW, maxPanelH = 110) {
+  const MAX_PANEL_H = maxPanelH
   const rawGroups   = bpRawGroups(events, academicYear)
   let numCols = 6
   let p = { ...BP_DEFAULT_PARAMS }
@@ -781,18 +782,27 @@ export async function exportPDF(state, { preview = false, pdfStyle = 'classic', 
   const GRID_W = PAGE_W - MARGIN * 2
   const MONTH_W = (GRID_W / COL_COUNT) - 2
   const MONTH_ROWS = 3
-  // Pre-compute packed column layout so panel height is sized from the result,
-  // not from the busiest single month (which was too short to allow stacking).
-  // Compute bottom panel layout (measures text, LPT-packs, shrinks if needed)
+  const ROW_GAP = 3
+  const HEADER_OFFSET = isCompact ? 9 : 10   // matches drawMonth headerOffset
+
+  // Derive the maximum safe panel height: the panel must leave enough room for the
+  // month grid (with cells no shorter than MIN_CELL_H) and the fixed footer.
+  // If the panel were taller, CELL_H would clamp to its minimum, the grid would
+  // consume more vertical space than allocated, and the footer would end up inside
+  // the events panel.
+  const MIN_CELL_H   = 3.5
+  const MIN_GRID_H   = MONTH_ROWS * MIN_CELL_H * 6 + (MONTH_ROWS - 1) * ROW_GAP + MONTH_ROWS * HEADER_OFFSET
+  const TOTAL_AVAIL  = PAGE_H - (HEADER_H + 2) - MARGIN - CLASSIC_FOOTER_H - 4  // same as availH formula
+  const maxSafePanelH = Math.max(38, Math.floor(TOTAL_AVAIL - MIN_GRID_H))
+
+  // Compute bottom panel layout (measures text, LPT-packs, shrinks to fit maxSafePanelH).
   // Must happen after doc is created so jsPDF can measure text widths.
   const bpPanelW = PAGE_W - MARGIN * 2 - 2
-  const bottomLayout = showBottomPanel ? bpComputeLayout(doc, events, settings.academicYear, bpPanelW) : null
+  const bottomLayout = showBottomPanel ? bpComputeLayout(doc, events, settings.academicYear, bpPanelW, maxSafePanelH) : null
   const dynamicPanelH = bottomLayout ? bottomLayout.panelH : 0
   const availH = showBottomPanel
     ? PAGE_H - (HEADER_H + 2) - MARGIN - dynamicPanelH - CLASSIC_FOOTER_H - 4
     : PAGE_H - (HEADER_H + 2) - MARGIN - CLASSIC_FOOTER_H - 2
-  const ROW_GAP = 3
-  const HEADER_OFFSET = isCompact ? 9 : 10   // matches drawMonth headerOffset
   const allMonths = getAcademicMonths(settings.academicYear)
   // Per-row max events → per-row notes heights (uncapped — grows to fit each row's busiest month)
   // Notes lines use 7pt font at 4.5mm line spacing, so each event ≈ 4.5mm + top padding
