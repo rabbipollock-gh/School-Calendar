@@ -801,23 +801,20 @@ export async function exportPDF(state, { preview = false, pdfStyle = 'classic', 
   doc.rect(0, 0, 3, HEADER_H - 1.5, 'F')
 
   // School name / custom title — centered vertically in header
-  // Two-line block: title (12pt ≈ 4mm) + year (7pt ≈ 2.5mm) + 2mm gap ≈ 8.5mm total
-  // Center in usable height (HEADER_H - 1.5 accent bar = 12.5mm): top = (12.5-8.5)/2 = 2mm
   const titleX = MARGIN + LOGO_SIZE + 3
-  const titleY = 2 + 4.2        // ≈ 6.2mm baseline for title
-  const yearLineY = titleY + 4.5 // ≈ 10.7mm baseline for year line
+  const titleY = 2 + 4.5        // baseline for 18pt title (cap ~6.3mm, top at ~1.8mm from header edge)
+  const yearLineY = titleY + 5  // baseline for 10pt subtitle line
 
   const displayTitle = settings.calendarTitle || schoolInfo.name || 'YAYOE Calendar'
-  // White — always readable on dark primary header regardless of theme accent color
-  doc.setFontSize(12)
+  doc.setFontSize(18)            // was 12 — bolder, higher hierarchy
   doc.setFont(titleFont, 'bold')
   doc.setTextColor(255, 255, 255)
   doc.text(displayTitle, titleX, titleY)
 
   // Secondary line: "Academic Year 2026–2027  •  5787"
-  doc.setFontSize(7)
+  doc.setFontSize(10)            // was 7 — larger, more readable
   doc.setFont(titleFont, 'normal')
-  doc.setTextColor(255, 255, 255)
+  doc.setTextColor(200, 212, 232)  // #C8D4E8 — softer than pure white, clear hierarchy
   const hebrewYear = settings.hebrewYear || ''
   const yearLine = settings.showHebrewYear !== false && hebrewYear
     ? `Academic Year  ${settings.academicYear || '2026–2027'}  •  ${hebrewYear}`
@@ -874,19 +871,19 @@ export async function exportPDF(state, { preview = false, pdfStyle = 'classic', 
 
   // ── Footer bar (school info + legend — replaces right sidebar) ─────────────
   const footerY = PAGE_H - MARGIN - CLASSIC_FOOTER_H
-  // Accent top rule
-  doc.setFillColor(ar, ag, ab)
-  doc.rect(MARGIN, footerY, PAGE_W - MARGIN * 2, 1.5, 'F')
   // Light background panel
   doc.setFillColor(248, 249, 252)
-  doc.rect(MARGIN, footerY + 1.5, PAGE_W - MARGIN * 2, CLASSIC_FOOTER_H - 1.5, 'F')
-  // Light border
-  doc.setDrawColor(210, 215, 225)
-  doc.setLineWidth(0.2)
-  doc.rect(MARGIN, footerY + 1.5, PAGE_W - MARGIN * 2, CLASSIC_FOOTER_H - 1.5, 'S')
+  doc.rect(MARGIN, footerY, PAGE_W - MARGIN * 2, CLASSIC_FOOTER_H, 'F')
+  // 0.5pt separator rule at top of footer — clean, unobtrusive #E1E4EA
+  doc.setDrawColor(225, 228, 234)
+  doc.setLineWidth(0.18)
+  doc.line(MARGIN, footerY, PAGE_W - MARGIN, footerY)
+  // Outer border
+  doc.setLineWidth(0.18)
+  doc.rect(MARGIN, footerY, PAGE_W - MARGIN * 2, CLASSIC_FOOTER_H, 'S')
 
   // Clipping boundary for all footer text — nothing renders below this Y
-  const footBottom = footerY + CLASSIC_FOOTER_H - 1.5
+  const footBottom = footerY + CLASSIC_FOOTER_H - 1
 
   // §1: Logo + school name + menahel/principal line + contact info
   const FOOT_LOGO_SZ = 11
