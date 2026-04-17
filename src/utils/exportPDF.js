@@ -230,34 +230,39 @@ function drawMonth(doc, { year, month }, events, categories, settings, x, y, w, 
   // Medium grey for Shabbat — consistent weekly visual rhythm, theme-independent
   const SHABBAT_R = 192, SHABBAT_G = 192, SHABBAT_B = 198
 
-  // Month header — single line: "October 2026  ·  חשון"
-  const headerH = 5 * s
+  // Month header — "October 2026  ·  חשון" (larger, bolder)
+  const headerH = 6 * s
   doc.setFillColor(pr, pg, pb)
   doc.roundedRect(x, y, w, headerH, 1, 1, 'F')
   const monthName = new Date(year, month, 1).toLocaleString('default', { month: 'long' })
   const hebrewLabel = getHebrewMonthLabel(year, month)
   doc.setTextColor(255, 255, 255)
-  doc.setFontSize(7.5 * s)
+  doc.setFontSize(10 * s)    // was 7.5 — bolder month title
   doc.setFont('helvetica', 'bold')
   const engPart = `${monthName} ${String(year)}`
-  doc.text(engPart, x + 1.5, y + 3.8 * s)
+  doc.text(engPart, x + 1.5, y + 4.5 * s)
   const engW = doc.getTextWidth(engPart)
-  doc.setTextColor(215, 235, 255)
-  doc.setFontSize(7 * s)
+  doc.setTextColor(200, 212, 232)   // #C8D4E8
+  doc.setFontSize(8 * s)            // was 7 — readable Hebrew label
   doc.setFont('helvetica', 'normal')
-  doc.text(`  ·  ${hebrewLabel}`, x + 1.5 + engW, y + 3.8 * s, { maxWidth: w - 3 - engW - 1.5 })
+  doc.text(`  ·  ${hebrewLabel}`, x + 1.5 + engW, y + 4.5 * s, { maxWidth: w - 3 - engW - 1.5 })
 
-  // Day header row — positioned so dayLabelY+2 == y+headerOffset exactly (prevents 6-row overflow)
-  const dayLabelY = y + (isCompact ? 5.5 : 6.5)
+  // Day header row — #F5F6F8 background strip; SHA keeps gray shading with dark bold text
+  const dayLabelY = y + (isCompact ? 7 : 8)   // adjusted for taller month header
   const cellW = w / 7
+  doc.setFillColor(245, 246, 248)   // #F5F6F8 strip for all columns
+  doc.rect(x, dayLabelY - 2.5, w, 4 * s, 'F')
   DAYS.forEach((d, i) => {
     const labelStr = i === 6 ? shabbatLabel.slice(0, 3).toUpperCase() : d
-    if (i === 6) {
+    const isShabbat = i === 6
+    if (isShabbat) {
       doc.setFillColor(SHABBAT_R, SHABBAT_G, SHABBAT_B)
-      doc.rect(x + i * cellW, dayLabelY - 2, cellW, 3 * s, 'F')
+      doc.rect(x + i * cellW, dayLabelY - 2.5, cellW, 4 * s, 'F')
+      doc.setTextColor(31, 45, 74)    // #1F2D4A — bold SHA emphasis
+    } else {
+      doc.setTextColor(107, 122, 148) // #6B7A94
     }
-    doc.setTextColor(i === 6 ? 88 : 80, i === 6 ? 88 : 80, i === 6 ? 96 : 80)
-    doc.setFontSize(4.5 * s)
+    doc.setFontSize(5.5 * s)          // was 4.5 — more legible day labels
     doc.setFont('helvetica', 'bold')
     doc.text(labelStr, x + i * cellW + cellW / 2, dayLabelY, { align: 'center' })
   })
@@ -265,7 +270,7 @@ function drawMonth(doc, { year, month }, events, categories, settings, x, y, w, 
   // Day cells
   const days = getDaysInMonth(year, month)
   const startDow = getFirstDayOfWeek(year, month)
-  const headerOffset = isCompact ? 7.5 : 8.5
+  const headerOffset = isCompact ? 9 : 10   // taller header (6mm) + day-label row
   const cellH = (h - headerOffset - (notesStripH || 0)) / 6
 
   // ── Pre-pass: classify events by type for special rendering ──────────────
@@ -307,23 +312,12 @@ function drawMonth(doc, { year, month }, events, categories, settings, x, y, w, 
     }
 
     if (isNoSchool) {
-      // ── No-school: solid brick red + diagonal hatch for B&W resilience ──
-      doc.setFillColor(192, 57, 43)
+      // No-school: soft rose tint (22% opacity of #E24A3D on white) — less visual noise at print scale
+      doc.setFillColor(249, 215, 212)  // #E24A3D blended at 22% on white
       doc.roundedRect(cx + 0.15, cy + 0.15, cellW - 0.3, cellH - 0.3, 0.5, 0.5, 'F')
-      // Diagonal lines for B&W printing distinction
-      doc.setDrawColor(222, 95, 78)
-      doc.setLineWidth(0.18)
-      const step = 2
-      for (let hx = step; hx < cellW + cellH - 0.3; hx += step) {
-        const ax = cx + 0.15 + Math.min(hx, cellW - 0.3)
-        const ay = cy + 0.15 + Math.max(0, hx - (cellW - 0.3))
-        const bx = cx + 0.15 + Math.max(0, hx - (cellH - 0.3))
-        const by = cy + 0.15 + Math.min(hx, cellH - 0.3)
-        doc.line(ax, ay, bx, by)
-      }
-      // Date number — white bold
-      doc.setTextColor(255, 255, 255)
-      doc.setFontSize(6.5 * s)
+      // Date number — dark navy on light tint background
+      doc.setTextColor(31, 45, 74)     // #1F2D4A
+      doc.setFontSize(8 * s)
       doc.setFont('helvetica', 'bold')
       doc.text(String(dayNum), cx + 0.8, cy + 3.5 * s)
       doc.setFont('helvetica', 'normal')
@@ -365,14 +359,14 @@ function drawMonth(doc, { year, month }, events, categories, settings, x, y, w, 
       doc.setFont('helvetica', 'normal')
     } else {
       // Dot mode — day number + colored dot + tiny label
-      doc.setTextColor(50, 50, 50)
-      doc.setFontSize(5.5 * s)
-      doc.text(String(dayNum), cx + 0.8, cy + 3 * s)
+      doc.setTextColor(31, 45, 74)   // #1F2D4A
+      doc.setFontSize(8 * s)         // was 5.5 — larger, bolder day number
+      doc.text(String(dayNum), cx + 0.8, cy + 3.5 * s)
       dayEvs.slice(0, 2).forEach((ev, evIdx) => {
         const cat = catMap[ev.category]
         const color = ev.color || cat?.color || '#999999'
         const [r, g, b] = hexToRgb(color)
-        const dotY = cy + 4.8 * s + evIdx * 3.5 * s
+        const dotY = cy + 5.5 * s + evIdx * 3.5 * s
         doc.setFillColor(r, g, b)
         doc.circle(cx + 1.2, dotY, 0.9 * s, 'F')
         if (ev.label && cellW > 8) {
@@ -384,12 +378,12 @@ function drawMonth(doc, { year, month }, events, categories, settings, x, y, w, 
       })
     }
 
-    // Cell border
-    doc.setDrawColor(200, 200, 205)
-    doc.setLineWidth(0.15)
+    // Cell border — 0.5pt #E1E4EA
+    doc.setDrawColor(225, 228, 234)
+    doc.setLineWidth(0.18)
     doc.rect(cx, cy, cellW, cellH, 'S')
 
-    // Rosh Chodesh badge — abbreviated month name to prevent overflow; top of cell when holiday also present
+    // Rosh Chodesh label — 6pt italic ABOVE the date number, centered, #4A5A7A
     if (rcMonth) {
       const RC_ABBREV = {
         'Tishrei':'Tish.','Cheshvan':'Ches.','Kislev':'Kis.','Tevet':'Tev.',
@@ -398,15 +392,10 @@ function drawMonth(doc, { year, month }, events, categories, settings, x, y, w, 
         'Av':'Av','Elul':'Elul',
       }
       const rcShort = RC_ABBREV[rcMonth] || rcMonth.slice(0, 5)
-      // When a Hebrew holiday icon occupies the cell bottom-right, move R.Ch. to just below the date number
-      // Use consistent 5.8*s offset regardless of cell type so both days of a 2-day R.Ch. align
-      const rcY = hebrewHoliday
-        ? cy + 5.8 * s
-        : cy + cellH - 0.5
-      doc.setFontSize(2.8)
+      doc.setFontSize(5 * s)
       doc.setFont('helvetica', 'italic')
-      doc.setTextColor(isNoSchool ? 230 : 120, isNoSchool ? 200 : 100, isNoSchool ? 255 : 180)
-      doc.text(`R.Ch. ${rcShort}`, cx + 0.5, rcY, { maxWidth: cellW - 1 })
+      doc.setTextColor(74, 90, 122)   // #4A5A7A — sits above date number, does not compete with it
+      doc.text(`R.Ch. ${rcShort}`, cx + cellW / 2, cy + 1.8, { align: 'center', maxWidth: cellW - 0.6 })
       doc.setFont('helvetica', 'normal')
     }
     // Hebrew holiday — emoji icon image (small, bottom-right of cell)
@@ -756,7 +745,7 @@ export async function exportPDF(state, { preview = false, pdfStyle = 'classic', 
     ? PAGE_H - (HEADER_H + 2) - MARGIN - dynamicPanelH - CLASSIC_FOOTER_H - 4
     : PAGE_H - (HEADER_H + 2) - MARGIN - CLASSIC_FOOTER_H - 2
   const ROW_GAP = 3
-  const HEADER_OFFSET = isCompact ? 7.5 : 8.5
+  const HEADER_OFFSET = isCompact ? 9 : 10   // matches drawMonth headerOffset
   const allMonths = getAcademicMonths(settings.academicYear)
   // Per-row max events → per-row notes heights (uncapped — grows to fit each row's busiest month)
   // Notes lines use 7pt font at 4.5mm line spacing, so each event ≈ 4.5mm + top padding
