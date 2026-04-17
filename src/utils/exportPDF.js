@@ -570,28 +570,28 @@ function drawBottomEventsPanel(doc, categories, y, pageW, margin, sidebarW, pane
   const panelW = pageW - margin * 2 - sidebarW - 2
   const eventsBottom = panelY + panelH - 2
 
-  // Panel background
-  doc.setFillColor(15, 45, 61)
+  // Panel background — slightly lighter navy so accent colors read more vividly
+  doc.setFillColor(26, 38, 64)   // #1A2640
   doc.roundedRect(margin, panelY, panelW, panelH, 2, 2, 'F')
 
-  // Panel title
-  doc.setTextColor(255, 255, 255)
-  doc.setFontSize(6.5)
+  // Panel title — 10pt bold gold, uppercase
+  doc.setFontSize(10)
   doc.setFont('helvetica', 'bold')
-  doc.text('EVENTS BY MONTH', margin + 3, panelY + 5.5)
+  doc.setTextColor(232, 182, 76)  // #E8B64C
+  doc.text('EVENTS BY MONTH', margin + 4, panelY + 9)
 
   const { columns } = bottomPack
   const colW = panelW / columns.length
-  const COL_START_Y = panelY + 8
+  const COL_START_Y = panelY + BP_OVERHEAD  // below title + padding
 
   columns.forEach((groups, ci) => {
     const colX = margin + ci * colW
 
-    // Column separator
+    // Column separator — subtle vertical rule
     if (ci > 0) {
-      doc.setDrawColor(30, 60, 80)
-      doc.setLineWidth(0.2)
-      doc.line(colX, panelY + 2, colX, panelY + panelH - 2)
+      doc.setDrawColor(45, 65, 95)
+      doc.setLineWidth(0.25)
+      doc.line(colX, panelY + 3, colX, panelY + panelH - 3)
     }
 
     let drawY = COL_START_Y
@@ -600,46 +600,62 @@ function drawBottomEventsPanel(doc, categories, y, pageW, margin, sidebarW, pane
       // Inter-group rule + gap (not before first group in column)
       if (gi > 0) {
         drawY += 1.5
-        doc.setDrawColor(55, 95, 130)
-        doc.setLineWidth(0.35)
-        doc.line(colX + 1.5, drawY, colX + colW - 2, drawY)
+        doc.setDrawColor(60, 85, 120)   // ~rgba(255,255,255,0.15) on #1A2640
+        doc.setLineWidth(0.4)
+        doc.line(colX + 1.5, drawY, colX + colW - 1.5, drawY)
         drawY += BP_MONTH_SEP - 1.5
       }
 
       if (drawY > eventsBottom) return
 
-      // Month header
-      doc.setTextColor(255, 255, 255)
-      doc.setFontSize(7.5)
+      // ── Month header ──────────────────────────────────────────────
+      // Bold 10pt white label
+      doc.setFontSize(10)
       doc.setFont('helvetica', 'bold')
-      doc.text(`${MONTH_ABBR[group.mi]} '${String(group.year).slice(2)}`, colX + 1.5, drawY + 5)
+      doc.setTextColor(255, 255, 255)
+      doc.text(`${MONTH_ABBR[group.mi]} '${String(group.year).slice(2)}`, colX + 3, drawY + 4.5)
+      // Gold 1.5pt accent line below month label
+      const accentW = Math.min(21, colW - 5)   // ~60pt scaled to column
+      doc.setDrawColor(232, 182, 76)            // #E8B64C
+      doc.setLineWidth(0.53)                    // 1.5pt
+      doc.line(colX + 3, drawY + 6, colX + 3 + accentW, drawY + 6)
       drawY += BP_MONTH_HDR_H
 
-      // Event rows
+      // ── Event rows ────────────────────────────────────────────────
       group.evItems.forEach(({ ev, dates }) => {
         if (drawY > eventsBottom) return
         const cat = catMap[ev.category]
         const color = ev.color || cat?.color || '#999999'
         const [r, g, b] = hexToRgb(color)
-        // Swatch centered on cap height
+
+        // Left accent bar — 3pt (1.06mm) wide, full row height, category color
         doc.setFillColor(r, g, b)
-        doc.roundedRect(colX + 1.5, drawY - 2, 2.2, 2.2, 0.3, 0.3, 'F')
-        // Line 1: label (bold, colored)
-        doc.setFontSize(6.5)
+        doc.rect(colX + 1, drawY, 1.06, BP_EV_LINE_H, 'F')
+
+        // Line 1: event name — bold 8pt white
+        const maxLabelW = colW - 5.5
+        doc.setFontSize(8)
         doc.setFont('helvetica', 'bold')
-        doc.setTextColor(r, g, b)
-        const displayLabel = doc.splitTextToSize(ev.label, colW - 5)[0] || ev.label
-        doc.text(displayLabel, colX + 5, drawY)
-        // Line 2: date range + time
+        doc.setTextColor(255, 255, 255)
+        let displayLabel = doc.splitTextToSize(ev.label, maxLabelW)[0] || ev.label
+        // Auto-shrink if still too wide
+        if (doc.getTextWidth(displayLabel) > maxLabelW) {
+          doc.setFontSize(7)
+        }
+        doc.text(displayLabel, colX + 4, drawY + 4.0)
+
+        // Line 2: date range + optional time — 7pt #C8D4E8
         const dateGroups = groupConsecutiveDates([...dates].sort())
         const rangeText = formatRangeGroups(dateGroups)
         const regTime = ev.regularDismissal && settings?.regularDismissalTime ? settings.regularDismissalTime : null
         const effectiveTime = ev.time || regTime
-        const timeStr = effectiveTime ? `  ${formatTime(effectiveTime)}` : ''
-        doc.setFontSize(5.5)
+        const timeStr = effectiveTime ? ` ${formatTime(effectiveTime)}` : ''
+        doc.setFontSize(7)
+        doc.setFont('helvetica', effectiveTime ? 'italic' : 'normal')
+        doc.setTextColor(200, 212, 232)   // #C8D4E8
+        doc.text(rangeText + timeStr, colX + 4, drawY + 7.2)
         doc.setFont('helvetica', 'normal')
-        doc.setTextColor(140, 175, 215)
-        doc.text(rangeText + timeStr, colX + 5, drawY + 4)
+
         drawY += BP_EV_LINE_H
       })
     })
