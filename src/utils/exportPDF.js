@@ -609,7 +609,7 @@ function drawBottomEventsPanel(doc, categories, y, pageW, margin, sidebarW, pane
         drawY += BP_MONTH_SEP - 1.5
       }
 
-      if (drawY > eventsBottom) return
+      if (drawY + BP_MONTH_HDR_H > eventsBottom) return
 
       // ── Month header ──────────────────────────────────────────────
       // Bold 10pt white label
@@ -626,7 +626,7 @@ function drawBottomEventsPanel(doc, categories, y, pageW, margin, sidebarW, pane
 
       // ── Event rows ────────────────────────────────────────────────
       group.evItems.forEach(({ ev, dates }) => {
-        if (drawY > eventsBottom) return
+        if (drawY + BP_EV_LINE_H > eventsBottom) return   // full row must fit inside panel
         const cat = catMap[ev.category]
         const color = catColor(ev.category, ev.color || cat?.color)
         const [r, g, b] = hexToRgb(color)
@@ -739,7 +739,7 @@ export async function exportPDF(state, { preview = false, pdfStyle = 'classic', 
   // not from the busiest single month (which was too short to allow stacking).
   const bottomPack = showBottomPanel ? packBottomPanelMonths(events, settings.academicYear) : null
   const dynamicPanelH = showBottomPanel
-    ? Math.min(Math.max(BOTTOM_PANEL_H, bottomPack.tallestH + BP_OVERHEAD), 110)
+    ? Math.min(Math.max(BOTTOM_PANEL_H, bottomPack.tallestH + BP_OVERHEAD + 4), 110)
     : 0
   const availH = showBottomPanel
     ? PAGE_H - (HEADER_H + 2) - MARGIN - dynamicPanelH - CLASSIC_FOOTER_H - 4
