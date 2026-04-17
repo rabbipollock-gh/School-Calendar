@@ -223,14 +223,15 @@ function drawMonth(doc, { year, month }, events, categories, settings, x, y, w, 
   const monthName = new Date(year, month, 1).toLocaleString('default', { month: 'long' })
   const hebrewLabel = getHebrewMonthLabel(year, month)
   doc.setTextColor(255, 255, 255)
-  doc.setFontSize(6 * s)
+  doc.setFontSize(7.5 * s)
   doc.setFont('helvetica', 'bold')
   const engPart = `${monthName} ${String(year)}`
-  doc.text(engPart, x + 1.5, y + 3.5 * s)
+  doc.text(engPart, x + 1.5, y + 3.8 * s)
   const engW = doc.getTextWidth(engPart)
-  doc.setTextColor(180, 210, 255)
+  doc.setTextColor(215, 235, 255)
+  doc.setFontSize(7 * s)
   doc.setFont('helvetica', 'normal')
-  doc.text(`  ·  ${hebrewLabel}`, x + 1.5 + engW, y + 3.5 * s, { maxWidth: w - 3 - engW - 1.5 })
+  doc.text(`  ·  ${hebrewLabel}`, x + 1.5 + engW, y + 3.8 * s, { maxWidth: w - 3 - engW - 1.5 })
 
   // Day header row — positioned so dayLabelY+2 == y+headerOffset exactly (prevents 6-row overflow)
   const dayLabelY = y + (isCompact ? 5.5 : 6.5)
@@ -495,40 +496,22 @@ function computeMaxEventsPerMonth(events, academicYear) {
   }), 0)
 }
 
-function drawBottomEventsPanel(doc, events, categories, y, pageW, margin, sidebarW, panelH, academicYear) {
-  const catMap = {}
-  categories.forEach(c => { catMap[c.id] = c })
+// Layout constants for the bottom events panel (shared by packing + rendering)
+const BP_EV_LINE_H   = 8.5   // mm per event row (2-line: name + date + padding)
+const BP_MONTH_HDR_H = 10    // mm per month header (bold label + gold accent line + padding)
+const BP_MONTH_SEP   = 5     // mm gap between month groups in same column (~14pt)
+const BP_OVERHEAD    = 14    // mm for panel title bar (10pt gold text + top/bottom padding)
+
+// Pre-compute packed column layout for the bottom events panel.
+// Month groups are kept ATOMIC — a month's header + all its events always land in
+// the same column. Groups are bin-packed to target ~6 balanced columns.
+function packBottomPanelMonths(events, academicYear) {
   const MONTHS = getAcademicMonths(academicYear)
 
-  const panelY = y
-  const panelW = pageW - margin * 2 - sidebarW - 2
-  const eventsBottom = panelY + panelH - 2  // clip events to stay inside panel
-
-  // Panel background
-  doc.setFillColor(15, 45, 61)
-  doc.roundedRect(margin, panelY, panelW, panelH, 2, 2, 'F')
-
-  // Header
-  doc.setTextColor(255, 255, 255)
-  doc.setFontSize(5)
-  doc.setFont('helvetica', 'bold')
-  doc.text('EVENTS BY MONTH', margin + 3, panelY + 4)
-
-  // Month columns
-  const colW = panelW / MONTHS.length
-  const MONTH_ABBR = ['Aug','Sep','Oct','Nov','Dec','Jan','Feb','Mar','Apr','May','Jun']
-
+  // Build atomic month groups: { mi, year, month, evItems: [{ev, dates}] }
+  const monthGroups = []
   MONTHS.forEach(({ year, month }, mi) => {
-    const colX = margin + mi * colW
     const monthKey = `${year}-${String(month + 1).padStart(2, '0')}`
-
-    // Column header
-    doc.setTextColor(180, 210, 255)
-    doc.setFontSize(4.5)
-    doc.setFont('helvetica', 'bold')
-    doc.text(`${MONTH_ABBR[mi]} '${String(year).slice(2)}`, colX + 1, panelY + 8)
-
-    // Events list
     const monthEvs = {}
     Object.entries(events).forEach(([dk, evs]) => {
       if (!dk.startsWith(monthKey)) return
@@ -538,26 +521,127 @@ function drawBottomEventsPanel(doc, events, categories, y, pageW, margin, sideba
         monthEvs[key].dates.push(dk)
       })
     })
+    const evItems = Object.values(monthEvs).sort((a, b) => a.dates[0].localeCompare(b.dates[0]))
+    monthGroups.push({ mi, year, month, evItems })
+  })
 
-    let evY = panelY + 11
-    doc.setFont('helvetica', 'normal')
-    Object.values(monthEvs).sort((a, b) => a.dates[0].localeCompare(b.dates[0])).forEach(({ ev, dates }) => {
-      // Stop rendering if we'd overflow the panel
-      if (evY > eventsBottom) return
+  // Height of one month group's content (separator between groups is added separately)
+  const groupH = g => BP_MONTH_HDR_H + g.evItems.length * BP_EV_LINE_H
 
-      const cat = catMap[ev.category]
-      const color = ev.color || cat?.color || '#999999'
-      const [r, g, b] = hexToRgb(color)
-      doc.setFillColor(r, g, b)
-      doc.circle(colX + 1.2, evY - 0.5, 0.7, 'F')
-      const groups = groupConsecutiveDates([...dates].sort())
-      const rangeStr = formatRangeGroups(groups)
-      doc.setFontSize(3)
-      const fullText = `${rangeStr} ${ev.label}`
-      const labelLines = doc.splitTextToSize(fullText, colW - 3.5)
-      doc.setTextColor(200, 220, 240)
-      doc.text(labelLines, colX + 2.5, evY)
-      evY += labelLines.length * 1.2 + 1.8
+  const totalH = monthGroups.reduce((s, g) => s + groupH(g) + BP_MONTH_SEP, 0)
+
+  // Target 6 columns; clamp 4–9 for very sparse/dense calendars
+  const numCols = Math.max(4, Math.min(9, 6))
+  const targetColH = totalH / numCols
+
+  // Greedy bin-pack: whole month groups are atomic — never split across columns
+  const columns = []
+  let col = [], colUsed = 0
+  monthGroups.forEach(group => {
+    const gH = groupH(group)
+    const sep = col.length > 0 ? BP_MONTH_SEP : 0
+    if (col.length > 0 && colUsed + sep + gH > targetColH * 1.15) {
+      columns.push(col)
+      col = [group]
+      colUsed = gH
+    } else {
+      col.push(group)
+      colUsed += sep + gH
+    }
+  })
+  if (col.length > 0) columns.push(col)
+
+  // Tallest column height (with inter-group separators)
+  const tallestH = columns.reduce((max, c) => {
+    const h = c.reduce((s, g, i) => s + (i > 0 ? BP_MONTH_SEP : 0) + groupH(g), 0)
+    return Math.max(max, h)
+  }, 0)
+  return { columns, tallestH }
+}
+
+// Takes precomputed bottomPack from packBottomPanelMonths()
+// columns is Array<Array<MonthGroup>> where MonthGroup = { mi, year, month, evItems }
+function drawBottomEventsPanel(doc, categories, y, pageW, margin, sidebarW, panelH, bottomPack, settings) {
+  const MONTH_ABBR = ['Aug','Sep','Oct','Nov','Dec','Jan','Feb','Mar','Apr','May','Jun']
+  const catMap = {}
+  categories.forEach(c => { catMap[c.id] = c })
+
+  const panelY = y
+  const panelW = pageW - margin * 2 - sidebarW - 2
+  const eventsBottom = panelY + panelH - 2
+
+  // Panel background
+  doc.setFillColor(15, 45, 61)
+  doc.roundedRect(margin, panelY, panelW, panelH, 2, 2, 'F')
+
+  // Panel title
+  doc.setTextColor(255, 255, 255)
+  doc.setFontSize(6.5)
+  doc.setFont('helvetica', 'bold')
+  doc.text('EVENTS BY MONTH', margin + 3, panelY + 5.5)
+
+  const { columns } = bottomPack
+  const colW = panelW / columns.length
+  const COL_START_Y = panelY + 8
+
+  columns.forEach((groups, ci) => {
+    const colX = margin + ci * colW
+
+    // Column separator
+    if (ci > 0) {
+      doc.setDrawColor(30, 60, 80)
+      doc.setLineWidth(0.2)
+      doc.line(colX, panelY + 2, colX, panelY + panelH - 2)
+    }
+
+    let drawY = COL_START_Y
+
+    groups.forEach((group, gi) => {
+      // Inter-group rule + gap (not before first group in column)
+      if (gi > 0) {
+        drawY += 1.5
+        doc.setDrawColor(55, 95, 130)
+        doc.setLineWidth(0.35)
+        doc.line(colX + 1.5, drawY, colX + colW - 2, drawY)
+        drawY += BP_MONTH_SEP - 1.5
+      }
+
+      if (drawY > eventsBottom) return
+
+      // Month header
+      doc.setTextColor(255, 255, 255)
+      doc.setFontSize(7.5)
+      doc.setFont('helvetica', 'bold')
+      doc.text(`${MONTH_ABBR[group.mi]} '${String(group.year).slice(2)}`, colX + 1.5, drawY + 5)
+      drawY += BP_MONTH_HDR_H
+
+      // Event rows
+      group.evItems.forEach(({ ev, dates }) => {
+        if (drawY > eventsBottom) return
+        const cat = catMap[ev.category]
+        const color = ev.color || cat?.color || '#999999'
+        const [r, g, b] = hexToRgb(color)
+        // Swatch centered on cap height
+        doc.setFillColor(r, g, b)
+        doc.roundedRect(colX + 1.5, drawY - 2, 2.2, 2.2, 0.3, 0.3, 'F')
+        // Line 1: label (bold, colored)
+        doc.setFontSize(6.5)
+        doc.setFont('helvetica', 'bold')
+        doc.setTextColor(r, g, b)
+        const displayLabel = doc.splitTextToSize(ev.label, colW - 5)[0] || ev.label
+        doc.text(displayLabel, colX + 5, drawY)
+        // Line 2: date range + time
+        const dateGroups = groupConsecutiveDates([...dates].sort())
+        const rangeText = formatRangeGroups(dateGroups)
+        const regTime = ev.regularDismissal && settings?.regularDismissalTime ? settings.regularDismissalTime : null
+        const effectiveTime = ev.time || regTime
+        const timeStr = effectiveTime ? `  ${formatTime(effectiveTime)}` : ''
+        doc.setFontSize(5.5)
+        doc.setFont('helvetica', 'normal')
+        doc.setTextColor(140, 175, 215)
+        doc.text(rangeText + timeStr, colX + 5, drawY + 4)
+        drawY += BP_EV_LINE_H
+      })
     })
   })
 }
@@ -632,10 +716,11 @@ export async function exportPDF(state, { preview = false, pdfStyle = 'classic', 
   const GRID_W = PAGE_W - MARGIN * 2
   const MONTH_W = (GRID_W / COL_COUNT) - 2
   const MONTH_ROWS = 3
-  // Dynamic bottom panel height: grows to fit the busiest month (capped at 90mm)
-  const maxEvPerMonth = showBottomPanel ? computeMaxEventsPerMonth(events, settings.academicYear) : 0
+  // Pre-compute packed column layout so panel height is sized from the result,
+  // not from the busiest single month (which was too short to allow stacking).
+  const bottomPack = showBottomPanel ? packBottomPanelMonths(events, settings.academicYear) : null
   const dynamicPanelH = showBottomPanel
-    ? Math.min(Math.max(BOTTOM_PANEL_H, 11 + maxEvPerMonth * 4 + 4), 90)
+    ? Math.min(Math.max(BOTTOM_PANEL_H, bottomPack.tallestH + BP_OVERHEAD), 110)
     : 0
   const availH = showBottomPanel
     ? PAGE_H - (HEADER_H + 2) - MARGIN - dynamicPanelH - CLASSIC_FOOTER_H - 4
@@ -648,7 +733,8 @@ export async function exportPDF(state, { preview = false, pdfStyle = 'classic', 
   const perRowNotesH = showBottomPanel
     ? Array(MONTH_ROWS).fill(0)
     : Array.from({ length: MONTH_ROWS }, (_, row) => {
-        const rowMonths = allMonths.slice(row * COL_COUNT, (row + 1) * COL_COUNT)
+        // Column-first layout: row `row` contains months at positions row, row+MONTH_ROWS, row+2*MONTH_ROWS, …
+        const rowMonths = allMonths.filter((_, idx) => idx % MONTH_ROWS === row)
         const counts = rowMonths.map(({ year, month }) => {
           const mk = `${year}-${String(month + 1).padStart(2, '0')}`
           const seen = new Set()
@@ -749,16 +835,12 @@ export async function exportPDF(state, { preview = false, pdfStyle = 'classic', 
   })
 
   allMonths.forEach(({ year, month }, idx) => {
-    const col = idx % COL_COUNT
-    const row = Math.floor(idx / COL_COUNT)
-    const totalMonths = allMonths.length
-    const lastRowStart = Math.floor((totalMonths - 1) / COL_COUNT) * COL_COUNT
-    const isLastRow = idx >= lastRowStart
-    const lastRowCount = totalMonths - lastRowStart
-    const mw = isLastRow ? (GRID_W / lastRowCount) - 2 : MONTH_W
-    const mx = isLastRow
-      ? MARGIN + col * (mw + 2)
-      : MARGIN + col * (MONTH_W + 2)
+    // Column-first: fill each column top-to-bottom before moving right
+    // Aug/Sep/Oct → col 0, Nov/Dec/Jan → col 1, Feb/Mar/Apr → col 2, May/Jun → col 3
+    const row = idx % MONTH_ROWS
+    const col = Math.floor(idx / MONTH_ROWS)
+    const mx = MARGIN + col * (MONTH_W + 2)
+    const mw = MONTH_W
     const y = rowStartY[row]
     const monthH = perRowMonthH[row]
     const notesH = perRowNotesH[row]
@@ -768,7 +850,7 @@ export async function exportPDF(state, { preview = false, pdfStyle = 'classic', 
   // ── Bottom Events Panel ──────────────────────────────
   if (showBottomPanel) {
     const panelTop = rowStartY[MONTH_ROWS - 1] + perRowMonthH[MONTH_ROWS - 1] + 2
-    drawBottomEventsPanel(doc, events, categories, panelTop, PAGE_W, MARGIN, 0, dynamicPanelH, settings.academicYear)
+    drawBottomEventsPanel(doc, categories, panelTop, PAGE_W, MARGIN, 0, dynamicPanelH, bottomPack, settings)
   }
 
   // ── Footer bar (school info + legend — replaces right sidebar) ─────────────
