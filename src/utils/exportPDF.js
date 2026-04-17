@@ -20,6 +20,20 @@ function hexToRgbLocal(hex) {
   return hexToRgb(hex)
 }
 
+// Canonical category colors — consistent across events panel and footer legend.
+// Falls back to the category's own stored color for custom/unknown categories.
+const CAT_COLORS = {
+  'no-school':       '#E24A3D',
+  'early-dismissal': '#E89A2C',
+  'chanukah':        '#E89A2C',
+  'school-event':    '#2F7DD1',
+  'staff':           '#8E56B8',
+  'hebrew-only':     '#2FA38A',
+}
+function catColor(categoryId, fallback) {
+  return CAT_COLORS[categoryId] || fallback || '#999999'
+}
+
 // Render an emoji character to a PNG data URL via canvas (workaround for jsPDF font limits)
 function renderEmojiToImage(emoji, size = 40) {
   return new Promise((resolve) => {
@@ -625,7 +639,7 @@ function drawBottomEventsPanel(doc, categories, y, pageW, margin, sidebarW, pane
       group.evItems.forEach(({ ev, dates }) => {
         if (drawY > eventsBottom) return
         const cat = catMap[ev.category]
-        const color = ev.color || cat?.color || '#999999'
+        const color = catColor(ev.category, ev.color || cat?.color)
         const [r, g, b] = hexToRgb(color)
 
         // Left accent bar — 3pt (1.06mm) wide, full row height, category color
@@ -954,13 +968,13 @@ export async function exportPDF(state, { preview = false, pdfStyle = 'classic', 
   visibleCatsFooter.slice(0, legCols * 2).forEach((cat, i) => {
     const col = i % legCols
     const row = Math.floor(i / legCols)
-    const itemY = footerY + 8.2 + row * 2.8
+    const itemY = footerY + 8.2 + row * 3.2   // 4pt row padding
     if (itemY > footBottom) return
-    const [r, g, b] = hexToRgbLocal(cat.color || '#999')
+    const [r, g, b] = hexToRgbLocal(catColor(cat.id, cat.color))
     const itemX = footLegX + col * legColW
     doc.setFillColor(r, g, b)
     doc.roundedRect(itemX, itemY - 2.2, 4, 3, 0.3, 0.3, 'F')
-    doc.setTextColor(50, 60, 80); doc.setFontSize(4.5); doc.setFont('helvetica', 'normal')
+    doc.setTextColor(31, 45, 74); doc.setFontSize(5); doc.setFont('helvetica', 'normal')  // #1F2D4A
     doc.text(cat.name, itemX + 5, itemY, { maxWidth: legColW - 6.5 })
   })
 
@@ -1329,13 +1343,13 @@ async function exportPortraitClassic(state, { preview = false } = {}) {
   visibleCatsFooter.slice(0, legCols * 2).forEach((cat, i) => {
     const col = i % legCols
     const row = Math.floor(i / legCols)
-    const itemY = footerY + 8.2 + row * 2.8
+    const itemY = footerY + 8.2 + row * 3.2   // 4pt row padding
     if (itemY > footBottom) return
-    const [r, g, b] = hexToRgbLocal(cat.color || '#999')
+    const [r, g, b] = hexToRgbLocal(catColor(cat.id, cat.color))
     const itemX = footLegX + col * legColW
     doc.setFillColor(r, g, b)
     doc.roundedRect(itemX, itemY - 2.2, 4, 3, 0.3, 0.3, 'F')
-    doc.setTextColor(50, 60, 80); doc.setFontSize(4.5); doc.setFont('helvetica', 'normal')
+    doc.setTextColor(31, 45, 74); doc.setFontSize(5); doc.setFont('helvetica', 'normal')  // #1F2D4A
     doc.text(cat.name, itemX + 5, itemY, { maxWidth: legColW - 6.5 })
   })
 
