@@ -310,15 +310,22 @@ function drawMonth(doc, { year, month }, events, categories, settings, x, y, w, 
       doc.rect(cx, cy, cellW, cellH, 'F')
     }
 
+    // Date number Y: push down when Rosh Chodesh occupies top of cell, otherwise sit higher.
+    // Clamp so the baseline never falls below the cell bottom (happens when cellH is small
+    // due to a tall bottom events panel compressing the grid).
+    const dateNumY = Math.min(
+      rcMonth ? cy + 3.8 * s : cy + 2.8 * s,
+      cy + cellH - 0.3
+    )
+
     if (isNoSchool) {
       // No-school: soft rose tint (22% opacity of #E24A3D on white) — less visual noise at print scale
       doc.setFillColor(249, 215, 212)  // #E24A3D blended at 22% on white
       doc.roundedRect(cx + 0.15, cy + 0.15, cellW - 0.3, cellH - 0.3, 0.5, 0.5, 'F')
-      // Date number — dark navy on light tint background
       doc.setTextColor(31, 45, 74)     // #1F2D4A
-      doc.setFontSize(8 * s)
+      doc.setFontSize(5.5 * s)
       doc.setFont('helvetica', 'bold')
-      doc.text(String(dayNum), cx + 0.8, cy + 3.5 * s)
+      doc.text(String(dayNum), cx + 0.8, dateNumY)
       doc.setFont('helvetica', 'normal')
     } else if (isEarlyDismiss) {
       // ── Early dismissal: amber fill + date number + dismissal time ──
@@ -326,16 +333,14 @@ function drawMonth(doc, { year, month }, events, categories, settings, x, y, w, 
       const [r, g, b] = hexToRgbLocal(ed.color)
       doc.setFillColor(r, g, b)
       doc.roundedRect(cx + 0.15, cy + 0.15, cellW - 0.3, cellH - 0.3, 0.5, 0.5, 'F')
-      // Date number
       doc.setTextColor(255, 255, 255)
       doc.setFontSize(5.5 * s)
       doc.setFont('helvetica', 'bold')
-      doc.text(String(dayNum), cx + 0.8, cy + 3 * s)
-      // Dismissal time — the key info people need at a glance
-      if (ed.time && cellH > 6) {
+      doc.text(String(dayNum), cx + 0.8, dateNumY)
+      if (ed.time && dateNumY + 3.5 < cy + cellH) {
         doc.setFontSize(3.2 * s)
         doc.setFont('helvetica', 'normal')
-        doc.text(formatTime(ed.time), cx + 0.8, cy + 3 * s + 3.5, { maxWidth: cellW - 1.2 })
+        doc.text(formatTime(ed.time), cx + 0.8, dateNumY + 3.5, { maxWidth: cellW - 1.2 })
       }
     } else if (isFilled && dayEvs.length > 0) {
       // Filled cell mode for other events
@@ -348,27 +353,28 @@ function drawMonth(doc, { year, month }, events, categories, settings, x, y, w, 
       doc.setTextColor(255, 255, 255)
       doc.setFontSize(5.5 * s)
       doc.setFont('helvetica', 'bold')
-      doc.text(String(dayNum), cx + 0.8, cy + 3 * s)
-      if (cellH > 7 && firstEv.label) {
+      doc.text(String(dayNum), cx + 0.8, dateNumY)
+      if (firstEv.label && dateNumY + 3.5 * s < cy + cellH) {
         doc.setFontSize(3.5 * s)
         doc.setFont('helvetica', 'normal')
         const lbl = firstEv.label.length > 12 ? firstEv.label.slice(0, 11) + '…' : firstEv.label
-        doc.text(lbl, cx + 0.8, cy + 3 * s + 3.5 * s, { maxWidth: cellW - 1.2 })
+        doc.text(lbl, cx + 0.8, dateNumY + 3.5 * s, { maxWidth: cellW - 1.2 })
       }
       doc.setFont('helvetica', 'normal')
     } else {
       // Dot mode — day number + colored dot + tiny label
       doc.setTextColor(31, 45, 74)   // #1F2D4A
-      doc.setFontSize(8 * s)         // was 5.5 — larger, bolder day number
-      doc.text(String(dayNum), cx + 0.8, cy + 3.5 * s)
+      doc.setFontSize(5.5 * s)
+      doc.text(String(dayNum), cx + 0.8, dateNumY)
       dayEvs.slice(0, 2).forEach((ev, evIdx) => {
         const cat = catMap[ev.category]
         const color = ev.color || cat?.color || '#999999'
         const [r, g, b] = hexToRgb(color)
-        const dotY = cy + 5.5 * s + evIdx * 3.5 * s
+        const dotY = dateNumY + 1.8 * s + evIdx * 2.8 * s
+        if (dotY + 0.9 * s > cy + cellH) return   // circle would overflow cell bottom — skip
         doc.setFillColor(r, g, b)
         doc.circle(cx + 1.2, dotY, 0.9 * s, 'F')
-        if (ev.label && cellW > 8) {
+        if (ev.label && cellW > 8 && dotY + 1.5 < cy + cellH) {
           doc.setFontSize(3.5 * s)
           doc.setTextColor(r, g, b)
           const lbl = ev.label.length > 11 ? ev.label.slice(0, 10) + '…' : ev.label
@@ -382,19 +388,28 @@ function drawMonth(doc, { year, month }, events, categories, settings, x, y, w, 
     doc.setLineWidth(0.18)
     doc.rect(cx, cy, cellW, cellH, 'S')
 
-    // Rosh Chodesh label — 6pt italic ABOVE the date number, centered, #4A5A7A
+    // Rosh Chodesh label — always shown, font size scales down to fit above the date number.
     if (rcMonth) {
       const RC_ABBREV = {
-        'Tishrei':'Tish.','Cheshvan':'Ches.','Kislev':'Kis.','Tevet':'Tev.',
-        'Shvat':'Shv.','Adar':'Adar','Adar I':'Ad.I','Adar II':'Ad.II',
-        'Nisan':'Nis.','Iyar':'Iyar','Sivan':'Siv.','Tamuz':'Tam.',
+        'Tishrei':'Tish.','Cheshvan':'Ches.','Kislev':'Kis.','Tevet':'Tevet',
+        'Shvat':'Shvat','Adar':'Adar','Adar I':'Ad.I','Adar II':'Ad.II',
+        'Nisan':'Nisan','Iyar':'Iyar','Sivan':'Sivan','Tamuz':'Tamuz',
         'Av':'Av','Elul':'Elul',
       }
-      const rcShort = RC_ABBREV[rcMonth] || rcMonth.slice(0, 5)
-      doc.setFontSize(5 * s)
+      const rcShort = RC_ABBREV[rcMonth] || rcMonth.slice(0, 6)
+      // Scale font to fit in the vertical gap above the date number (cap-height ≈ fontPt × 0.28mm/pt)
+      const availH = Math.max(0.8, dateNumY - 1.4 * s - cy)
+      const rcFontPt = Math.min(4 * s, Math.max(2.8 * s, availH / 0.28))
+      const rcY = cy + rcFontPt * 0.28 + 0.08   // baseline = cap-height + tiny top margin
+      doc.setFontSize(rcFontPt)
       doc.setFont('helvetica', 'italic')
-      doc.setTextColor(74, 90, 122)   // #4A5A7A — sits above date number, does not compete with it
-      doc.text(`R.Ch. ${rcShort}`, cx + cellW / 2, cy + 1.8, { align: 'center', maxWidth: cellW - 0.6 })
+      doc.setTextColor(74, 90, 122)   // #4A5A7A
+      let rcText = `R.C.${rcShort}`
+      const maxRcW = cellW - 0.6
+      while (rcText.length > 4 && doc.getTextWidth(rcText) > maxRcW) {
+        rcText = rcText.slice(0, -1)
+      }
+      doc.text(rcText, cx + cellW / 2, rcY, { align: 'center' })
       doc.setFont('helvetica', 'normal')
     }
     // Hebrew holiday — emoji icon image (small, bottom-right of cell)
@@ -542,19 +557,53 @@ function bpMeasureGroups(doc, rawGroups, availW, p) {
   })
 }
 
-// LPT (Longest Processing Time) bin-pack: sort groups by height descending,
-// place each into the shortest column. Minimises the tallest column.
-// Returns columns with items in chronological order (sorted by mi after packing).
-function bpLptPack(groups, numCols, sepH) {
-  const sorted = [...groups].sort((a, b) => b.groupH - a.groupH)
-  const cols = Array.from({ length: numCols }, () => ({ items: [], usedH: 0 }))
-  sorted.forEach(group => {
-    const col = cols.reduce((min, c) => c.usedH < min.usedH ? c : min, cols[0])
-    const sep = col.items.length > 0 ? sepH : 0
-    col.items.push(group)
-    col.usedH += sep + group.groupH
-  })
-  return cols.map(c => ({ groups: c.items.sort((a, b) => a.mi - b.mi), usedH: c.usedH }))
+// Ordered partition (DP): split groups (already in chronological order) into numCols
+// consecutive groups minimising the maximum column height. Months stay in order:
+// column 1 gets the earliest months, column N gets the latest.
+function bpOrderedPack(groups, numCols, sepH) {
+  const M = groups.length
+  if (M === 0) return Array.from({ length: numCols }, () => ({ groups: [], usedH: 0 }))
+
+  // Height of groups[start..end-1] stacked as a single column
+  const colH = (start, end) => {
+    let h = 0
+    for (let i = start; i < end; i++) {
+      if (i > start) h += sepH
+      h += groups[i].groupH
+    }
+    return h
+  }
+
+  const dp       = Array.from({ length: numCols + 1 }, () => new Array(M).fill(Infinity))
+  const splitAt  = Array.from({ length: numCols + 1 }, () => new Array(M).fill(0))
+
+  // Base: 1 column = all groups[0..i] stacked
+  for (let i = 0; i < M; i++) { dp[1][i] = colH(0, i + 1); splitAt[1][i] = 0 }
+
+  for (let j = 2; j <= Math.min(numCols, M); j++) {
+    for (let i = j - 1; i < M; i++) {
+      for (let k = j - 2; k < i; k++) {
+        const val = Math.max(dp[j - 1][k], colH(k + 1, i + 1))
+        if (val < dp[j][i]) { dp[j][i] = val; splitAt[j][i] = k + 1 }
+      }
+    }
+  }
+
+  // Reconstruct columns (right-to-left)
+  const cols   = Math.min(numCols, M)
+  const result = []
+  let remaining = M - 1
+  let c = cols
+  while (c > 0) {
+    const start = c === 1 ? 0 : splitAt[c][remaining]
+    const slice = groups.slice(start, remaining + 1)
+    result.unshift({ groups: slice, usedH: colH(start, remaining + 1) })
+    remaining = start - 1
+    c--
+  }
+  // Pad with empty columns if numCols > M
+  while (result.length < numCols) result.push({ groups: [], usedH: 0 })
+  return result
 }
 
 // Full layout computation: measure → LPT-pack → shrink-if-needed → return layout.
@@ -562,8 +611,11 @@ function bpLptPack(groups, numCols, sepH) {
 // maxPanelH is derived by the caller from page geometry so the footer never overlaps.
 function bpComputeLayout(doc, events, academicYear, panelW, maxPanelH = 110) {
   const MAX_PANEL_H = maxPanelH
-  const rawGroups   = bpRawGroups(events, academicYear)
-  let numCols = 6
+  // Only include months that have events — empty months add header-only blocks that
+  // waste column space and cause neighbouring event-heavy months to overflow.
+  const rawGroups   = bpRawGroups(events, academicYear).filter(g => g.evItems.length > 0)
+  if (rawGroups.length === 0) return { columns: [], params: BP_DEFAULT_PARAMS, panelH: 0, panelW }
+  let numCols = Math.min(6, rawGroups.length)
   let p = { ...BP_DEFAULT_PARAMS }
 
   // Shrink steps applied in order when tallest column exceeds available height
@@ -582,7 +634,7 @@ function bpComputeLayout(doc, events, academicYear, panelW, maxPanelH = 110) {
     const colW   = panelW / numCols
     const availW = Math.max(6, colW - 6.1)   // colW minus bar(1.06)+left pad(3)+right pad(2)+margin
     const measured = bpMeasureGroups(doc, rawGroups, availW, p)
-    const packed   = bpLptPack(measured, numCols, p.sepH)
+    const packed   = bpOrderedPack(measured, numCols, p.sepH)
     const tallestH = Math.max(...packed.map(c => c.usedH), 0)
     const panelH   = Math.min(MAX_PANEL_H, Math.max(38, tallestH + BP_OVERHEAD + BP_BOTTOM_PAD))
     const avail    = panelH - BP_OVERHEAD - BP_BOTTOM_PAD
@@ -591,11 +643,13 @@ function bpComputeLayout(doc, events, academicYear, panelW, maxPanelH = 110) {
 
   let { packed, tallestH, panelH, avail } = tryLayout()
 
-  while (tallestH > avail && (shrinkIdx < shrinks.length || numCols < 8)) {
+  // Max columns = number of event-groups (every month gets its own column as last resort).
+  const maxCols = rawGroups.length
+  while (tallestH > avail && (shrinkIdx < shrinks.length || numCols < maxCols)) {
     if (shrinkIdx < shrinks.length) {
       p = shrinks[shrinkIdx++](p)
     } else {
-      numCols = Math.min(8, numCols + 1)
+      numCols = Math.min(maxCols, numCols + 1)
     }
     ;({ packed, tallestH, panelH, avail } = tryLayout())
   }
@@ -790,7 +844,9 @@ export async function exportPDF(state, { preview = false, pdfStyle = 'classic', 
   // If the panel were taller, CELL_H would clamp to its minimum, the grid would
   // consume more vertical space than allocated, and the footer would end up inside
   // the events panel.
-  const MIN_CELL_H   = 3.5
+  // 2.5 mm cells are tight but still readable; lowering this allows the events panel
+  // to be ~93 mm tall (avail ≈ 73 mm) which is enough for Sep's 7 events.
+  const MIN_CELL_H   = 2.5
   const MIN_GRID_H   = MONTH_ROWS * MIN_CELL_H * 6 + (MONTH_ROWS - 1) * ROW_GAP + MONTH_ROWS * HEADER_OFFSET
   const TOTAL_AVAIL  = PAGE_H - (HEADER_H + 2) - MARGIN - CLASSIC_FOOTER_H - 4  // same as availH formula
   const maxSafePanelH = Math.max(38, Math.floor(TOTAL_AVAIL - MIN_GRID_H))
@@ -809,8 +865,8 @@ export async function exportPDF(state, { preview = false, pdfStyle = 'classic', 
   const perRowNotesH = showBottomPanel
     ? Array(MONTH_ROWS).fill(0)
     : Array.from({ length: MONTH_ROWS }, (_, row) => {
-        // Column-first layout: row `row` contains months at positions row, row+MONTH_ROWS, row+2*MONTH_ROWS, …
-        const rowMonths = allMonths.filter((_, idx) => idx % MONTH_ROWS === row)
+        // Row-first layout: row `row` contains months at positions row*COL_COUNT … row*COL_COUNT+COL_COUNT-1
+        const rowMonths = allMonths.filter((_, idx) => Math.floor(idx / COL_COUNT) === row)
         const counts = rowMonths.map(({ year, month }) => {
           const mk = `${year}-${String(month + 1).padStart(2, '0')}`
           const seen = new Set()
@@ -826,7 +882,7 @@ export async function exportPDF(state, { preview = false, pdfStyle = 'classic', 
   const totalNotesH = perRowNotesH.reduce((a, b) => a + b, 0)
   // Single CELL_H for all rows — fills all available space exactly (no compact shrink factor;
   // compact appearance is handled inside drawMonth via font scaling)
-  const CELL_H = Math.max(3.5,
+  const CELL_H = Math.max(MIN_CELL_H,
     (availH - (MONTH_ROWS - 1) * ROW_GAP - MONTH_ROWS * HEADER_OFFSET - totalNotesH) / (MONTH_ROWS * 6)
   )
   const perRowMonthH = perRowNotesH.map(nh => CELL_H * 6 + HEADER_OFFSET + nh)
@@ -908,10 +964,10 @@ export async function exportPDF(state, { preview = false, pdfStyle = 'classic', 
   })
 
   allMonths.forEach(({ year, month }, idx) => {
-    // Column-first: fill each column top-to-bottom before moving right
-    // Aug/Sep/Oct → col 0, Nov/Dec/Jan → col 1, Feb/Mar/Apr → col 2, May/Jun → col 3
-    const row = idx % MONTH_ROWS
-    const col = Math.floor(idx / MONTH_ROWS)
+    // Row-first: fill each row left-to-right before moving down
+    // Row 0: Aug Sep Oct Nov, Row 1: Dec Jan Feb Mar, Row 2: Apr May Jun
+    const row = Math.floor(idx / COL_COUNT)
+    const col = idx % COL_COUNT
     const mx = MARGIN + col * (MONTH_W + 2)
     const mw = MONTH_W
     const y = rowStartY[row]
@@ -1013,7 +1069,10 @@ export async function exportPDF(state, { preview = false, pdfStyle = 'classic', 
     const row = Math.floor(i / legCols)
     const itemY = footerY + 8.2 + row * 3.2   // 4pt row padding
     if (itemY > footBottom) return
-    const [r, g, b] = hexToRgbLocal(catColor(cat.id, cat.color))
+    // No-school swatch uses the same soft rose tint as the grid cells so legend matches calendar.
+    const [r, g, b] = cat.id === 'no-school'
+      ? [249, 215, 212]   // #F9D7D4 — 22% blend of #E24A3D on white
+      : hexToRgbLocal(catColor(cat.id, cat.color))
     const itemX = footLegX + col * legColW
     doc.setFillColor(r, g, b)
     doc.roundedRect(itemX, itemY - 2.2, 4, 3, 0.3, 0.3, 'F')
@@ -1388,7 +1447,10 @@ async function exportPortraitClassic(state, { preview = false } = {}) {
     const row = Math.floor(i / legCols)
     const itemY = footerY + 8.2 + row * 3.2   // 4pt row padding
     if (itemY > footBottom) return
-    const [r, g, b] = hexToRgbLocal(catColor(cat.id, cat.color))
+    // No-school swatch uses the same soft rose tint as the grid cells so legend matches calendar.
+    const [r, g, b] = cat.id === 'no-school'
+      ? [249, 215, 212]   // #F9D7D4 — 22% blend of #E24A3D on white
+      : hexToRgbLocal(catColor(cat.id, cat.color))
     const itemX = footLegX + col * legColW
     doc.setFillColor(r, g, b)
     doc.roundedRect(itemX, itemY - 2.2, 4, 3, 0.3, 0.3, 'F')
