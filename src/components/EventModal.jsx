@@ -17,6 +17,7 @@ export default function EventModal({ dateKey, onClose }) {
   const [newLabel, setNewLabel] = useState('')
   const [newCategory, setNewCategory] = useState(categories.find(c => c.visible)?.id || '')
   const [newTime, setNewTime] = useState('')
+  const [newRegularDismissal, setNewRegularDismissal] = useState(false)
   const [duplicateWarning, setDuplicateWarning] = useState(false)
 
   // ── Inline range add state ──
@@ -66,16 +67,18 @@ export default function EventModal({ dateKey, onClose }) {
   const handleAdd = () => {
     if (!newLabel.trim() || readOnly) return
     if (checkDuplicate(newLabel)) { setDuplicateWarning(true); setTimeout(() => setDuplicateWarning(false), 3000); return }
-    dispatch({ type: 'ADD_EVENT', dateKey, event: { id: 'ev-' + nanoid(), category: newCategory, label: newLabel.trim(), time: newTime || undefined } })
+    dispatch({ type: 'ADD_EVENT', dateKey, event: { id: 'ev-' + nanoid(), category: newCategory, label: newLabel.trim(), time: newTime || undefined, regularDismissal: newRegularDismissal || undefined } })
     setNewLabel('')
     setNewTime('')
+    setNewRegularDismissal(false)
   }
 
   const handleAddForce = () => {
     setDuplicateWarning(false)
-    dispatch({ type: 'ADD_EVENT', dateKey, event: { id: 'ev-' + nanoid(), category: newCategory, label: newLabel.trim(), time: newTime || undefined } })
+    dispatch({ type: 'ADD_EVENT', dateKey, event: { id: 'ev-' + nanoid(), category: newCategory, label: newLabel.trim(), time: newTime || undefined, regularDismissal: newRegularDismissal || undefined } })
     setNewLabel('')
     setNewTime('')
+    setNewRegularDismissal(false)
   }
 
   const handleDelete = (eventId) => { if (!readOnly) dispatch({ type: 'DELETE_EVENT', dateKey, eventId }) }
@@ -96,6 +99,9 @@ export default function EventModal({ dateKey, onClose }) {
   }
   const handleCategoryChange = (eventId, category) => {
     if (!readOnly) { dispatch({ type: 'EDIT_EVENT', dateKey, eventId, changes: { category, color: undefined } }); flashSaved(eventId) }
+  }
+  const handleRegularDismissalChange = (eventId, checked) => {
+    if (!readOnly) { dispatch({ type: 'EDIT_EVENT', dateKey, eventId, changes: { regularDismissal: checked || undefined } }); flashSaved(eventId) }
   }
 
   const handleRangeSubmit = () => {
@@ -202,6 +208,18 @@ export default function EventModal({ dateKey, onClose }) {
                       />
                     )}
                     {ev.time && readOnly && <span className="text-xs text-gray-400">@ {ev.time}</span>}
+                    {!readOnly && (
+                      <label className="flex items-center gap-1 cursor-pointer select-none" title="Show regular dismissal time on PDF">
+                        <input
+                          type="checkbox"
+                          checked={!!ev.regularDismissal}
+                          onChange={e => handleRegularDismissalChange(ev.id, e.target.checked)}
+                          className="w-3 h-3 rounded accent-[#1e3a5f]"
+                        />
+                        <span className="text-[10px] text-gray-400">Reg. Dismissal</span>
+                      </label>
+                    )}
+                    {ev.regularDismissal && readOnly && <span className="text-[10px] text-gray-400">Reg. Dismissal</span>}
                   </div>
                 </div>
 
@@ -285,6 +303,17 @@ export default function EventModal({ dateKey, onClose }) {
                     title="Optional time (for ICS export)"
                   />
                 </div>
+                <label className="flex items-center gap-2 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={newRegularDismissal}
+                    onChange={e => setNewRegularDismissal(e.target.checked)}
+                    className="w-4 h-4 rounded accent-[#1e3a5f]"
+                  />
+                  <span className="text-sm text-gray-700 dark:text-gray-300">
+                    Regular Dismissal <span className="text-xs text-gray-400">(shows dismissal time on PDF)</span>
+                  </span>
+                </label>
                 <button
                   onClick={handleAdd}
                   disabled={!newLabel.trim()}

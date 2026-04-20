@@ -59,10 +59,22 @@ export default function MonthEventsPanel({ onOpenModal }) {
         <span className="text-white/40 text-xs">— click any event to open, ＋ to add</span>
       </div>
 
-      {/* Month columns grid */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-0 divide-x divide-white/10">
-        {monthData.map(({ year, month, monthName, groups }) => (
-          <div key={`${year}-${month}`} className="p-3 min-w-0">
+      {/* Month columns grid — flows top-to-bottom within each column, then spills right */}
+      <div
+        className="grid gap-0"
+        style={{
+          gridTemplateColumns: 'repeat(4, 1fr)',
+          gridTemplateRows: `repeat(${Math.ceil(monthData.length / 4)}, 1fr)`,
+          gridAutoFlow: 'column',
+        }}
+      >
+        {(() => {
+          const rows = Math.ceil(monthData.length / 4)
+          return monthData.map(({ year, month, monthName, groups }, idx) => {
+            // With column-flow, items 0..rows-1 are col 1, rows..2*rows-1 are col 2, etc.
+            const colIdx = Math.floor(idx / rows)
+            return (
+          <div key={`${year}-${month}`} className="p-3 min-w-0" style={colIdx > 0 ? { borderLeft: '1px solid rgba(255,255,255,0.1)' } : undefined}>
             {/* Month heading */}
             <div className="flex items-center justify-between mb-2">
               <h4 className="text-white font-bold text-xs uppercase tracking-wide truncate">
@@ -101,7 +113,9 @@ export default function MonthEventsPanel({ onOpenModal }) {
               ))}
             </div>
           </div>
-        ))}
+            )
+          })
+        })()}
       </div>
     </div>
   )

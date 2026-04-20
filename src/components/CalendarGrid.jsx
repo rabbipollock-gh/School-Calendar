@@ -34,20 +34,20 @@ export default function CalendarGrid({ onOpenModal, focusedDate, highlightDate }
 
   return (
     <>
-      {/* Desktop: 4-column grid */}
+      {/* Desktop: 4-column grid, column-first order (Aug/Sep/Oct in col 1, etc.) */}
       <div
         id="calendar-grid"
         className="hidden md:grid grid-cols-4 gap-4 p-4"
       >
         {academicMonths.map(({ year, month }) => (
-          <MonthBlock
-            key={`${year}-${month}`}
-            year={year}
-            month={month}
-            onOpenModal={onOpenModal}
-            focusedDate={focusedDate}
-          />
-        ))}
+            <MonthBlock
+              key={`${year}-${month}`}
+              year={year}
+              month={month}
+              onOpenModal={onOpenModal}
+              focusedDate={focusedDate}
+            />
+          ))}
       </div>
 
       {/* Bottom events panel (desktop) */}

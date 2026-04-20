@@ -124,6 +124,10 @@ export default function SettingsDrawer({ isOpen, onClose, onOpenCategories, onOp
               <Field label="School Hours">
                 <textarea value={schoolInfo.hours} onChange={e => updateInfo('hours', e.target.value)} readOnly={readOnly} rows={3} className={inputCls + ' resize-none'} />
               </Field>
+              <Field label="Regular Dismissal Time">
+                <input type="time" value={settings.regularDismissalTime || ''} onChange={e => updateSettings('regularDismissalTime', e.target.value)} readOnly={readOnly} className={inputCls} title="Default dismissal time shown on PDF for events marked 'Regular Dismissal'" />
+                <p className="text-[10px] text-gray-400 mt-0.5">Used on PDF for events marked "Regular Dismissal"</p>
+              </Field>
               <Field label="Other Information">
                 <textarea value={schoolInfo.otherInfo || ''} onChange={e => updateInfo('otherInfo', e.target.value)} readOnly={readOnly} rows={3} className={inputCls + ' resize-none'} placeholder="Any additional info to include on your calendar..." />
               </Field>
