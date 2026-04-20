@@ -218,7 +218,7 @@ function drawDecorativeDiamondBand(doc, bandY, pageW, primaryRgb, accentRgb, mar
   }
 }
 
-function drawMonth(doc, { year, month }, events, categories, settings, x, y, w, h, shabbatLabel, notesStripH, theme, emojiCache = {}, titleFont = 'helvetica') {
+function drawMonth(doc, { year, month }, events, categories, settings, x, y, w, h, shabbatLabel, notesStripH, theme, emojiCache = {}, titleFont = 'helvetica', numWeeks = 6) {
   const catMap = {}
   categories.forEach(c => { catMap[c.id] = c })
   const isFilled = settings.cellStyle === 'filled'
@@ -228,6 +228,14 @@ function drawMonth(doc, { year, month }, events, categories, settings, x, y, w, 
   const [ar, ag, ab] = hexToRgbLocal(theme.accent)
   // Medium grey for Shabbat — consistent weekly visual rhythm, theme-independent
   const SHABBAT_R = 192, SHABBAT_G = 192, SHABBAT_B = 198
+
+  // ── Card backgrounds (drawn first so content renders on top) ─────────────
+  doc.setFillColor(255, 255, 255)
+  doc.roundedRect(x, y, w, h, 4, 4, 'F')
+  if (notesStripH > 0) {
+    doc.setFillColor(250, 251, 253)  // #FAFBFD — events zone tint
+    doc.rect(x, y + h - notesStripH, w, notesStripH, 'F')
+  }
 
   // Month header — "October 2026  ·  חשון" (larger, bolder)
   const headerH = 6 * s
@@ -270,7 +278,7 @@ function drawMonth(doc, { year, month }, events, categories, settings, x, y, w, 
   const days = getDaysInMonth(year, month)
   const startDow = getFirstDayOfWeek(year, month)
   const headerOffset = isCompact ? 9 : 10   // taller header (6mm) + day-label row
-  const cellH = (h - headerOffset - (notesStripH || 0)) / 6
+  const cellH = (h - headerOffset - (notesStripH || 0)) / numWeeks
 
   // ── Pre-pass: classify events by type for special rendering ──────────────
   const noSchoolMap = {}      // dateKey → { label }
@@ -310,13 +318,8 @@ function drawMonth(doc, { year, month }, events, categories, settings, x, y, w, 
       doc.rect(cx, cy, cellW, cellH, 'F')
     }
 
-    // Date number Y: push down when Rosh Chodesh occupies top of cell, otherwise sit higher.
-    // Clamp so the baseline never falls below the cell bottom (happens when cellH is small
-    // due to a tall bottom events panel compressing the grid).
-    const dateNumY = Math.min(
-      rcMonth ? cy + 3.8 * s : cy + 2.8 * s,
-      cy + cellH - 0.3
-    )
+    // Date number always on the same baseline — RC label renders above it, not by pushing it down.
+    const dateNumY = Math.min(cy + 2.8 * s, cy + cellH - 0.3)
 
     if (isNoSchool) {
       // No-school: soft rose tint (22% opacity of #E24A3D on white) — less visual noise at print scale
@@ -388,7 +391,7 @@ function drawMonth(doc, { year, month }, events, categories, settings, x, y, w, 
     doc.setLineWidth(0.18)
     doc.rect(cx, cy, cellW, cellH, 'S')
 
-    // Rosh Chodesh label — always shown, font size scales down to fit above the date number.
+    // Rosh Chodesh label — top-center of cell, 1pt top padding, never shifts date number.
     if (rcMonth) {
       const RC_ABBREV = {
         'Tishrei':'Tish.','Cheshvan':'Ches.','Kislev':'Kis.','Tevet':'Tevet',
@@ -397,18 +400,23 @@ function drawMonth(doc, { year, month }, events, categories, settings, x, y, w, 
         'Av':'Av','Elul':'Elul',
       }
       const rcShort = RC_ABBREV[rcMonth] || rcMonth.slice(0, 6)
-      // Scale font to fit in the vertical gap above the date number (cap-height ≈ fontPt × 0.28mm/pt)
-      const availH = Math.max(0.8, dateNumY - 1.4 * s - cy)
-      const rcFontPt = Math.min(4 * s, Math.max(2.8 * s, availH / 0.28))
-      const rcY = cy + rcFontPt * 0.28 + 0.08   // baseline = cap-height + tiny top margin
-      doc.setFontSize(rcFontPt)
+      let rcText = `R.Ch. ${rcShort}`
+      const maxRcW = cellW - 0.4
+      // Max safe font: date number is at cy+2.8mm, its cap-top ≈ cy+1.4mm.
+      // RC baseline must stay ≤ cy+1.4mm → 3.5pt gives baseline at cy+1.1mm (0.3mm clearance).
       doc.setFont('helvetica', 'italic')
-      doc.setTextColor(74, 90, 122)   // #4A5A7A
-      let rcText = `R.C.${rcShort}`
-      const maxRcW = cellW - 0.6
-      while (rcText.length > 4 && doc.getTextWidth(rcText) > maxRcW) {
+      let rcFontPt = 3.5 * s
+      doc.setFontSize(rcFontPt)
+      if (doc.getTextWidth(rcText) > maxRcW) {
+        rcFontPt = 3 * s
+        doc.setFontSize(rcFontPt)
+      }
+      while (rcText.length > 5 && doc.getTextWidth(rcText) > maxRcW) {
         rcText = rcText.slice(0, -1)
       }
+      // Baseline: 0.2mm top padding + cap-height (≈ 72% of font size in mm)
+      const rcY = cy + 0.2 + rcFontPt * 0.3528 * 0.72
+      doc.setTextColor(74, 90, 122)   // #4A5A7A
       doc.text(rcText, cx + cellW / 2, rcY, { align: 'center' })
       doc.setFont('helvetica', 'normal')
     }
@@ -428,11 +436,6 @@ function drawMonth(doc, { year, month }, events, categories, settings, x, y, w, 
   if (settings.eventsPanel !== 'bottom' && notesStripH > 0) {
     const stripH = notesStripH
     const notesY = y + h - stripH
-    doc.setFillColor(248, 249, 251)
-    doc.rect(x, notesY, w, stripH, 'F')
-    doc.setDrawColor(200, 205, 215)
-    doc.setLineWidth(0.2)
-    doc.line(x, notesY, x + w, notesY)
 
     const allEventRanges = {}
     Object.entries(events).forEach(([dk, dayEvs]) => {
@@ -463,40 +466,102 @@ function drawMonth(doc, { year, month }, events, categories, settings, x, y, w, 
     })
 
     const maxNoteY = y + h - 0.5
-    let noteLineY = notesY + 5
-    for (const { ev, dates } of Object.values(notesEvents)) {
-      if (noteLineY > maxNoteY) break
+    let noteLineY = notesY + 8
+    const ROW_H    = 5.0   // mm ≈ 14pt
+    const BAR_W    = 1.06  // mm = 3pt
+    const LEFT_PAD = 2.0   // mm from card left edge to accent bar
+    const TEXT_X   = x + LEFT_PAD + BAR_W + 2.8  // 8pt right of bar
+    const DATE_X   = x + w - 2.5                  // right-align anchor
+    const BASE_OFF = 3.4   // baseline offset from row top (mm)
+    const entries = Object.values(notesEvents)
+    entries.forEach(({ ev, dates }, entryIdx) => {
+      if (noteLineY + ROW_H > maxNoteY + 0.5) return
       const cat = catMap[ev.category]
-      const color = ev.color || cat?.color || '#999999'
-      const [r, g, b] = hexToRgb(color)
-      // Darken the color 40% for text so light yellows/golds are readable on white
-      const tr = Math.round(r * 0.62)
-      const tg = Math.round(g * 0.62)
-      const tb = Math.round(b * 0.62)
-      doc.setFillColor(r, g, b)
-      doc.rect(x + 1, noteLineY - 3.2, 4, 4, 'F')
-      const isED = ev.category === 'early-dismissal' || (cat?.name?.toLowerCase() || '').includes('dismissal')
-      const timeStr = (isED && ev.time) ? ` ${formatTime(ev.time)}` : ''
+      const rawColor = ev.color || cat?.color || '#999999'
+      const isNoSchool = ev.category === 'no-school'
+      // No-school bar uses light rose tint to match grid cell background
+      const barHex = isNoSchool ? '#F9D7D4' : catColor(ev.category, rawColor)
+      const [br, bg_c, bb] = hexToRgb(barHex)
+
+      // Continuation: event has dates in a month earlier than this one
+      const evKey = `${ev.category}::${ev.label}`
+      const allDatesForEv = (allEventRanges[evKey] || []).sort()
+      const isContinuation = allDatesForEv.length > 0 && (() => {
+        const [minY, minM] = allDatesForEv[0].split('-').map(Number)
+        return minY < year || (minY === year && minM < month + 1)
+      })()
+
+      // Strip bare parenthetical times from label: "(1:30)", "(9am)", "(11:30pm)"
+      // Mixed content like "(9AM Start)" is left as-is (TODO: ask user about semantics)
+      const cleanLabel = ev.label.replace(/\s*\(\d{1,2}(?::\d{2})?\s*(?:[ap]m|AM|PM)?\)/gi, '').trim()
+
+      // Accent bar — 3pt wide, full row height
+      doc.setFillColor(br, bg_c, bb)
+      doc.rect(x + LEFT_PAD, noteLineY, BAR_W, ROW_H, 'F')
+
+      // Measure strings before drawing so widths are correct
       const groups = groupConsecutiveDates([...dates].sort())
       const rangeStr = formatRangeGroups(groups)
-      const rangePart = `  –  ${rangeStr}`
-      doc.setFontSize(7); doc.setFont('helvetica', 'bold')
-      // Reserve space for time + range, then fit label in what's left
-      const reservedW = doc.getTextWidth(timeStr + rangePart)
-      const maxLabelW = Math.max((w - 7) - reservedW, 8)
-      const displayLabel = doc.splitTextToSize(ev.label, maxLabelW)[0] || ev.label
-      const labelW = doc.getTextWidth(displayLabel)
-      doc.setTextColor(tr, tg, tb)
-      doc.text(displayLabel, x + 6.5, noteLineY)
+      doc.setFontSize(9); doc.setFont('helvetica', 'normal')
+      const dateTextW = doc.getTextWidth(rangeStr)
+
+      const regTime = ev.regularDismissal && settings?.regularDismissalTime ? settings.regularDismissalTime : null
+      const effectiveTime = ev.time || regTime
+      const timeStr = effectiveTime ? ` ${formatTime(effectiveTime)}` : ''
+      doc.setFontSize(8.5); doc.setFont('helvetica', 'italic')
+      const timeW = timeStr ? doc.getTextWidth(timeStr) : 0
+      const contStr = isContinuation ? ' (cont.)' : ''
+      const contW = isContinuation ? doc.getTextWidth(contStr) : 0
+
+      doc.setFontSize(9); doc.setFont('helvetica', 'bold')
+      const availNameW = Math.max(DATE_X - TEXT_X - dateTextW - 3 - timeW - contW, 12)
+      const displayLabel = doc.splitTextToSize(cleanLabel, availNameW)[0] || cleanLabel
+      const nameW = doc.getTextWidth(displayLabel)
+
+      // Date — regular 9pt #4A5A7A, right-aligned
+      doc.setFontSize(9); doc.setFont('helvetica', 'normal')
+      doc.setTextColor(74, 90, 122)
+      doc.text(rangeStr, DATE_X, noteLineY + BASE_OFF, { align: 'right' })
+
+      // Event name — bold 9pt #1F2D4A
+      doc.setFont('helvetica', 'bold')
+      doc.setTextColor(31, 45, 74)
+      doc.text(displayLabel, TEXT_X, noteLineY + BASE_OFF)
+
+      // Inline time — italic 8.5pt #5A6A82
       if (timeStr) {
-        doc.setFont('helvetica', 'normal')
-        doc.text(timeStr, x + 6.5 + labelW, noteLineY)
+        doc.setFontSize(8.5); doc.setFont('helvetica', 'italic')
+        doc.setTextColor(90, 106, 130)
+        doc.text(timeStr, TEXT_X + nameW, noteLineY + BASE_OFF)
       }
-      doc.setFont('helvetica', 'normal')
-      doc.setTextColor(70, 72, 82)
-      doc.text(rangePart, x + 6.5 + labelW + doc.getTextWidth(timeStr), noteLineY)
-      noteLineY += 4.5
-    }
+
+      // (cont.) suffix — italic 8.5pt #5A6A82, follows time if present
+      if (isContinuation) {
+        doc.setFontSize(8.5); doc.setFont('helvetica', 'italic')
+        doc.setTextColor(90, 106, 130)
+        doc.text(contStr, TEXT_X + nameW + timeW, noteLineY + BASE_OFF)
+      }
+
+      // Hairline separator — 0.25pt #EEF0F3, indented from bar; skip last row
+      if (entryIdx < entries.length - 1) {
+        doc.setDrawColor(238, 240, 243)
+        doc.setLineWidth(0.25)
+        doc.line(TEXT_X - 0.5, noteLineY + ROW_H, DATE_X, noteLineY + ROW_H)
+      }
+
+      noteLineY += ROW_H
+    })
+  }
+
+  // ── Card border + grid/notes divider (drawn last — sits on top of all content) ──
+  doc.setDrawColor(216, 220, 227)  // #D8DCE3
+  doc.setLineWidth(0.5)
+  doc.roundedRect(x, y, w, h, 4, 4, 'S')
+  if (notesStripH > 0) {
+    const divY = y + h - notesStripH
+    doc.setDrawColor(225, 228, 234)  // #E1E4EA
+    doc.setLineWidth(0.5)
+    doc.line(x + 1, divY, x + w - 1, divY)
   }
 }
 
@@ -861,7 +926,7 @@ export async function exportPDF(state, { preview = false, pdfStyle = 'classic', 
     : PAGE_H - (HEADER_H + 2) - MARGIN - CLASSIC_FOOTER_H - 2
   const allMonths = getAcademicMonths(settings.academicYear)
   // Per-row max events → per-row notes heights (uncapped — grows to fit each row's busiest month)
-  // Notes lines use 7pt font at 4.5mm line spacing, so each event ≈ 4.5mm + top padding
+  // New row design: 5mm per event row + 8mm header padding (divider gap)
   const perRowNotesH = showBottomPanel
     ? Array(MONTH_ROWS).fill(0)
     : Array.from({ length: MONTH_ROWS }, (_, row) => {
@@ -877,7 +942,7 @@ export async function exportPDF(state, { preview = false, pdfStyle = 'classic', 
           return seen.size
         })
         const maxEv = counts.length > 0 ? Math.max(...counts) : 0
-        return maxEv > 0 ? Math.max(13, maxEv * 4.5 + 4.5) : 0
+        return maxEv > 0 ? Math.max(16, maxEv * 5 + 8) : 0
       })
   const totalNotesH = perRowNotesH.reduce((a, b) => a + b, 0)
   // Single CELL_H for all rows — fills all available space exactly (no compact shrink factor;
@@ -973,7 +1038,8 @@ export async function exportPDF(state, { preview = false, pdfStyle = 'classic', 
     const y = rowStartY[row]
     const monthH = perRowMonthH[row]
     const notesH = perRowNotesH[row]
-    drawMonth(doc, { year, month }, events, categories, settings, mx, y, mw, monthH, shabbatLabel, notesH, theme, emojiCache, titleFont)
+    const numWeeks = Math.ceil((getFirstDayOfWeek(year, month) + getDaysInMonth(year, month).length) / 7)
+    drawMonth(doc, { year, month }, events, categories, settings, mx, y, mw, monthH, shabbatLabel, notesH, theme, emojiCache, titleFont, numWeeks)
   })
 
   // ── Bottom Events Panel ──────────────────────────────
@@ -1067,17 +1133,18 @@ export async function exportPDF(state, { preview = false, pdfStyle = 'classic', 
   visibleCatsFooter.slice(0, legCols * 2).forEach((cat, i) => {
     const col = i % legCols
     const row = Math.floor(i / legCols)
-    const itemY = footerY + 8.2 + row * 3.2   // 4pt row padding
+    const itemY = footerY + 8.2 + row * 3.2
     if (itemY > footBottom) return
-    // No-school swatch uses the same soft rose tint as the grid cells so legend matches calendar.
+    // Vertical bar swatch — 3pt wide, same shape and color as event accent bars.
+    // No-school uses light rose tint to match grid cell background, not the full red.
     const [r, g, b] = cat.id === 'no-school'
-      ? [249, 215, 212]   // #F9D7D4 — 22% blend of #E24A3D on white
+      ? [249, 215, 212]   // #F9D7D4 — matches grid cell and notes strip bar
       : hexToRgbLocal(catColor(cat.id, cat.color))
     const itemX = footLegX + col * legColW
     doc.setFillColor(r, g, b)
-    doc.roundedRect(itemX, itemY - 2.2, 4, 3, 0.3, 0.3, 'F')
-    doc.setTextColor(31, 45, 74); doc.setFontSize(5); doc.setFont('helvetica', 'normal')  // #1F2D4A
-    doc.text(cat.name, itemX + 5, itemY, { maxWidth: legColW - 6.5 })
+    doc.rect(itemX, itemY - 2.2, 1.06, 3, 'F')   // 1.06mm = 3pt, matches accent bar width
+    doc.setTextColor(31, 45, 74); doc.setFontSize(5); doc.setFont('helvetica', 'normal')
+    doc.text(cat.name, itemX + 2.5, itemY, { maxWidth: legColW - 4 })
   })
 
   if (preview) return doc.output('datauristring')
@@ -1445,17 +1512,18 @@ async function exportPortraitClassic(state, { preview = false } = {}) {
   visibleCatsFooter.slice(0, legCols * 2).forEach((cat, i) => {
     const col = i % legCols
     const row = Math.floor(i / legCols)
-    const itemY = footerY + 8.2 + row * 3.2   // 4pt row padding
+    const itemY = footerY + 8.2 + row * 3.2
     if (itemY > footBottom) return
-    // No-school swatch uses the same soft rose tint as the grid cells so legend matches calendar.
+    // Vertical bar swatch — 3pt wide, same shape and color as event accent bars.
+    // No-school uses light rose tint to match grid cell background, not the full red.
     const [r, g, b] = cat.id === 'no-school'
-      ? [249, 215, 212]   // #F9D7D4 — 22% blend of #E24A3D on white
+      ? [249, 215, 212]   // #F9D7D4 — matches grid cell and notes strip bar
       : hexToRgbLocal(catColor(cat.id, cat.color))
     const itemX = footLegX + col * legColW
     doc.setFillColor(r, g, b)
-    doc.roundedRect(itemX, itemY - 2.2, 4, 3, 0.3, 0.3, 'F')
-    doc.setTextColor(31, 45, 74); doc.setFontSize(5); doc.setFont('helvetica', 'normal')  // #1F2D4A
-    doc.text(cat.name, itemX + 5, itemY, { maxWidth: legColW - 6.5 })
+    doc.rect(itemX, itemY - 2.2, 1.06, 3, 'F')   // 1.06mm = 3pt, matches accent bar width
+    doc.setTextColor(31, 45, 74); doc.setFontSize(5); doc.setFont('helvetica', 'normal')
+    doc.text(cat.name, itemX + 2.5, itemY, { maxWidth: legColW - 4 })
   })
 
   if (preview) return doc.output('datauristring')
