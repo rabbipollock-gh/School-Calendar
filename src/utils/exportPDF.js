@@ -19,6 +19,18 @@ function hexToRgbLocal(hex) {
   return hexToRgb(hex)
 }
 
+function computeMaxEventsPerMonth(events, academicYear) {
+  return Math.max(...getAcademicMonths(academicYear).map(({ year, month }) => {
+    const monthKey = `${year}-${String(month + 1).padStart(2, '0')}`
+    const seen = new Set()
+    Object.entries(events).forEach(([dk, evs]) => {
+      if (!dk.startsWith(monthKey)) return
+      ;(evs || []).filter(e => e.category !== 'rosh-chodesh').forEach(ev => seen.add(`${ev.category}::${ev.label}`))
+    })
+    return seen.size
+  }), 0)
+}
+
 // Canonical category colors — consistent across events panel and footer legend.
 // Falls back to the category's own stored color for custom/unknown categories.
 const CAT_COLORS = {
