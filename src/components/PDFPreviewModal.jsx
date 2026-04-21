@@ -211,6 +211,9 @@ const PDF_STYLES = [
   },
 ]
 
+// Styles that support the events-panel toggle (per-month notes vs. bottom list)
+const BOTTOM_PANEL_STYLES = ['classic', 'minimal', 'dark-elegant', 'bulletin-board']
+
 export default function PDFPreviewModal({ onClose }) {
   const { state } = useCalendar()
 
@@ -232,6 +235,7 @@ export default function PDFPreviewModal({ onClose }) {
   const [selectedStyle, setSelectedStyle] = useState('classic')
   const [viewFilter, setViewFilter] = useState('all') // 'all' | 'yearly' | 'monthly'
   const [portraitMonth, setPortraitMonth] = useState(null) // null = all months
+  const [eventsPanel, setEventsPanel] = useState('inline') // 'inline' | 'bottom'
   const [url, setUrl] = useState(null)
   const [error, setError] = useState(null)
   const [previewing, setPreviewing] = useState(false)
@@ -254,9 +258,10 @@ export default function PDFPreviewModal({ onClose }) {
 
   const PER_MONTH_STYLES = ['portrait-monthly', 'parchment-scroll', 'photo-showcase', 'elegant-feminine']
 
-  const handlePreview = async (styleId, monthIdx) => {
+  const handlePreview = async (styleId, monthIdx, panelOverride) => {
     const id = styleId ?? selectedStyle
     const mIdx = monthIdx !== undefined ? monthIdx : (PER_MONTH_STYLES.includes(id) ? portraitMonth : null)
+    const panel = panelOverride !== undefined ? panelOverride : eventsPanel
     setSelectedStyle(id)
     setUrl(null)
     setError(null)
@@ -264,8 +269,8 @@ export default function PDFPreviewModal({ onClose }) {
     setSettingsChanged(false)
     lastPreviewSettingsRef.current = JSON.stringify({ theme: stateRef.current.settings.theme, academicYear: stateRef.current.settings.academicYear, customPrimary: stateRef.current.settings.customPrimary, customAccent: stateRef.current.settings.customAccent })
     try {
-      // exportPDF returns a data URI string in preview mode — works in all browsers
-      const dataUri = await exportPDF(stateRef.current, { preview: true, pdfStyle: id, monthIndex: mIdx })
+      const panelArg = BOTTOM_PANEL_STYLES.includes(id) ? panel : null
+      const dataUri = await exportPDF(stateRef.current, { preview: true, pdfStyle: id, monthIndex: mIdx, eventsPanel: panelArg })
       setUrl(dataUri)
     } catch (err) {
       setError(err.message || 'Failed to generate preview')
@@ -277,7 +282,8 @@ export default function PDFPreviewModal({ onClose }) {
     setDownloading(true)
     try {
       const mIdx = PER_MONTH_STYLES.includes(selectedStyle) ? portraitMonth : null
-      await exportPDF(stateRef.current, { preview: false, pdfStyle: selectedStyle, monthIndex: mIdx })
+      const panelArg = BOTTOM_PANEL_STYLES.includes(selectedStyle) ? eventsPanel : null
+      await exportPDF(stateRef.current, { preview: false, pdfStyle: selectedStyle, monthIndex: mIdx, eventsPanel: panelArg })
     } catch (err) {
       alert('Export failed: ' + err.message)
     }
@@ -423,7 +429,7 @@ export default function PDFPreviewModal({ onClose }) {
         {/* Preview area */}
         <div className="flex-1 flex flex-col overflow-hidden">
           {/* Preview header */}
-          <div className="shrink-0 px-4 py-2 bg-gray-100 dark:bg-gray-850 border-b border-gray-200 dark:border-gray-700 flex items-center gap-3">
+          <div className="shrink-0 px-4 py-2 bg-gray-100 dark:bg-gray-850 border-b border-gray-200 dark:border-gray-700 flex items-center gap-3 flex-wrap">
             <span className="text-sm font-semibold text-gray-700 dark:text-gray-200">
               Preview: {activeStyle?.name}
             </span>
@@ -431,6 +437,26 @@ export default function PDFPreviewModal({ onClose }) {
               <span className="text-xs bg-amber-100 text-amber-700 border border-amber-300 px-2 py-0.5 rounded-full font-medium">
                 ⚠ Settings changed
               </span>
+            )}
+            {/* Events layout toggle — only for styles that support it */}
+            {BOTTOM_PANEL_STYLES.includes(selectedStyle) && (
+              <div className="flex items-center gap-1 rounded-lg border border-gray-300 dark:border-gray-600 overflow-hidden text-xs font-semibold">
+                {[['inline', '↑ Per Month'], ['bottom', '↓ All at Bottom']].map(([val, label]) => (
+                  <button
+                    key={val}
+                    onClick={() => {
+                      setEventsPanel(val)
+                      handlePreview(selectedStyle, undefined, val)
+                    }}
+                    className={`px-3 py-1.5 transition ${
+                      eventsPanel === val
+                        ? 'text-white'
+                        : 'text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700'
+                    }`}
+                    style={eventsPanel === val ? { backgroundColor: 'var(--color-primary)' } : {}}
+                  >{label}</button>
+                ))}
+              </div>
             )}
             <button
               onClick={() => handlePreview(selectedStyle)}

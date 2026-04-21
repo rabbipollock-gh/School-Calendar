@@ -629,7 +629,8 @@ function bpMeasureGroups(doc, rawGroups, availW, p) {
       const lines = doc.splitTextToSize(ev.label, availW)
       return { ev, dates, lines, rowH: bpRowH(lines.length, p) }
     })
-    const groupH = BP_HDR_H + evItems.reduce((s, it) => s + it.rowH, 0)
+    // Empty groups reserve 6mm for the "No events" placeholder line
+    const groupH = BP_HDR_H + (evItems.length === 0 ? 6 : evItems.reduce((s, it) => s + it.rowH, 0))
     return { ...g, evItems, groupH }
   })
 }
@@ -686,13 +687,14 @@ function bpOrderedPack(groups, numCols, sepH) {
 // Full layout computation: measure → LPT-pack → shrink-if-needed → return layout.
 // panelW is passed so measurement uses the real column width.
 // maxPanelH is derived by the caller from page geometry so the footer never overlaps.
-function bpComputeLayout(doc, events, academicYear, panelW, maxPanelH = 110) {
+function bpComputeLayout(doc, events, academicYear, panelW, maxPanelH = 110, includeEmpty = false) {
   const MAX_PANEL_H = maxPanelH
-  // Only include months that have events — empty months add header-only blocks that
-  // waste column space and cause neighbouring event-heavy months to overflow.
-  const rawGroups   = bpRawGroups(events, academicYear).filter(g => g.evItems.length > 0)
+  // By default skip months with no events; pass includeEmpty=true to show all months.
+  const rawGroups = includeEmpty
+    ? bpRawGroups(events, academicYear)
+    : bpRawGroups(events, academicYear).filter(g => g.evItems.length > 0)
   if (rawGroups.length === 0) return { columns: [], params: BP_DEFAULT_PARAMS, panelH: 0, panelW }
-  let numCols = Math.min(6, rawGroups.length)
+  let numCols = Math.min(rawGroups.length, 8)
   let p = { ...BP_DEFAULT_PARAMS }
 
   // Shrink steps applied in order when tallest column exceeds available height
@@ -720,14 +722,11 @@ function bpComputeLayout(doc, events, academicYear, panelW, maxPanelH = 110) {
 
   let { packed, tallestH, panelH, avail } = tryLayout()
 
-  // Max columns = number of event-groups (every month gets its own column as last resort).
-  const maxCols = rawGroups.length
-  while (tallestH > avail && (shrinkIdx < shrinks.length || numCols < maxCols)) {
-    if (shrinkIdx < shrinks.length) {
-      p = shrinks[shrinkIdx++](p)
-    } else {
-      numCols = Math.min(maxCols, numCols + 1)
-    }
+  // Only shrink font/spacing — never increase numCols beyond the initial value.
+  // Increasing numCols narrows columns which causes more label wrapping and a
+  // feedback loop that makes groupH *larger*, spiralling until months overflow.
+  while (tallestH > avail && shrinkIdx < shrinks.length) {
+    p = shrinks[shrinkIdx++](p)
     ;({ packed, tallestH, panelH, avail } = tryLayout())
   }
 
@@ -788,8 +787,8 @@ function drawBottomEventsPanel(doc, categories, y, pageW, margin, sidebarW, layo
         drawY += p.sepH - 1.5
       }
 
-      // Skip group if it won't fit (safety guard — LPT packing should prevent this)
-      if (drawY + group.groupH > contentBound + 0.5) return
+      // Skip only if there's not even room for the header
+      if (drawY + BP_HDR_H > contentBound + 0.5) return
 
       // ── Month header ──────────────────────────────────────────────
       doc.setFontSize(10)
@@ -802,9 +801,18 @@ function drawBottomEventsPanel(doc, categories, y, pageW, margin, sidebarW, layo
       doc.line(colX + 3, drawY + 6, colX + 3 + accentW, drawY + 6)
       drawY += BP_HDR_H
 
-      // ── Event rows ────────────────────────────────────────────────
+      // ── Empty month placeholder ───────────────────────────────────
+      if (group.evItems.length === 0) {
+        doc.setFontSize(p.dateFontSz)
+        doc.setFont('helvetica', 'italic')
+        doc.setTextColor(110, 130, 165)
+        doc.text('No events', colX + 4, drawY + 3.5)
+        drawY += 6
+      }
+
+      // ── Event rows — clip individually so the header always shows ─
       group.evItems.forEach(({ ev, dates, lines, rowH }) => {
-        if (drawY + rowH > contentBound + 0.5) return   // safety — should not trigger after LPT
+        if (drawY + rowH > contentBound + 0.5) return
 
         const cat   = catMap[ev.category]
         const color = catColor(ev.category, ev.color || cat?.color)
@@ -844,7 +852,7 @@ function drawBottomEventsPanel(doc, categories, y, pageW, margin, sidebarW, layo
 }
 
 // Helper: draw a per-month inline notes strip at (x, y, w × h)
-function drawNotesStrip(doc, events, catMap, x, y, w, h, year, month) {
+function drawNotesStrip(doc, events, catMap, x, y, w, h, year, month, { modernStyle = false, colorOverrides = null } = {}) {
   const days = getDaysInMonth(year, month)
   doc.setFillColor(248, 249, 251)
   doc.rect(x, y, w, h, 'F')
@@ -859,27 +867,50 @@ function drawNotesStrip(doc, events, catMap, x, y, w, h, year, month) {
       notesEvents[key].dates.push(dateKey)
     })
   })
-  let lineY = y + 2.5
-  const maxY = y + h - 0.5
+  const topPad = modernStyle ? 2 : 0
+  const lineSpacing = modernStyle ? 2.4 : 1.8
+  let lineY = y + 2.5 + topPad
+  const maxY = y + h - (modernStyle ? 2.0 : 0.5)
   doc.setFontSize(4); doc.setFont('helvetica', 'normal')
   for (const { ev, dates } of Object.values(notesEvents)) {
     if (lineY > maxY) break
     const cat = catMap[ev.category]
-    const color = ev.color || cat?.color || '#999'
+    const color = colorOverrides?.[cat?.id] || ev.color || cat?.color || '#999'
     const [r, g, b] = hexToRgbLocal(color)
     doc.setFillColor(r, g, b); doc.circle(x + 1, lineY - 0.5, 0.6, 'F')
     const groups = groupConsecutiveDates([...dates].sort())
     const rangeStr = formatRangeGroups(groups)
-    const lineText = `${rangeStr} | ${ev.label}`
-    const lines = doc.splitTextToSize(lineText, w - 3.5)
-    doc.setTextColor(60, 60, 60)
-    doc.text(lines, x + 2.5, lineY, { maxWidth: w - 3.5 })
-    lineY += lines.length * 1.8 + 0.6
+    if (modernStyle) {
+      // Date range in muted gray, event label + time in darker bold for contrast
+      doc.setFontSize(4)
+      const dateStr = `${rangeStr}  `
+      doc.setFont('helvetica', 'normal'); doc.setTextColor(140, 140, 150)
+      doc.text(dateStr, x + 2.5, lineY)
+      const dw = doc.getTextWidth(dateStr)
+      const remainW = w - 3.5 - dw
+      const timeStr = ev.time ? `  ${formatTime(ev.time)}` : ''
+      const fullLabel = `${ev.label}${timeStr}`
+      const labelLines = doc.splitTextToSize(fullLabel, remainW)
+      const displayLabel = labelLines.length > 1 ? labelLines[0].replace(/\s+\S*$/, '') + '…' : labelLines[0]
+      doc.setFont('helvetica', 'bold'); doc.setTextColor(40, 40, 50)
+      doc.text(displayLabel, x + 2.5 + dw, lineY, { maxWidth: remainW })
+      lineY += lineSpacing + 0.6
+    } else {
+      const lineText = `${rangeStr} | ${ev.label}`
+      const lines = doc.splitTextToSize(lineText, w - 3.5)
+      doc.setTextColor(60, 60, 60)
+      doc.text(lines, x + 2.5, lineY, { maxWidth: w - 3.5 })
+      lineY += lines.length * lineSpacing + 0.6
+    }
   }
 }
 
-export async function exportPDF(state, { preview = false, pdfStyle = 'classic', monthIndex = null } = {}) {
-  const { events, categories, schoolInfo, settings } = state
+export async function exportPDF(state, { preview = false, pdfStyle = 'classic', monthIndex = null, eventsPanel = null } = {}) {
+  // Allow PDF preview modal to override the eventsPanel setting per-export
+  const effectiveState = eventsPanel != null
+    ? { ...state, settings: { ...state.settings, eventsPanel } }
+    : state
+  const { events, categories, schoolInfo, settings } = effectiveState
   const theme = getTheme(settings.theme, settings.customPrimary, settings.customAccent)
   const [pr, pg, pb] = hexToRgbLocal(theme.primary)
   const [ar, ag, ab] = hexToRgbLocal(theme.accent)
@@ -892,11 +923,11 @@ export async function exportPDF(state, { preview = false, pdfStyle = 'classic', 
   const ctx = { preview, theme, doc, titleFont, shabbatLabel }
 
   // Route to the correct style renderer
-  if (pdfStyle === 'minimal')           return exportMinimal(state, ctx)
-  if (pdfStyle === 'portrait-monthly')  return exportMonthlyPortrait(state, { ...ctx, monthIndex })
-  if (pdfStyle === 'year-at-a-glance')  return exportYearAtAGlance(state, ctx)
-  if (pdfStyle === 'dark-elegant')      return exportDarkElegant(state, ctx)
-  if (pdfStyle === 'bulletin-board')    return exportBulletinBoard(state, ctx)
+  if (pdfStyle === 'minimal')           return exportMinimal(effectiveState, ctx)
+  if (pdfStyle === 'portrait-monthly')  return exportMonthlyPortrait(effectiveState, { ...ctx, monthIndex })
+  if (pdfStyle === 'year-at-a-glance')  return exportYearAtAGlance(effectiveState, ctx)
+  if (pdfStyle === 'dark-elegant')      return exportDarkElegant(effectiveState, ctx)
+  if (pdfStyle === 'bulletin-board')    return exportBulletinBoard(effectiveState, ctx)
   if (pdfStyle === 'parchment-scroll')  return exportParchmentScroll(state, { preview, monthIndex })
   if (pdfStyle === 'dual-heritage')     return exportDualHeritage(state, { preview, theme, doc, titleFont, shabbatLabel })
   if (pdfStyle === 'regal-triptych')    return exportRegalTriptych(state, { preview, theme, doc, titleFont, shabbatLabel })
@@ -1660,12 +1691,14 @@ function smartAbbrevLabel(label) {
 function drawMiniMonth(doc, { year, month }, events, categories, settings, {
   x, y, w, h, pr, pg, pb, ar, ag, ab, titleFont, shabbatLabel, showEvents = true,
   glanceMode = false,   // Year at a Glance: smart labels, multi-day run detection, no double badges
+  modernStyle = false,  // Clean Minimal: gradient headers, bold dates, warm tints, hairline borders
+  colorOverrides = null,
 }) {
   const days = getDaysInMonth(year, month)
   const startDow = getFirstDayOfWeek(year, month)
   const cellW = w / 7
-  const HEADER_H = 8
-  const DAY_H = 5
+  const HEADER_H = glanceMode ? 9 : 8
+  const DAY_H = glanceMode ? 5.5 : 5
   const cellH = (h - HEADER_H - DAY_H) / 6
 
   // glanceMode: pre-detect multi-day runs so we only show label text in the first cell per row-segment
@@ -1698,34 +1731,72 @@ function drawMiniMonth(doc, { year, month }, events, categories, settings, {
   }
 
   // Month header bar
-  doc.setFillColor(pr, pg, pb)
-  doc.roundedRect(x, y, w, HEADER_H, 1, 1, 'F')
+  if (modernStyle) {
+    // Simulate horizontal gradient #1A2E4A → #243D5F for subtle depth
+    const steps = Math.ceil(w)
+    const r1 = 26, g1 = 46, b1 = 74, r2 = 36, g2 = 61, b2 = 95
+    for (let s = 0; s < steps; s++) {
+      const t = s / Math.max(steps - 1, 1)
+      doc.setFillColor(Math.round(r1 + (r2 - r1) * t), Math.round(g1 + (g2 - g1) * t), Math.round(b1 + (b2 - b1) * t))
+      doc.rect(x + (s / steps) * w, y, w / steps + 0.1, HEADER_H, 'F')
+    }
+  } else {
+    doc.setFillColor(pr, pg, pb)
+    doc.roundedRect(x, y, w, HEADER_H, 1, 1, 'F')
+  }
   doc.setFillColor(ar, ag, ab)
-  doc.rect(x, y + HEADER_H - 1.5, w, 1.5, 'F')
+  doc.rect(x, y + HEADER_H - (glanceMode ? 2 : 1.5), w, glanceMode ? 2 : 1.5, 'F')
   doc.setTextColor(255, 255, 255)
-  doc.setFontSize(6); doc.setFont(titleFont, 'bold')
+  doc.setFontSize(modernStyle ? 7 : glanceMode ? 7 : 6); doc.setFont(titleFont, 'bold')
   const mName = new Date(year, month, 1).toLocaleString('default', { month: 'long' })
   const heLabel = getHebrewMonthLabel(year, month)
-  doc.text(mName, x + 2, y + 5.5, { maxWidth: w - 4 })
+  const headerTextY = y + (glanceMode ? 6.2 : 5.8)
+  doc.text(mName, x + 2, headerTextY, { maxWidth: modernStyle ? w * 0.52 : glanceMode ? w * 0.56 : w - 4 })
   if (heLabel) {
-    doc.setFontSize(4.5); doc.setFont('helvetica', 'normal')
-    doc.setTextColor(ar, ag, ab)
-    doc.text(heLabel, x + w - 1.5, y + 5.5, { align: 'right', maxWidth: w * 0.45 })
+    if (glanceMode) {
+      doc.setFontSize(4.8); doc.setFont('helvetica', 'italic')
+      doc.setTextColor(ar, ag, ab)
+      doc.text(heLabel, x + w - 2, headerTextY, { align: 'right', maxWidth: w * 0.42 })
+    } else {
+      doc.setFontSize(modernStyle ? 4.2 : 4.5); doc.setFont('helvetica', 'normal')
+      doc.setTextColor(modernStyle ? 195 : ar, modernStyle ? 180 : ag, modernStyle ? 148 : ab)
+      doc.text(heLabel, x + w - 1.5, y + 5.8, { align: 'right', maxWidth: w * 0.46 })
+    }
   }
 
   // Day-of-week header row
   const headY = y + HEADER_H + DAY_H - 1
+  if (modernStyle) {
+    doc.setFillColor(42, 58, 86)  // #2A3A56
+    doc.rect(x, y + HEADER_H, w, DAY_H, 'F')
+  } else if (glanceMode) {
+    doc.setFillColor(232, 233, 235)  // #E8E9EB
+    doc.rect(x, y + HEADER_H, w, DAY_H, 'F')
+  }
   DAYS.forEach((d, i) => {
     const isSha = i === 6
     const colX = x + i * cellW
     const colW = isSha ? (x + w) - colX : cellW
     if (isSha) {
-      doc.setFillColor(188, 188, 196)
-      doc.setGState(doc.GState({ opacity: 0.35 }))
-      doc.rect(colX, y + HEADER_H, colW, DAY_H, 'F')
-      doc.setGState(doc.GState({ opacity: 1.0 }))
+      if (modernStyle) {
+        doc.setFillColor(255, 255, 255)
+        doc.setGState(doc.GState({ opacity: 0.1 }))
+        doc.rect(colX, y + HEADER_H, colW, DAY_H, 'F')
+        doc.setGState(doc.GState({ opacity: 1.0 }))
+      } else if (!glanceMode) {
+        doc.setFillColor(188, 188, 196)
+        doc.setGState(doc.GState({ opacity: 0.35 }))
+        doc.rect(colX, y + HEADER_H, colW, DAY_H, 'F')
+        doc.setGState(doc.GState({ opacity: 1.0 }))
+      }
     }
-    doc.setTextColor(isSha ? 100 : 120, isSha ? 100 : 120, isSha ? 118 : 120)
+    if (modernStyle) {
+      doc.setTextColor(isSha ? 232 : 210, isSha ? 182 : 218, isSha ? 90 : 230)
+    } else if (glanceMode) {
+      doc.setTextColor(isSha ? 110 : 44, isSha ? 110 : 44, isSha ? 130 : 44)
+    } else {
+      doc.setTextColor(isSha ? 100 : 120, isSha ? 100 : 120, isSha ? 118 : 120)
+    }
     doc.setFontSize(3.5); doc.setFont('helvetica', 'bold')
     doc.text(isSha ? shabbatLabel.slice(0, 3).toUpperCase() : d, colX + colW / 2, headY, { align: 'center' })
   })
@@ -1744,10 +1815,13 @@ function drawMiniMonth(doc, { year, month }, events, categories, settings, {
     const isSha = dow === 6
     const hebrewHolidayMini = getHolidayMap(settings.academicYear)[dateKey]
 
-    // Shabbat tint — neutral grey (avoids clash with themed primary or event colors)
-    if (isSha) {
-      doc.setFillColor(188, 188, 196)
-      doc.setGState(doc.GState({ opacity: 0.28 }))
+    // Weekend column tints
+    if (glanceMode && (dow === 5 || dow === 6)) {
+      doc.setFillColor(245, 245, 247)  // #F5F5F7 — subtle tint for FRI + SHA
+      doc.rect(cx, cy, cw, cellH, 'F')
+    } else if (isSha) {
+      doc.setFillColor(modernStyle ? 253 : 188, modernStyle ? 248 : 188, modernStyle ? 238 : 196)
+      doc.setGState(doc.GState({ opacity: modernStyle ? 0.30 : 0.28 }))
       doc.rect(cx, cy, cw, cellH, 'F')
       doc.setGState(doc.GState({ opacity: 1.0 }))
     }
@@ -1760,34 +1834,51 @@ function drawMiniMonth(doc, { year, month }, events, categories, settings, {
     // Event fill
     if (showEvents && dayEvs.length > 0) {
       const cat = categories.find(c => c.id === dayEvs[0].category)
-      const [er, eg, eb] = hexToRgbLocal(dayEvs[0].color || cat?.color || '#999')
+      const baseColor = colorOverrides?.[cat?.id] || dayEvs[0].color || cat?.color || '#999'
+      const [er, eg, eb] = hexToRgbLocal(baseColor)
+      if (modernStyle) doc.setGState(doc.GState({ opacity: 0.85 }))
       doc.setFillColor(er, eg, eb)
       doc.roundedRect(cx + 0.2, cy + 0.2, cw - 0.4, cellH - 0.4, 0.4, 0.4, 'F')
+      if (modernStyle) doc.setGState(doc.GState({ opacity: 1.0 }))
       doc.setTextColor(255, 255, 255)
-      doc.setFontSize(3.5); doc.setFont('helvetica', 'bold')
-      doc.text(String(dayNum), cx + 1, cy + 3.2, { maxWidth: cw - 1.5 })
-      // Event label — smart abbreviation in glance mode, word-truncation otherwise
+      doc.setFontSize(glanceMode ? 4.0 : modernStyle ? 4.2 : 3.5); doc.setFont('helvetica', 'bold')
+      doc.text(String(dayNum), cx + (glanceMode ? 1.4 : 1.2), cy + (glanceMode ? 2.6 : Math.min(3.5, cellH - 0.5)), { maxWidth: cw - 1.8 })
       if (showLabel) {
         const rawLabel = dayEvs[0].label || ''
-        const displayLabel = glanceMode
-          ? smartAbbrevLabel(rawLabel)
-          : (rawLabel.length > 12 ? rawLabel.slice(0, 11) + '…' : rawLabel)
-        doc.setFontSize(2.8); doc.setFont('helvetica', 'normal')
-        doc.text(displayLabel, cx + 1, cy + 5.8, { maxWidth: cw - 1.5 })
+        if (glanceMode) {
+          doc.setFontSize(3.2); doc.setFont('helvetica', 'normal')
+          const lines = doc.splitTextToSize(rawLabel, cw - 2.2)
+          const hasTime = !!dayEvs[0].time
+          const maxLines = Math.min(hasTime ? 1 : 2, Math.floor((cellH - 4.5) / 1.6))
+          lines.slice(0, Math.max(1, maxLines)).forEach((line, li) => {
+            doc.text(line, cx + 1.4, cy + 4.5 + li * 1.6)
+          })
+          if (hasTime) {
+            doc.setFontSize(2.8); doc.setFont('helvetica', 'bold')
+            doc.text(formatTime(dayEvs[0].time), cx + 1.4, cy + Math.min(6.1, cellH - 0.8))
+          }
+        } else {
+          const displayLabel = rawLabel.length > 12 ? rawLabel.slice(0, 11) + '…' : rawLabel
+          doc.setFontSize(2.8); doc.setFont('helvetica', 'normal')
+          doc.text(displayLabel, cx + 1.2, cy + Math.min(6, cellH - 0.5), { maxWidth: cw - 1.5 })
+        }
       }
     } else {
-      // Normal day number
-      doc.setTextColor(isSha ? 95 : 50, isSha ? 95 : 50, isSha ? 112 : 50)
-      doc.setFontSize(3.8); doc.setFont('helvetica', isSha ? 'bold' : 'normal')
-      doc.text(String(dayNum), cx + 1, cy + 3.2, { maxWidth: cw - 1.5 })
+      if (glanceMode) {
+        doc.setTextColor(44, 44, 44)  // #2C2C2C dark charcoal
+      } else {
+        doc.setTextColor(isSha ? 95 : 50, isSha ? 95 : 50, isSha ? 112 : 50)
+      }
+      doc.setFontSize(glanceMode ? 4.2 : modernStyle ? 4.5 : 3.8); doc.setFont('helvetica', (glanceMode || modernStyle || isSha) ? 'bold' : 'normal')
+      doc.text(String(dayNum), cx + (glanceMode ? 1.4 : 1.2), cy + Math.min(3.5, cellH - 0.5), { maxWidth: cw - 1.8 })
     }
 
-    // Cell border
-    doc.setDrawColor(210, 215, 220); doc.setLineWidth(0.15)
+    doc.setDrawColor(glanceMode ? 218 : modernStyle ? 228 : 210, glanceMode ? 218 : modernStyle ? 230 : 215, glanceMode ? 218 : modernStyle ? 234 : 220)
+    doc.setLineWidth(glanceMode ? 0.3 : modernStyle ? 0.25 : 0.15)
     doc.rect(cx, cy, cw, cellH, 'S')
 
-    // Hebrew holiday badge — only when no user event (prevents double-labeling)
-    if (dayEvs.length === 0 && hebrewHolidayMini && settings.hebrewHolidayToggles?.[hebrewHolidayMini.group] !== false) {
+    // Hebrew holiday badge — only when no user event (prevents double-labeling); skipped in modernStyle (clean minimal)
+    if (!modernStyle && dayEvs.length === 0 && hebrewHolidayMini && settings.hebrewHolidayToggles?.[hebrewHolidayMini.group] !== false) {
       const hNameFull = settings.shabbatLabel === 'Shabbos' ? hebrewHolidayMini.ashkenaz : hebrewHolidayMini.sephardi
       const hNameMini = MINI_HOLIDAY_ABBREV[hNameFull] || (hNameFull.length > 9 ? hNameFull.slice(0, 8) + '.' : hNameFull)
       doc.setFontSize(2.5); doc.setFont('helvetica', 'normal')
@@ -1806,11 +1897,26 @@ async function exportMinimal(state, { preview, theme, doc, titleFont, shabbatLab
   const [ar, ag, ab] = hexToRgbLocal(theme.accent)
   const PAGE_W = 297, PAGE_H = 210, MARGIN = 8
   const HEADER_H = 14
-  const LEG_H = 9
+  const LEG_H = 2   // legend lives in the 12th grid slot, not the bottom strip
+  // Modern desaturated color palette — single source of truth for both grid cells and legend pills
+  const minimalColorOverrides = {
+    'no-school':       '#E05C5C',
+    'early-dismissal': '#E8956D',
+    'staff':           '#6B8CBA',
+    'school-event':    '#7B6FBF',
+    'chanukah':        '#D4A843',
+    'hebrew-only':     '#5AA87A',
+  }
   const showBottomPanel = settings.eventsPanel === 'bottom'
   const maxEvMin = showBottomPanel ? 0 : computeMaxEventsPerMonth(events, settings.academicYear)
   const NOTES_H = showBottomPanel ? 0 : Math.min(Math.max(8, maxEvMin * 2.2 + 2), 22)
-  const BOTTOM_H = showBottomPanel ? 26 : 0
+  const bpPanelWMin = PAGE_W - MARGIN * 2 - 2
+  // Allow the panel to grow until month cells are at least 28mm — prevents September's
+  // large groupH from triggering the skip guard and silently hiding entire months.
+  const MIN_MONTH_H = 28
+  const maxPanelHMin = PAGE_H - HEADER_H - 3 - MARGIN - LEG_H - 2 - 3 * (MIN_MONTH_H + 3)  // ≈ 88mm
+  const bottomLayoutMin = showBottomPanel ? bpComputeLayout(doc, events, settings.academicYear, bpPanelWMin, maxPanelHMin, true) : null
+  const BOTTOM_H = showBottomPanel ? (bottomLayoutMin?.panelH || 26) : 0
   const GRID_W = PAGE_W - MARGIN * 2
   const MONTH_W = (GRID_W / 4) - 2.5
   const MONTH_H = (PAGE_H - HEADER_H - 3 - MARGIN - LEG_H - BOTTOM_H - (showBottomPanel ? 2 : 0)) / 3 - NOTES_H - 3
@@ -1820,21 +1926,21 @@ async function exportMinimal(state, { preview, theme, doc, titleFont, shabbatLab
   let circLogoMin = null
   if (schoolInfo.logo) { try { circLogoMin = await cropLogoImage(schoolInfo.logo, settings.logoShape || 'circle') } catch {} }
 
-  // White page header with colored rule
+  // White page
   doc.setFillColor(255, 255, 255); doc.rect(0, 0, PAGE_W, PAGE_H, 'F')
-  doc.setDrawColor(pr, pg, pb); doc.setLineWidth(2)
-  doc.line(0, HEADER_H, PAGE_W, HEADER_H)
-  doc.setFillColor(ar, ag, ab); doc.rect(0, HEADER_H - 2, PAGE_W, 2, 'F')
   if (circLogoMin) doc.addImage(circLogoMin, 'PNG', MARGIN, 1, 11, 11)
-  // Year label — draw first so title can be measured against it
+  // Year label — same weight/size as title, right-aligned
   const yearLabel = settings.academicYear || '2026-2027'
-  doc.setFontSize(8); doc.setFont(titleFont, 'normal'); doc.setTextColor(130, 130, 130)
+  doc.setFontSize(9); doc.setFont(titleFont, 'bold'); doc.setTextColor(pr, pg, pb)
   doc.text(yearLabel, PAGE_W - MARGIN, 9, { align: 'right' })
-  // Title — reserve space for logo (if present) and year label on right
+  // Title — reserve space for logo and year label
   const titleStartX = circLogoMin ? MARGIN + 13 : MARGIN
+  const yearLabelW = doc.getTextWidth(yearLabel) + 3
   doc.setTextColor(pr, pg, pb)
-  doc.setFontSize(11); doc.setFont(titleFont, 'bold')
-  doc.text(settings.calendarTitle || schoolInfo.name || 'Academic Calendar', titleStartX, 9, { maxWidth: PAGE_W - titleStartX - MARGIN - 28 })
+  doc.setFontSize(9); doc.setFont(titleFont, 'bold')
+  doc.text(settings.calendarTitle || schoolInfo.name || 'Academic Calendar', titleStartX, 9, { maxWidth: PAGE_W - titleStartX - MARGIN - yearLabelW })
+  // 3pt accent bar anchoring header — accent color for visual warmth
+  doc.setFillColor(ar, ag, ab); doc.rect(0, HEADER_H - 1.05, PAGE_W, 1.05, 'F')
 
   if (settings.draftWatermark) {
     doc.setTextColor(200, 50, 50); doc.setFontSize(72); doc.setFont('helvetica', 'bold')
@@ -1846,37 +1952,93 @@ async function exportMinimal(state, { preview, theme, doc, titleFont, shabbatLab
   const startY = HEADER_H + 3
   const MONTHS_MIN = getAcademicMonths(settings.academicYear)
   const rowStep = MONTH_H + (showBottomPanel ? 0 : NOTES_H) + 3
+
+  // Draw the 11 month cards (indices 0–10)
   MONTHS_MIN.forEach(({ year, month }, idx) => {
     const col = idx % 4; const row = Math.floor(idx / 4)
     const x = MARGIN + col * (MONTH_W + 3)
     const y = startY + row * rowStep
+    const cardH = MONTH_H + NOTES_H
+    // Subtle drop-shadow simulation
+    doc.setFillColor(190, 198, 212)
+    doc.setGState(doc.GState({ opacity: 0.3 }))
+    doc.roundedRect(x + 0.6, y + 0.6, MONTH_W, cardH, 1.5, 1.5, 'F')
+    doc.setGState(doc.GState({ opacity: 1.0 }))
+    // Card background
+    doc.setFillColor(247, 249, 252)
+    doc.roundedRect(x, y, MONTH_W, cardH, 1.5, 1.5, 'F')
     drawMiniMonth(doc, { year, month }, events, categories, settings, {
-      x, y, w: MONTH_W, h: MONTH_H, pr, pg, pb, ar, ag, ab, titleFont, shabbatLabel
+      x, y, w: MONTH_W, h: MONTH_H, pr, pg, pb, ar, ag, ab, titleFont, shabbatLabel,
+      modernStyle: true, colorOverrides: minimalColorOverrides,
     })
     if (!showBottomPanel) {
-      drawNotesStrip(doc, events, catMap, x, y + MONTH_H, MONTH_W, NOTES_H, year, month)
+      drawNotesStrip(doc, events, catMap, x, y + MONTH_H, MONTH_W, NOTES_H, year, month, { modernStyle: true, colorOverrides: minimalColorOverrides })
     }
   })
 
-  // ── Bottom events panel ───────────────────────────────────────────────────
-  if (showBottomPanel) {
-    const panelY = startY + 3 * rowStep
-    drawBottomEventsPanel(doc, events, categories, panelY, PAGE_W, MARGIN, 0, BOTTOM_H, settings.academicYear)
+  // ── Legend card — 12th slot (row 2, col 3, always empty) ─────────────────
+  {
+    const legCardX = MARGIN + 3 * (MONTH_W + 3)
+    const legCardY = startY + 2 * rowStep
+    const legCardW = MONTH_W
+    const legCardH = MONTH_H + NOTES_H
+    const LEG_HEADER_H = 8
+
+    // Card shadow + background (same style as month cards)
+    doc.setFillColor(190, 198, 212)
+    doc.setGState(doc.GState({ opacity: 0.3 }))
+    doc.roundedRect(legCardX + 0.6, legCardY + 0.6, legCardW, legCardH, 1.5, 1.5, 'F')
+    doc.setGState(doc.GState({ opacity: 1.0 }))
+    doc.setFillColor(247, 249, 252)
+    doc.roundedRect(legCardX, legCardY, legCardW, legCardH, 1.5, 1.5, 'F')
+
+    // Header bar — same dark navy gradient as month headers
+    const steps = Math.ceil(legCardW)
+    const r1 = 26, g1 = 46, b1 = 74, r2 = 36, g2 = 61, b2 = 95
+    for (let s = 0; s < steps; s++) {
+      const t = s / Math.max(steps - 1, 1)
+      doc.setFillColor(Math.round(r1 + (r2 - r1) * t), Math.round(g1 + (g2 - g1) * t), Math.round(b1 + (b2 - b1) * t))
+      doc.rect(legCardX + (s / steps) * legCardW, legCardY, legCardW / steps + 0.1, LEG_HEADER_H, 'F')
+    }
+    // Accent underline on header
+    doc.setFillColor(ar, ag, ab)
+    doc.rect(legCardX, legCardY + LEG_HEADER_H - 1.5, legCardW, 1.5, 'F')
+    // "LEGEND" title
+    doc.setTextColor(255, 255, 255)
+    doc.setFontSize(7); doc.setFont(titleFont, 'bold')
+    doc.text('Legend', legCardX + 2, legCardY + 5.8)
+
+    // Category rows — 2-column layout, row height adapts to available space
+    const visibleCats = categories.filter(c => c.visible && c.id !== 'rosh-chodesh')
+    const halfLen = Math.ceil(visibleCats.length / 2)
+    const colW2 = legCardW / 2
+    const availH = legCardH - LEG_HEADER_H - 4   // usable height below header
+    // Scale rowH to ensure all rows fit; cap at 7mm, floor at 4mm
+    const rowH2 = Math.min(7, Math.max(4, availH / halfLen))
+    const swatchH = Math.min(4.5, rowH2 - 0.8)
+    const fontSize = rowH2 >= 6 ? 5.5 : 5
+    const itemStartY = legCardY + LEG_HEADER_H + 2.5
+
+    doc.setFontSize(fontSize); doc.setFont('helvetica', 'bold')
+    visibleCats.forEach((cat, i) => {
+      const lcol = i < halfLen ? 0 : 1
+      const lrow = i < halfLen ? i : i - halfLen
+      const ix = legCardX + lcol * colW2 + 3
+      const iy = itemStartY + lrow * rowH2
+      if (iy + swatchH > legCardY + legCardH - 1) return   // clip guard
+      const [cr, cg, cb] = hexToRgbLocal(minimalColorOverrides[cat.id] || cat.color || '#999')
+      doc.setFillColor(cr, cg, cb)
+      doc.roundedRect(ix, iy, 4.5, swatchH, 0.6, 0.6, 'F')
+      doc.setTextColor(45, 55, 72)
+      doc.text(cat.name, ix + 6.5, iy + swatchH * 0.72, { maxWidth: colW2 - 10 })
+    })
   }
 
-  // Legend strip at bottom — solid rounded rect swatches matching cell style
-  const legY = PAGE_H - 7
-  doc.setFillColor(248, 249, 252); doc.rect(0, legY - 2, PAGE_W, 10, 'F')
-  doc.setDrawColor(220, 220, 220); doc.setLineWidth(0.2); doc.line(0, legY - 2, PAGE_W, legY - 2)
-  let legX = MARGIN
-  categories.filter(c => c.visible && c.id !== 'rosh-chodesh').slice(0, 8).forEach(cat => {
-    const [cr, cg, cb] = hexToRgbLocal(cat.color || '#999')
-    doc.setFillColor(cr, cg, cb)
-    doc.roundedRect(legX, legY - 1.5, 8, 5, 0.5, 0.5, 'F')
-    doc.setTextColor(60, 60, 60); doc.setFontSize(5); doc.setFont('helvetica', 'bold')
-    doc.text(cat.name, legX + 10, legY + 2)
-    legX += doc.getTextWidth(cat.name) + 16
-  })
+  // ── Bottom events panel ───────────────────────────────────────────────────
+  if (showBottomPanel && bottomLayoutMin) {
+    const panelY = startY + 3 * rowStep + 2   // 2mm gap between grid and panel
+    drawBottomEventsPanel(doc, categories, panelY, PAGE_W, MARGIN, 0, bottomLayoutMin, settings)
+  }
 
   if (preview) return doc.output('datauristring')
   const fname = `${(schoolInfo.name || 'Calendar').replace(/\s+/g, '-')}-Minimal.pdf`
@@ -2011,11 +2173,13 @@ async function exportYearAtAGlance(state, { preview, theme, doc, titleFont, shab
   const { events, categories, schoolInfo, settings } = state
   const [pr, pg, pb] = hexToRgbLocal(theme.primary)
   const [ar, ag, ab] = hexToRgbLocal(theme.accent)
-  const PAGE_W = 297, PAGE_H = 210, MARGIN = 5
-  const COLS = 4, ROWS = 3  // 4×3 = 12 slots for 11 months, June no longer cut off
-  const MONTH_W = (PAGE_W - MARGIN * 2 - (COLS - 1) * 2) / COLS
-  const HEADER_H = 12
-  const MONTH_H = (PAGE_H - HEADER_H - MARGIN * 2 - (ROWS - 1) * 2) / ROWS
+  const PAGE_W = 297, PAGE_H = 210, MARGIN = 7
+  const COLS = 4, ROWS = 3
+  const COL_GAP = 3.5, ROW_GAP = 3.5
+  const HEADER_H = 14
+  const LEGEND_H = 10
+  const MONTH_W = (PAGE_W - MARGIN * 2 - (COLS - 1) * COL_GAP) / COLS
+  const MONTH_H = (PAGE_H - HEADER_H - 3 - (LEGEND_H + 2) - (ROWS - 1) * ROW_GAP) / ROWS
 
   // Pre-compute circular logo
   let circLogoGlance = null
@@ -2023,17 +2187,15 @@ async function exportYearAtAGlance(state, { preview, theme, doc, titleFont, shab
 
   // Page header
   doc.setFillColor(pr, pg, pb); doc.rect(0, 0, PAGE_W, HEADER_H, 'F')
-  doc.setFillColor(ar, ag, ab); doc.rect(0, HEADER_H - 1.5, PAGE_W, 1.5, 'F')
-  if (circLogoGlance) doc.addImage(circLogoGlance, 'PNG', MARGIN, 1, 9, 9)
-  // Draw year label first (right-aligned anchor) — fixes "202" truncation from Letter/A4 mismatch
+  doc.setFillColor(ar, ag, ab); doc.rect(0, HEADER_H - 2, PAGE_W, 2, 'F')
+  if (circLogoGlance) doc.addImage(circLogoGlance, 'PNG', MARGIN, 2, 10, 10)
   const glanceYearStr = `Year at a Glance  ·  ${settings.academicYear || '2026-2027'}`
-  doc.setTextColor(ar, ag, ab); doc.setFontSize(7); doc.setFont(titleFont, 'normal')
-  doc.text(glanceYearStr, PAGE_W - MARGIN - 2, 8, { align: 'right' })
-  // School name — maxWidth leaves room for year label
-  doc.setTextColor(255, 255, 255); doc.setFontSize(9); doc.setFont(titleFont, 'bold')
-  const glanceTitleX = circLogoGlance ? MARGIN + 11 : MARGIN + 2
+  doc.setTextColor(ar, ag, ab); doc.setFontSize(8); doc.setFont(titleFont, 'normal')
+  doc.text(glanceYearStr, PAGE_W - MARGIN - 2, 9, { align: 'right' })
+  doc.setTextColor(255, 255, 255); doc.setFontSize(11); doc.setFont(titleFont, 'bold')
+  const glanceTitleX = circLogoGlance ? MARGIN + 13 : MARGIN + 2
   const glanceYearW = doc.getTextWidth(glanceYearStr)
-  doc.text(settings.calendarTitle || schoolInfo.name || 'Academic Calendar', glanceTitleX, 8, {
+  doc.text(settings.calendarTitle || schoolInfo.name || 'Academic Calendar', glanceTitleX, 9, {
     maxWidth: PAGE_W - glanceTitleX - glanceYearW - MARGIN - 4
   })
 
@@ -2044,29 +2206,79 @@ async function exportYearAtAGlance(state, { preview, theme, doc, titleFont, shab
     doc.setGState(doc.GState({ opacity: 1.0 }))
   }
 
-  const startY = HEADER_H + 2
+  const startY = HEADER_H + 3
+  const glanceColorOverrides = {
+    'no-school':       '#D9534F',
+    'early-dismissal': '#E8A838',
+    'staff':           '#7B68B5',
+    'school-event':    '#3D7EBF',
+    'chanukah':        '#E07B39',
+    'hebrew-only':     '#4A9E6F',
+  }
   getAcademicMonths(settings.academicYear).forEach(({ year, month }, idx) => {
     const col = idx % COLS; const row = Math.floor(idx / COLS)
-    const mx = MARGIN + col * (MONTH_W + 2)
-    const my = startY + row * (MONTH_H + 2)
+    const mx = MARGIN + col * (MONTH_W + COL_GAP)
+    const my = startY + row * (MONTH_H + ROW_GAP)
     drawMiniMonth(doc, { year, month }, events, categories, settings, {
       x: mx, y: my, w: MONTH_W, h: MONTH_H, pr, pg, pb, ar, ag, ab, titleFont, shabbatLabel,
-      glanceMode: true,
+      glanceMode: true, colorOverrides: glanceColorOverrides,
     })
   })
 
-  // Legend — solid rounded rect swatches matching cell style
-  const legY = PAGE_H - 6
-  doc.setFillColor(248, 249, 252); doc.rect(0, legY - 2, PAGE_W, 9, 'F')
-  doc.setDrawColor(220, 220, 220); doc.setLineWidth(0.2); doc.line(0, legY - 2, PAGE_W, legY - 2)
-  let lx = MARGIN
-  categories.filter(c => c.visible && c.id !== 'rosh-chodesh').slice(0, 10).forEach(cat => {
-    const [cr, cg, cb] = hexToRgbLocal(cat.color || '#999')
+  // 12th slot — school contact block (idx 11, col 3 row 2)
+  const infoX = MARGIN + 3 * (MONTH_W + COL_GAP)
+  const infoY = startY + 2 * (MONTH_H + ROW_GAP)
+  doc.setFillColor(pr, pg, pb)
+  doc.roundedRect(infoX, infoY, MONTH_W, MONTH_H, 1.5, 1.5, 'F')
+  doc.setFillColor(ar, ag, ab)
+  doc.rect(infoX, infoY + MONTH_H - 2.5, MONTH_W, 2.5, 'F')
+  const infoMidX = infoX + MONTH_W / 2
+  let infoTy = infoY
+  if (circLogoGlance) {
+    const logoSz = Math.min(MONTH_W * 0.32, MONTH_H * 0.32)
+    doc.addImage(circLogoGlance, 'PNG', infoMidX - logoSz / 2, infoY + 5, logoSz, logoSz)
+    infoTy = infoY + 5 + logoSz + 5
+  } else {
+    infoTy = infoY + MONTH_H * 0.22
+  }
+  doc.setTextColor(255, 255, 255); doc.setFontSize(7.5); doc.setFont(titleFont, 'bold')
+  const schoolDisplayName = settings.calendarTitle || schoolInfo.name || ''
+  const nameLines = doc.splitTextToSize(schoolDisplayName, MONTH_W - 8)
+  nameLines.slice(0, 2).forEach(line => {
+    doc.text(line, infoMidX, infoTy, { align: 'center' }); infoTy += 5
+  })
+  if (schoolInfo.address) {
+    doc.setTextColor(ar, ag, ab); doc.setFontSize(5); doc.setFont('helvetica', 'normal')
+    infoTy += 1
+    const addrLines = doc.splitTextToSize(schoolInfo.address, MONTH_W - 8)
+    addrLines.slice(0, 2).forEach(line => {
+      doc.text(line, infoMidX, infoTy, { align: 'center' }); infoTy += 3.5
+    })
+  }
+  if (schoolInfo.phone) {
+    doc.setTextColor(ar, ag, ab); doc.setFontSize(4.8); doc.setFont('helvetica', 'normal')
+    doc.text(schoolInfo.phone, infoMidX, infoTy, { align: 'center' }); infoTy += 3.5
+  }
+  if (schoolInfo.website) {
+    doc.setTextColor(ar, ag, ab); doc.setFontSize(4.8); doc.setFont('helvetica', 'italic')
+    doc.text(schoolInfo.website, infoMidX, infoY + MONTH_H - 6, { align: 'center' })
+  }
+
+  // Legend
+  const legAreaY = PAGE_H - LEGEND_H - 1
+  doc.setFillColor(248, 249, 252); doc.rect(0, legAreaY, PAGE_W, LEGEND_H + 1, 'F')
+  doc.setDrawColor(210, 210, 215); doc.setLineWidth(0.3); doc.line(0, legAreaY, PAGE_W, legAreaY)
+  const PILL_W = 14, PILL_H = 5, PILL_R = 1.2
+  const legItemY = legAreaY + (LEGEND_H - PILL_H) / 2
+  let lx = MARGIN + 2
+  categories.filter(c => c.visible && c.id !== 'rosh-chodesh').slice(0, 9).forEach(cat => {
+    const colorHex = glanceColorOverrides[cat.id] || cat.color || '#999'
+    const [cr, cg, cb] = hexToRgbLocal(colorHex)
     doc.setFillColor(cr, cg, cb)
-    doc.roundedRect(lx, legY - 1.5, 7, 4.5, 0.4, 0.4, 'F')
-    doc.setTextColor(60, 60, 60); doc.setFontSize(4.5); doc.setFont('helvetica', 'bold')
-    doc.text(cat.name, lx + 9, legY + 1.8)
-    lx += doc.getTextWidth(cat.name) + 15
+    doc.roundedRect(lx, legItemY, PILL_W, PILL_H, PILL_R, PILL_R, 'F')
+    doc.setTextColor(50, 50, 50); doc.setFontSize(5.5); doc.setFont('helvetica', 'normal')
+    doc.text(cat.name, lx + PILL_W + 2.5, legItemY + PILL_H - 1)
+    lx += PILL_W + doc.getTextWidth(cat.name) + 9
   })
 
   if (preview) return doc.output('datauristring')
@@ -2086,7 +2298,9 @@ async function exportDarkElegant(state, { preview, theme, doc, titleFont, shabba
   const showBottomPanel = settings.eventsPanel === 'bottom'
   const maxEvDE = showBottomPanel ? 0 : computeMaxEventsPerMonth(events, settings.academicYear)
   const NOTES_H = showBottomPanel ? 0 : Math.min(Math.max(8, maxEvDE * 2.2 + 2), 22)
-  const BOTTOM_H = showBottomPanel ? 26 : 0
+  const bpPanelWDE = PAGE_W - MARGIN * 2 - SIDEBAR_W - 2
+  const bottomLayoutDE = showBottomPanel ? bpComputeLayout(doc, events, settings.academicYear, bpPanelWDE, 80) : null
+  const BOTTOM_H = showBottomPanel ? (bottomLayoutDE?.panelH || 26) : 0
   const catMapDE = {}; categories.forEach(c => { catMapDE[c.id] = c })
   const MONTH_H = (PAGE_H - HEADER_H - MARGIN - 6 - BOTTOM_H) / 3 - (showBottomPanel ? 0 : NOTES_H)
   const BG = [15, 20, 38], CARD = [24, 32, 58], TEXC = [215, 225, 245]
@@ -2182,9 +2396,9 @@ async function exportDarkElegant(state, { preview, theme, doc, titleFont, shabba
     }
   })
 
-  if (showBottomPanel) {
+  if (showBottomPanel && bottomLayoutDE) {
     const panelY = startY + 3 * deRowStep
-    drawBottomEventsPanel(doc, events, categories, panelY, PAGE_W, MARGIN, SIDEBAR_W, BOTTOM_H, settings.academicYear)
+    drawBottomEventsPanel(doc, categories, panelY, PAGE_W, MARGIN, SIDEBAR_W, bottomLayoutDE, settings)
   }
 
   // Dark sidebar — blocks rendered using shared helper with dark theme colors
@@ -2225,7 +2439,9 @@ async function exportBulletinBoard(state, { preview, theme, doc, titleFont, shab
   const showBottomPanelBB = settings.eventsPanel === 'bottom'
   const maxEvBB = showBottomPanelBB ? 0 : computeMaxEventsPerMonth(events, settings.academicYear)
   const NOTES_H_BB = showBottomPanelBB ? 0 : Math.min(Math.max(8, maxEvBB * 2.2 + 2), 22)
-  const BOTTOM_H_BB = showBottomPanelBB ? 26 : 0
+  const bpPanelWBB = PAGE_W - MARGIN * 2 - SIDEBAR_W - 2
+  const bottomLayoutBB = showBottomPanelBB ? bpComputeLayout(doc, events, settings.academicYear, bpPanelWBB, 80) : null
+  const BOTTOM_H_BB = showBottomPanelBB ? (bottomLayoutBB?.panelH || 26) : 0
   const catMapBB = {}; categories.forEach(c => { catMapBB[c.id] = c })
   const MONTH_H = (PAGE_H - HEADER_H - MARGIN - 6 - BOTTOM_H_BB) / 3 - (showBottomPanelBB ? 0 : NOTES_H_BB)
   const PALETTE = ['#E63946','#2A9D8F','#E9800A','#264653','#6A4C93','#F4A261','#43AA8B','#577590','#E07A5F','#3D405B']
@@ -2316,9 +2532,9 @@ async function exportBulletinBoard(state, { preview, theme, doc, titleFont, shab
     }
   })
 
-  if (showBottomPanelBB) {
+  if (showBottomPanelBB && bottomLayoutBB) {
     const panelY = startY + 3 * bbRowStep
-    drawBottomEventsPanel(doc, events, categories, panelY, PAGE_W, MARGIN, SIDEBAR_W, BOTTOM_H_BB, settings.academicYear)
+    drawBottomEventsPanel(doc, categories, panelY, PAGE_W, MARGIN, SIDEBAR_W, bottomLayoutBB, settings)
   }
 
   // Sidebar — blocks rendered using shared helper

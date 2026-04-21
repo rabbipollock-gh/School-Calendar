@@ -308,25 +308,6 @@ export default function SettingsDrawer({ isOpen, onClose, onOpenCategories, onOp
                 </div>
               </div>
 
-              {/* Events Panel Position */}
-              <div>
-                <label className="text-xs font-medium text-gray-500 dark:text-gray-400 block mb-1.5">Events List Position</label>
-                <div className="flex gap-2">
-                  {[['inline', '↑ Inside Month'], ['bottom', '↓ Bottom of Page']].map(([val, label]) => (
-                    <button
-                      key={val}
-                      onClick={() => updateSettings('eventsPanel', val)}
-                      className={`flex-1 py-1.5 rounded-lg border-2 text-xs font-semibold transition ${
-                        settings.eventsPanel === val
-                          ? 'border-blue-500 bg-blue-50 text-blue-700 dark:bg-blue-900/20 dark:text-blue-300'
-                          : 'border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:border-gray-300'
-                      }`}
-                    >
-                      {label}
-                    </button>
-                  ))}
-                </div>
-              </div>
 
             </div>
           </section>
