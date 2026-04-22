@@ -31,11 +31,9 @@ export default function MonthBlock({ year, month, onOpenModal, focusedDate, onRe
     const rangeStart = firstDay ? new Date(firstDay + 'T00:00:00') : null
     const rangeEnd   = lastDay  ? new Date(lastDay  + 'T00:00:00') : null
 
-    // No-school category ids (always 'no-school', but respect custom cats too)
-    const noSchoolCatIds = new Set(categories.filter(c => c.id === 'no-school').map(c => c.id))
     const noSchoolDates = new Set(
       Object.entries(events)
-        .filter(([dk, evs]) => dk.startsWith(monthKey) && evs.some(e => noSchoolCatIds.has(e.category)))
+        .filter(([dk, evs]) => dk.startsWith(monthKey) && evs.some(e => e.category === 'no-school'))
         .map(([dk]) => dk)
     )
 
@@ -49,7 +47,7 @@ export default function MonthBlock({ year, month, onOpenModal, focusedDate, onRe
       if (!noSchoolDates.has(dk)) count++
     })
     return count
-  }, [days, events, categories, monthKey, settings.firstDayOfSchool, settings.lastDayOfSchool])
+  }, [days, events, monthKey, settings.firstDayOfSchool, settings.lastDayOfSchool])
 
   const HEADERS = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', shabbatLabel.slice(0, 3).toUpperCase()]
 

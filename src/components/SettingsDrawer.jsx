@@ -245,14 +245,17 @@ export default function SettingsDrawer({ isOpen, onClose, onOpenCategories, onOp
                   <input type="date" value={settings.lastDayOfSchool || ''} onChange={e => updateSettings('lastDayOfSchool', e.target.value)} readOnly={readOnly} className={inputCls} />
                 </Field>
               </div>
-              <div className="flex items-center justify-between">
-                <div>
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex-1 min-w-0">
                   <label className="text-sm text-gray-700 dark:text-gray-300">Show School Day Numbers</label>
-                  <p className="text-[11px] text-gray-400 dark:text-gray-500">Shows "Day 1", "Day 52", etc. in each cell</p>
+                  <p className="text-[11px] text-gray-400 dark:text-gray-500">Numbers each school day (Mon–Fri, skipping no-school days) in the calendar cells</p>
+                  {settings.showSchoolDayNumbers && (!settings.firstDayOfSchool || !settings.lastDayOfSchool) && (
+                    <p className="text-[11px] text-amber-600 dark:text-amber-400 mt-1">⚠ Set First &amp; Last Day of School above to activate</p>
+                  )}
                 </div>
                 <button
                   onClick={() => !readOnly && updateSettings('showSchoolDayNumbers', !settings.showSchoolDayNumbers)}
-                  className={`relative w-11 h-6 rounded-full transition shrink-0 ml-3 ${settings.showSchoolDayNumbers ? 'bg-emerald-500' : 'bg-gray-300'}`}
+                  className={`relative w-11 h-6 rounded-full transition shrink-0 mt-0.5 ${settings.showSchoolDayNumbers ? 'bg-emerald-500' : 'bg-gray-300'}`}
                 >
                   <span className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-all ${settings.showSchoolDayNumbers ? 'left-5' : 'left-0.5'}`} />
                 </button>

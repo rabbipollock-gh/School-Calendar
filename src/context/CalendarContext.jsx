@@ -6,7 +6,8 @@ import { nanoid } from '../utils/nanoid.js'
 import { getSharedState } from '../utils/shareUrl.js'
 import { getSchoolCode } from '../utils/schoolCode.js'
 import { getTheme, applyThemeToCss } from '../utils/themeUtils.js'
-import { loadFromCloud, saveToCloud, debounce } from '../lib/supabaseSync.js'
+import { loadFromCloud, saveToCloud, loadAllCalendarsFromCloud, debounce } from '../lib/supabaseSync.js'
+import { upsertCalendarEntry, adoptExistingCalendarIfNeeded, seedIndexFromCloud } from '../utils/calendarManager.js'
 import { useAuth } from './AuthContext.jsx'
 import { logger } from '../utils/logger.js'
 
@@ -146,6 +147,10 @@ function saveToStorage(state) {
   const { undoPast, undoFuture, ...toSave } = state
   try {
     localStorage.setItem(getStorageKey(), JSON.stringify(toSave))
+    upsertCalendarEntry(getSchoolCode() || 'default', {
+      name: toSave.schoolInfo?.name || 'My Calendar',
+      academicYear: toSave.settings?.academicYear || '',
+    })
   } catch (e) {
     if (e?.name === 'QuotaExceededError' || e?.code === 22) {
       // Storage full — likely due to large logo. Save without logo as fallback.
@@ -387,12 +392,19 @@ export function CalendarProvider({ children, readOnly = false }) {
     logger.debug('sync', 'sync effect fired', { userId, hasSharedState: !!sharedState })
     if (sharedState || !userId) return
 
-    loadFromCloud(userId).then(cloud => {
+    const slug = getSchoolCode() || 'default'
+    loadFromCloud(userId, slug).then(async cloud => {
+      // Seed local index from all cloud calendars on every login
+      try {
+        const allEntries = await loadAllCalendarsFromCloud(userId)
+        if (allEntries) seedIndexFromCloud(allEntries)
+      } catch {}
+
       if (!cloud) {
         const hasLocalEvents = Object.keys(state.events || {}).length > 0
         if (hasLocalEvents) {
           logger.info('sync', 'no cloud data — uploading local state with events')
-          saveToCloud(userId, state).then(() => {
+          saveToCloud(userId, slug, state).then(() => {
             setCloudToast('synced')
             setTimeout(() => setCloudToast(null), 3500)
           })
@@ -431,10 +443,16 @@ export function CalendarProvider({ children, readOnly = false }) {
   useEffect(() => {
     if (sharedState || !userId) return
     if (!debouncedSaveRef.current) {
-      debouncedSaveRef.current = debounce((s, uid) => saveToCloud(uid, s), 2000)
+      debouncedSaveRef.current = debounce((s, uid, sl) => saveToCloud(uid, sl, s), 2000)
     }
-    debouncedSaveRef.current(state, userId)
+    debouncedSaveRef.current(state, userId, getSchoolCode() || 'default')
   }, [state, userId, sharedState]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── One-time migration: register existing calendar in index on first load ──
+  useEffect(() => {
+    if (sharedState) return
+    adoptExistingCalendarIfNeeded(getSchoolCode() || 'default', state)
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Apply theme CSS variables whenever theme changes ───────────────────────
   useEffect(() => {
@@ -475,9 +493,6 @@ export function CalendarProvider({ children, readOnly = false }) {
   const schoolDayMap = useMemo(() => {
     const { showSchoolDayNumbers, firstDayOfSchool, lastDayOfSchool } = state.settings
     if (!showSchoolDayNumbers || !firstDayOfSchool || !lastDayOfSchool) return {}
-    const noSchoolCatIds = new Set(
-      state.categories.filter(c => c.id === 'no-school').map(c => c.id)
-    )
     const map = {}
     let count = 0
     const cur = new Date(firstDayOfSchool + 'T00:00:00')
@@ -486,13 +501,13 @@ export function CalendarProvider({ children, readOnly = false }) {
       const dow = cur.getDay()
       if (dow !== 0 && dow !== 6) {
         const dk = `${cur.getFullYear()}-${String(cur.getMonth()+1).padStart(2,'0')}-${String(cur.getDate()).padStart(2,'0')}`
-        const isNoSchool = (state.events[dk] || []).some(e => noSchoolCatIds.has(e.category))
+        const isNoSchool = (state.events[dk] || []).some(e => e.category === 'no-school')
         if (!isNoSchool) map[dk] = ++count
       }
       cur.setDate(cur.getDate() + 1)
     }
     return map
-  }, [state.settings.showSchoolDayNumbers, state.settings.firstDayOfSchool, state.settings.lastDayOfSchool, state.events, state.categories])
+  }, [state.settings.showSchoolDayNumbers, state.settings.firstDayOfSchool, state.settings.lastDayOfSchool, state.events])
 
   function acceptCloudVersion() {
     if (!newerCloudState) return

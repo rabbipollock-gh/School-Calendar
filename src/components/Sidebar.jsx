@@ -1,6 +1,7 @@
 import React, { useRef } from 'react'
 import { useCalendar } from '../context/CalendarContext.jsx'
 import { parseCSV } from '../utils/importCSV.js'
+import { formatDateKey } from '../utils/dateUtils.js'
 
 function getInitials(name) {
   return (name || 'YA')
@@ -11,19 +12,16 @@ function getInitials(name) {
     .toUpperCase()
 }
 
-function computeSchoolDays(firstDay, lastDay, events, categories) {
+function computeSchoolDays(firstDay, lastDay, events) {
   if (!firstDay || !lastDay) return null
   const start = new Date(firstDay + 'T00:00:00')
   const end   = new Date(lastDay  + 'T00:00:00')
   if (isNaN(start) || isNaN(end) || end < start) return null
 
   // Collect all date keys that have at least one no-school event
-  const noSchoolCatIds = new Set(
-    categories.filter(c => c.id === 'no-school').map(c => c.id)
-  )
   const noSchoolDates = new Set()
   Object.entries(events).forEach(([dateKey, evs]) => {
-    if (evs.some(e => noSchoolCatIds.has(e.category))) {
+    if (evs.some(e => e.category === 'no-school')) {
       noSchoolDates.add(dateKey)
     }
   })
@@ -35,8 +33,7 @@ function computeSchoolDays(firstDay, lastDay, events, categories) {
     const dow = cur.getDay() // 0=Sun, 6=Sat
     if (dow !== 0 && dow !== 6) {
       total++
-      const key = cur.toISOString().slice(0, 10)
-      if (noSchoolDates.has(key)) noSchoolCount++
+      if (noSchoolDates.has(formatDateKey(cur))) noSchoolCount++
     }
     cur.setDate(cur.getDate() + 1)
   }
@@ -50,8 +47,8 @@ export default function Sidebar({ onOpenCategories, onOpenSettings, onOpenBulk }
   const [importToast, setImportToast] = React.useState(null)
 
   const schoolDayStats = React.useMemo(
-    () => computeSchoolDays(settings.firstDayOfSchool, settings.lastDayOfSchool, state.events, categories),
-    [settings.firstDayOfSchool, settings.lastDayOfSchool, state.events, categories]
+    () => computeSchoolDays(settings.firstDayOfSchool, settings.lastDayOfSchool, state.events),
+    [settings.firstDayOfSchool, settings.lastDayOfSchool, state.events]
   )
 
   const handleImportFile = (e) => {
