@@ -18,6 +18,8 @@ import TemplateSelector from './components/TemplateSelector.jsx'
 import PDFPreviewModal from './components/PDFPreviewModal.jsx'
 import CollabModal from './components/CollabModal.jsx'
 import DiagnosticsModal from './components/DiagnosticsModal.jsx'
+import CalendarManagerModal from './components/CalendarManagerModal.jsx'
+import YayoePasswordGate, { isYayoeUnlocked } from './components/YayoePasswordGate.jsx'
 
 // Initialize error log interception as early as possible
 import './utils/errorLog.js'
@@ -27,6 +29,7 @@ export default function App() {
   const { state, isSharedView, cloudToast, acceptCloudVersion, dismissCloudToast } = useCalendar()
 
   // All hooks must come before any conditional returns (Rules of Hooks)
+  const [yayoeUnlocked, setYayoeUnlocked] = useState(isYayoeUnlocked)
   const [modalDate, setModalDate] = useState(null)
   const [bulkOpen, setBulkOpen] = useState(false)
   const [searchOpen, setSearchOpen] = useState(false)
@@ -38,6 +41,7 @@ export default function App() {
   const [pdfPreviewOpen, setPdfPreviewOpen] = useState(false)
   const [collabOpen, setCollabOpen] = useState(false)
   const [diagnosticsOpen, setDiagnosticsOpen] = useState(false)
+  const [calendarManagerOpen, setCalendarManagerOpen] = useState(false)
   const [highlightDate, setHighlightDate] = useState(null)
 
   // Keyboard shortcut: Cmd+K opens search
@@ -87,6 +91,7 @@ export default function App() {
   )
 
   if (needsAuth) return <AuthGate />
+  if (isYayoe && !session && !yayoeUnlocked) return <YayoePasswordGate onUnlock={() => setYayoeUnlocked(true)} />
   if (isNewUser) return <OnboardingWizard />
   const { events } = state
 
@@ -101,6 +106,7 @@ export default function App() {
         onOpenHolidays={() => setHolidaysOpen(true)}
         onPreviewPDF={() => setPdfPreviewOpen(true)}
         onOpenCollab={() => setCollabOpen(true)}
+        onOpenCalendarManager={() => setCalendarManagerOpen(true)}
         conflictCount={conflictCount}
       />
 
@@ -235,6 +241,10 @@ export default function App() {
 
       {diagnosticsOpen && (
         <DiagnosticsModal onClose={() => setDiagnosticsOpen(false)} />
+      )}
+
+      {calendarManagerOpen && (
+        <CalendarManagerModal onClose={() => setCalendarManagerOpen(false)} />
       )}
 
       {/* Shared view banner (mobile) */}

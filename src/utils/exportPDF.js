@@ -743,7 +743,8 @@ function bpComputeLayout(doc, events, academicYear, panelW, maxPanelH = 110, inc
 }
 
 // Render the bottom events panel using a pre-computed layout from bpComputeLayout().
-function drawBottomEventsPanel(doc, categories, y, pageW, margin, sidebarW, layout, settings) {
+// opts: { titleColor, colBorderColor, colBorderWidth, colBorderAll }
+function drawBottomEventsPanel(doc, categories, y, pageW, margin, sidebarW, layout, settings, opts = {}) {
   const MONTH_ABBR = ['Aug','Sep','Oct','Nov','Dec','Jan','Feb','Mar','Apr','May','Jun']
   const catMap = {}
   categories.forEach(c => { catMap[c.id] = c })
@@ -752,14 +753,19 @@ function drawBottomEventsPanel(doc, categories, y, pageW, margin, sidebarW, layo
   const panelY       = y
   const contentBound = panelY + panelH - BP_BOTTOM_PAD   // hard lower boundary for all content
 
+  const titleRgb     = opts.titleColor      || [232, 182, 76]
+  const colBdrRgb    = opts.colBorderColor  || [45, 65, 95]
+  const colBdrW      = opts.colBorderWidth  != null ? opts.colBorderWidth : 0.25
+  const colBdrAll    = !!opts.colBorderAll
+
   // Panel background — slightly lighter navy so accent colors read more vividly
   doc.setFillColor(26, 38, 64)   // #1A2640
   doc.roundedRect(margin, panelY, panelW, panelH, 2, 2, 'F')
 
-  // Panel title — 10pt bold gold, uppercase
+  // Panel title — 10pt bold, uppercase
   doc.setFontSize(10)
   doc.setFont('helvetica', 'bold')
-  doc.setTextColor(232, 182, 76)  // #E8B64C
+  doc.setTextColor(...titleRgb)
   doc.text('EVENTS BY MONTH', margin + 4, panelY + 9)
 
   const colW = panelW / columns.length
@@ -768,10 +774,10 @@ function drawBottomEventsPanel(doc, categories, y, pageW, margin, sidebarW, layo
   columns.forEach((groups, ci) => {
     const colX = margin + ci * colW
 
-    // Column separator — subtle vertical rule
-    if (ci > 0) {
-      doc.setDrawColor(45, 65, 95)
-      doc.setLineWidth(0.25)
+    // Column separator / left border
+    if (ci > 0 || colBdrAll) {
+      doc.setDrawColor(...colBdrRgb)
+      doc.setLineWidth(colBdrW)
       doc.line(colX, panelY + 3, colX, panelY + panelH - 3)
     }
 
@@ -2288,40 +2294,254 @@ async function exportYearAtAGlance(state, { preview, theme, doc, titleFont, shab
 // ────────────────────────────────────────────────────────────────────────────
 // STYLE 5: DARK ELEGANT — dark navy background, accent headers
 // ────────────────────────────────────────────────────────────────────────────
+// ── Dark-Elegant helpers (private to this style) ─────────────────────────────
+
+// Abbreviate event labels to fit inside small calendar grid cells.
+// Longer-match entries MUST come before shorter substrings (e.g. "chanukah dismissal" before "chanukah").
+function deAbbrevLabel(label) {
+  const lower = label.toLowerCase()
+  const ABBREVS = [
+    // ── Exact / priority matches (longer strings first) ──────────────────────
+    ['preschool first full day', 'Pre-K'],
+    ['preschool half day',       'Pre-K'],
+    ['back to school night',     'BTSN'],
+    ['erev rosh hashana',        'Erev R.H.'],
+    ['erev rosh hashanah',       'Erev R.H.'],
+    ['rosh hashana',             'R. Hashana'],
+    ['rosh hashanah',            'R. Hashana'],
+    ['tzom gedalya',             'Tzom Ged.'],
+    ['tzom gedalyah',            'Tzom Ged.'],
+    ['yom kippur',               'Yom Kip.'],
+    ['sukkos break',             'Sukkos Brk'],
+    ['sukkot break',             'Sukkos Brk'],
+    ['school resumes',           'Resumes'],
+    ['winter break',             'Winter Brk'],
+    ['winter recess',            'Winter Brk'],
+    ['pesach break',             'Pesach Brk'],
+    ['chanukah dismissal',       'Chan. Dis.'],
+    ['chanukah',                 'Chanukah'],
+    ['new year\'s hebrew only',  "New Year's"],
+    ['thanksgiving hebrew only', 'Thanks.'],
+    ['taanis esther',            'Taanis Est.'],
+    ['shushan purim',            'Shush. P.'],
+    ['erev shavuos',             'Erev Shav.'],
+    ['erev shavuot',             'Erev Shav.'],
+    ['graduation',               'Graduation'],
+    ['last day',                 'Last Day'],
+    // ── General patterns ─────────────────────────────────────────────────────
+    ['in-service',               'In-Svc'],
+    ['professional development', 'Prof. Dev.'],
+    ['shemini atzeret',          'Sh. Atz.'],
+    ['simchat torah',            'Sim. Torah'],
+    ['sukkot',                   'Sukkot'],
+    ['purim',                    'Purim'],
+    ['pesach',                   'Pesach'],
+    ['shavuot',                  'Shavuot'],
+    ['spring break',             'Spring Brk'],
+    ['spring recess',            'Spring Brk'],
+    ['parent teacher',           'PT Conf.'],
+    ['no school',                'No School'],
+    ['early dismissal',          'Early Dis.'],
+    ['3:45 dismissal',           '3:45 Dis.'],
+  ]
+  for (const [key, abbr] of ABBREVS) { if (lower.includes(key)) return abbr }
+  if (label.length > 11) return label.slice(0, 10) + '\u2026'
+  return label
+}
+
+// Dark-themed notes strip with proper contrast and increased line spacing
+function deDarkNotesStrip(doc, events, catMap, x, y, w, h, year, month, colorOverrides) {
+  const CARD = [24, 32, 58], TEXC = [203, 213, 224], GRID_LINE = [46, 64, 96]
+  doc.setFillColor(...CARD); doc.rect(x, y, w, h, 'F')
+  doc.setDrawColor(...GRID_LINE); doc.setLineWidth(0.5); doc.line(x, y, x + w, y)
+  const days = getDaysInMonth(year, month)
+  const notesEvents = {}
+  days.forEach(date => {
+    const dateKey = formatDateKey(date)
+    ;(events[dateKey] || []).filter(e => e.category !== 'rosh-chodesh').forEach(ev => {
+      const key = `${ev.category}::${ev.label}`
+      if (!notesEvents[key]) notesEvents[key] = { ev, dates: [] }
+      notesEvents[key].dates.push(dateKey)
+    })
+  })
+  let lineY = y + 3.2; const lineSpacing = 2.6; const maxY = y + h - 1
+  doc.setFontSize(4.5); doc.setFont('helvetica', 'normal')
+  for (const { ev, dates } of Object.values(notesEvents)) {
+    if (lineY > maxY) break
+    const cat = catMap[ev.category]
+    const colorHex = colorOverrides[ev.category] || ev.color || cat?.color || '#999'
+    const [r, g, b] = hexToRgbLocal(colorHex)
+    doc.setFillColor(r, g, b); doc.circle(x + 1.3, lineY - 0.7, 0.75, 'F')
+    const groups = groupConsecutiveDates([...dates].sort())
+    const rangeStr = formatRangeGroups(groups)
+    doc.setTextColor(...TEXC)
+    doc.text(`${rangeStr} | ${ev.label}`, x + 3, lineY, { maxWidth: w - 3.8 })
+    lineY += lineSpacing + 0.5
+  }
+}
+
+// Dark-mode sidebar block renderer (gold headers, pill swatches, gold website link)
+function deDarkSidebarBlock(doc, blockId, startY, { sbX, sbCx, SIDEBAR_W, GOLD, TEXC, schoolInfo, categories, DE_COLORS }) {
+  const [ar, ag, ab] = GOLD; const [tr, tg, tb] = TEXC
+  let y = startY; const ruleW = SIDEBAR_W * 0.8
+  switch (blockId) {
+    case 'hours': {
+      const hourLines = (schoolInfo.hours || '').split('\n').filter(l => l.trim())
+      if (!hourLines.length) return y
+      doc.setTextColor(ar, ag, ab); doc.setFontSize(7); doc.setFont('helvetica', 'bold')
+      doc.text('SCHOOL HOURS', sbCx, y, { align: 'center' })
+      doc.setDrawColor(ar, ag, ab); doc.setLineWidth(0.5)
+      doc.line(sbCx - ruleW / 2, y + 2, sbCx + ruleW / 2, y + 2)
+      y += 6
+      doc.setFont('helvetica', 'normal'); doc.setFontSize(5); doc.setTextColor(tr, tg, tb)
+      hourLines.forEach((line, i) => doc.text(line.trim(), sbCx, y + i * 5.5, { align: 'center', maxWidth: SIDEBAR_W - 4 }))
+      y += hourLines.length * 5.5 + 6
+      doc.setDrawColor(ar, ag, ab); doc.setLineWidth(0.4)
+      doc.line(sbX + 4, y, sbX + SIDEBAR_W - 4, y)
+      return y + 7
+    }
+    case 'legend': {
+      const visibleCats = categories.filter(c => c.visible && c.id !== 'rosh-chodesh')
+      if (!visibleCats.length) return y
+      doc.setTextColor(ar, ag, ab); doc.setFontSize(7); doc.setFont('helvetica', 'bold')
+      doc.text('LEGEND', sbCx, y, { align: 'center' })
+      doc.setDrawColor(ar, ag, ab); doc.setLineWidth(0.5)
+      doc.line(sbCx - ruleW / 2, y + 2, sbCx + ruleW / 2, y + 2)
+      y += 6
+      visibleCats.forEach((cat) => {
+        const colorHex = DE_COLORS[cat.id] || cat.color || '#999'
+        const [r, g, b] = hexToRgbLocal(colorHex)
+        // 12×12px swatch ≈ 3.2×3.2mm, 3px radius corners
+        doc.setFillColor(r, g, b); doc.roundedRect(sbX + 3, y - 3.0, 3.2, 3.2, 0.8, 0.8, 'F')
+        doc.setTextColor(tr, tg, tb); doc.setFontSize(8); doc.setFont('helvetica', 'normal')
+        const labelLines = doc.splitTextToSize(cat.name, SIDEBAR_W - 10)
+        labelLines.slice(0, 2).forEach((line, li) => doc.text(line, sbX + 7.5, y - 0.3 + li * 4.8))
+        y += Math.max(6.5, labelLines.slice(0, 2).length * 4.8 + 1.5)
+      })
+      y += 4
+      doc.setDrawColor(ar, ag, ab); doc.setLineWidth(0.4)
+      doc.line(sbX + 4, y, sbX + SIDEBAR_W - 4, y)
+      return y + 7
+    }
+    case 'otherInfo': {
+      if (!schoolInfo.otherInfo) return y
+      const lines = doc.splitTextToSize(schoolInfo.otherInfo, SIDEBAR_W - 6).slice(0, 4)
+      doc.setFontSize(4.5); doc.setFont('helvetica', 'normal'); doc.setTextColor(tr, tg, tb)
+      lines.forEach((line, i) => doc.text(line, sbCx, y + i * 5, { align: 'center' }))
+      y += lines.length * 5 + 4
+      doc.setDrawColor(ar, ag, ab); doc.setLineWidth(0.4)
+      doc.line(sbX + 4, y, sbX + SIDEBAR_W - 4, y)
+      return y + 7
+    }
+    case 'contact': {
+      doc.setFont('helvetica', 'normal'); doc.setFontSize(5); doc.setTextColor(tr, tg, tb)
+      if (schoolInfo.address) {
+        const addrLines = doc.splitTextToSize(schoolInfo.address, SIDEBAR_W - 6)
+        addrLines.forEach((line, i) => doc.text(line, sbCx, y + i * 4.5, { align: 'center' }))
+        y += addrLines.length * 4.5 + 1
+      }
+      if (schoolInfo.phone) { doc.text(`Tel: ${schoolInfo.phone}`, sbCx, y, { align: 'center' }); y += 5 }
+      if (schoolInfo.fax) { doc.text(`Fax: ${schoolInfo.fax}`, sbCx, y, { align: 'center' }); y += 5 }
+      if (schoolInfo.email) { doc.text(schoolInfo.email, sbCx, y, { align: 'center', maxWidth: SIDEBAR_W - 6 }); y += 5 }
+      if (schoolInfo.website) {
+        // Website URL in gold (only item styled this way per design spec)
+        doc.setTextColor(ar, ag, ab); doc.setFont('helvetica', 'bold')
+        doc.text(schoolInfo.website, sbCx, y, { align: 'center', maxWidth: SIDEBAR_W - 6 })
+      }
+      return y
+    }
+    default: return y
+  }
+}
+
 async function exportDarkElegant(state, { preview, theme, doc, titleFont, shabbatLabel }) {
   const { events, categories, schoolInfo, settings } = state
-  const [ar, ag, ab] = hexToRgbLocal(theme.accent)
+
+  // ── Color palette ──────────────────────────────────────────────────────────
+  const GOLD      = [201, 168, 76]   // #C9A84C — accent gold
+  const BG        = [15, 20, 38]     // dark navy page background
+  const CARD      = [24, 32, 58]     // month block background
+  const PANEL_BG  = [26, 43, 69]     // #1A2B45 — sidebar (slightly lighter than CARD)
+  const TEXC      = [203, 213, 224]  // #CBD5E0 — body text
+  const GRID_LINE = [46, 64, 96]     // #2E4060 — hairline grid
+  const SHA_TINT  = [20, 27, 50]     // subtle warm tint for entire SHA column
+  const CHARCOAL  = [58, 58, 58]     // #3A3A3A — Hebrew range secondary text
+
+  // Refined category colors optimised for dark background
+  const DE_COLORS = {
+    'no-school':       '#C0392B',
+    'early-dismissal': '#D4872A',
+    'staff':           '#7B5EA7',
+    'school-event':    '#2E7FBF',
+    'chanukah':        '#C4622D',
+    'hebrew-only':     '#2A8C6E',
+  }
+
+  const [ar, ag, ab] = GOLD
   const PAGE_W = 297, PAGE_H = 210, MARGIN = 8, SIDEBAR_W = 50
-  const GRID_W = PAGE_W - MARGIN * 2 - SIDEBAR_W
-  const MONTH_W = (GRID_W / 4) - 2
-  const HEADER_H = 18
+  const GRID_W = PAGE_W - MARGIN * 2 - SIDEBAR_W          // ~231mm
+  const GAP = 3                                            // gap between month columns
+  const MONTH_W = (GRID_W - 3 * GAP) / 4                  // ~55.5mm per month
+  const HEADER_H = 20
+  const HDR_H = 9                                          // gold month-header band height
+  const GRID_OVERHEAD = 13                                 // from month-y to first cell row
+  const ROW_GAP = 3                                        // vertical gap between rows
+
   const showBottomPanel = settings.eventsPanel === 'bottom'
-  const maxEvDE = showBottomPanel ? 0 : computeMaxEventsPerMonth(events, settings.academicYear)
-  const NOTES_H = showBottomPanel ? 0 : Math.min(Math.max(8, maxEvDE * 2.2 + 2), 22)
+  const NOTES_H = showBottomPanel ? 0 : 10                 // fixed 10mm strip — keeps cells taller
   const bpPanelWDE = PAGE_W - MARGIN * 2 - SIDEBAR_W - 2
-  const bottomLayoutDE = showBottomPanel ? bpComputeLayout(doc, events, settings.academicYear, bpPanelWDE, 80) : null
+  // includeEmpty=true ensures all 11 academic months appear in the panel
+  const bottomLayoutDE = showBottomPanel ? bpComputeLayout(doc, events, settings.academicYear, bpPanelWDE, 85, true) : null
   const BOTTOM_H = showBottomPanel ? (bottomLayoutDE?.panelH || 26) : 0
   const catMapDE = {}; categories.forEach(c => { catMapDE[c.id] = c })
-  const MONTH_H = (PAGE_H - HEADER_H - MARGIN - 6 - BOTTOM_H) / 3 - (showBottomPanel ? 0 : NOTES_H)
-  const BG = [15, 20, 38], CARD = [24, 32, 58], TEXC = [215, 225, 245]
+
+  // Per-row dynamic heights: high-density rows (e.g. September) get proportionally more space
+  const deMonths = getAcademicMonths(settings.academicYear)
+  const monthMaxEv = deMonths.map(({ year, month }) => {
+    const mDays = getDaysInMonth(year, month); let mx = 0
+    mDays.forEach(date => {
+      const cnt = (events[formatDateKey(date)] || []).filter(e => e.category !== 'rosh-chodesh').length
+      if (cnt > mx) mx = cnt
+    })
+    return mx
+  })
+  const rowMaxEv = [0, 1, 2].map(r => Math.max(0, ...monthMaxEv.slice(r * 4, r * 4 + 4)))
+  // Budget-neutral redistribution: dense rows gain height, sparse rows give it up
+  const baseMH = (PAGE_H - HEADER_H - MARGIN - 6 - BOTTOM_H - 2 * ROW_GAP) / 3 - NOTES_H
+  const rowBonus = rowMaxEv.map(mx => mx > 3 ? 3.5 : mx > 1 ? 1.5 : 0)
+  const totalBonus = rowBonus.reduce((s, b) => s + b, 0)
+  const rowMonthH = rowBonus.map(b => Math.max(22, baseMH + b - totalBonus / 3))
+  const rowCellH = rowMonthH.map(mh => Math.max(4.0, (mh - GRID_OVERHEAD) / 6))
 
   // Pre-compute circular logo
   let circLogoDark = null
   if (schoolInfo.logo) { try { circLogoDark = await cropLogoImage(schoolInfo.logo, settings.logoShape || 'circle') } catch {} }
 
-  // Dark background fill
+  // ── Page background ────────────────────────────────────────────────────────
   doc.setFillColor(...BG); doc.rect(0, 0, PAGE_W, PAGE_H, 'F')
-  // Accent left bar
-  doc.setFillColor(ar, ag, ab); doc.rect(0, 0, 4, PAGE_H, 'F')
-  // Header card
+
+  // ── Gold left accent bar ───────────────────────────────────────────────────
+  doc.setFillColor(...GOLD); doc.rect(0, 0, 4, PAGE_H, 'F')
+
+  // ── Header card ───────────────────────────────────────────────────────────
   doc.setFillColor(...CARD); doc.rect(4, 0, PAGE_W - 4, HEADER_H, 'F')
-  doc.setFillColor(ar, ag, ab); doc.rect(4, HEADER_H - 1.5, PAGE_W - 4, 1.5, 'F')
-  if (circLogoDark) doc.addImage(circLogoDark, 'PNG', MARGIN + 2, 2, 12, 12)
-  doc.setTextColor(ar, ag, ab); doc.setFontSize(11); doc.setFont(titleFont, 'bold')
-  const darkNameX = circLogoDark ? MARGIN + 16 : MARGIN + 4
-  doc.text(settings.calendarTitle || schoolInfo.name || 'Academic Calendar', darkNameX, 10)
+
+  // Logo
+  if (circLogoDark) doc.addImage(circLogoDark, 'PNG', MARGIN + 2, 3.5, 13, 13)
+
+  // School name (gold, larger than before)
+  const darkNameX = circLogoDark ? MARGIN + 17 : MARGIN + 4
+  doc.setTextColor(...GOLD); doc.setFontSize(12); doc.setFont(titleFont, 'bold')
+  doc.text(settings.calendarTitle || schoolInfo.name || 'Academic Calendar', darkNameX, 12)
+
+  // Academic year — full text, right-aligned, 7pt to guarantee it always fits
+  const acYear = (settings.academicYear || '2026-2027').replace('-', '\u2013')
   doc.setTextColor(...TEXC); doc.setFontSize(7); doc.setFont(titleFont, 'normal')
-  doc.text(`Academic Year  ${settings.academicYear || '2026-2027'}`, PAGE_W - MARGIN - 4, 15, { align: 'right' })
+  doc.text(`Academic Year ${acYear}`, PAGE_W - MARGIN - 3, 16, { align: 'right' })
+
+  // Gold horizontal rule below header
+  doc.setDrawColor(...GOLD); doc.setLineWidth(1)
+  doc.line(4, HEADER_H, PAGE_W, HEADER_H)
 
   if (settings.draftWatermark) {
     doc.setTextColor(220, 80, 80); doc.setFontSize(72); doc.setFont('helvetica', 'bold')
@@ -2330,96 +2550,170 @@ async function exportDarkElegant(state, { preview, theme, doc, titleFont, shabba
     doc.setGState(doc.GState({ opacity: 1.0 }))
   }
 
-  const startY = HEADER_H + 2
-  const deRowStep = MONTH_H + (showBottomPanel ? 0 : NOTES_H) + 3
-  getAcademicMonths(settings.academicYear).forEach(({ year, month }, idx) => {
+  const startY = HEADER_H + 2.5
+  const rowStartY = [
+    startY,
+    startY + rowMonthH[0] + NOTES_H + ROW_GAP,
+    startY + rowMonthH[0] + NOTES_H + ROW_GAP + rowMonthH[1] + NOTES_H + ROW_GAP,
+  ]
+
+  deMonths.forEach(({ year, month }, idx) => {
     const col = idx % 4; const row = Math.floor(idx / 4)
-    const x = MARGIN + 4 + col * (MONTH_W + 2.5)
-    const y = startY + row * deRowStep
+    const x = MARGIN + col * (MONTH_W + GAP)
+    const y = rowStartY[row]
+    const MONTH_H = rowMonthH[row]
+    const cellH = rowCellH[row]
+    const cellW = MONTH_W / 7
 
-    // Month card
-    doc.setFillColor(...CARD); doc.roundedRect(x, y, MONTH_W, MONTH_H, 1.5, 1.5, 'F')
+    // ── Month card container ──
+    doc.setFillColor(...CARD); doc.roundedRect(x, y, MONTH_W, MONTH_H, 2.5, 2.5, 'F')
 
-    // Month header (accent band)
-    doc.setFillColor(ar, ag, ab); doc.roundedRect(x, y, MONTH_W, 8, 1.5, 1.5, 'F')
+    // ── Gold header band — rounded top corners only ──
+    doc.setFillColor(...GOLD)
+    doc.roundedRect(x, y, MONTH_W, HDR_H, 2.5, 2.5, 'F')
+    doc.rect(x, y + 2.5, MONTH_W, HDR_H - 2.5, 'F')  // flatten bottom corners
+
+    // Month name — 8pt bold for stronger hierarchy
     const mName = new Date(year, month, 1).toLocaleString('default', { month: 'long' })
-    doc.setTextColor(...BG); doc.setFontSize(6.5); doc.setFont(titleFont, 'bold')
-    doc.text(`${mName} ${year}`, x + 2, y + 5.5)
+    doc.setTextColor(...BG); doc.setFontSize(8); doc.setFont(titleFont, 'bold')
+    doc.text(`${mName} ${year}`, x + 2.5, y + 6.5)
 
-    // Day header row
-    const cellW = MONTH_W / 7; const headY = y + 11
+    // Hebrew month range — italic, lighter, clearly secondary
+    const hebrewRange = getHebrewMonthLabel(year, month)
+    if (hebrewRange) {
+      doc.setTextColor(45, 45, 45); doc.setFontSize(4.5); doc.setFont('helvetica', 'italic')
+      doc.text(hebrewRange, x + MONTH_W - 2.5, y + 7.2, { align: 'right' })
+    }
+
+    // ── Day-of-week column headers — 4pt, consistent center alignment per column ──
+    const headY = y + HDR_H + 2.5
     DAYS.forEach((d, i) => {
       const isSha = i === 6
       doc.setTextColor(isSha ? ar : 140, isSha ? ag : 155, isSha ? ab : 185)
-      doc.setFontSize(3.5); doc.setFont('helvetica', 'bold')
+      doc.setFontSize(4); doc.setFont('helvetica', 'bold')
       doc.text(isSha ? shabbatLabel.slice(0, 3).toUpperCase() : d, x + i * cellW + cellW / 2, headY, { align: 'center' })
     })
 
-    // Day cells
+    // ── Calendar grid ──
     const days = getDaysInMonth(year, month)
     const startDow = getFirstDayOfWeek(year, month)
-    const cellH = (MONTH_H - 13) / 6
+    const gridTop = y + GRID_OVERHEAD
+
+    // SHA column background tint
+    doc.setFillColor(...SHA_TINT)
+    doc.rect(x + 6 * cellW, gridTop, cellW, 6 * cellH, 'F')
+
+    // Hairline grid lines
+    doc.setDrawColor(...GRID_LINE); doc.setLineWidth(0.3)
+    for (let r = 0; r <= 6; r++) doc.line(x, gridTop + r * cellH, x + MONTH_W, gridTop + r * cellH)
+    for (let c = 0; c <= 7; c++) doc.line(x + c * cellW, gridTop, x + c * cellW, gridTop + 6 * cellH)
 
     days.forEach(date => {
       const dayNum = date.getDate()
       const dow = (startDow + dayNum - 1) % 7
       const weekRow = Math.floor((startDow + dayNum - 1) / 7)
       const cx = x + dow * cellW
-      const cy = y + 12 + weekRow * cellH
+      const cy = gridTop + weekRow * cellH
       const dateKey = formatDateKey(date)
       const dayEvs = (events[dateKey] || []).filter(e => e.category !== 'rosh-chodesh')
+      const isSha = dow === 6
 
-      // Event filled cell
-      if (dayEvs.length > 0) {
-        const cat = categories.find(c => c.id === dayEvs[0].category)
-        const [er, eg, eb] = hexToRgbLocal(dayEvs[0].color || cat?.color || '#888')
-        doc.setFillColor(er, eg, eb); doc.roundedRect(cx + 0.3, cy + 0.3, cellW - 0.6, cellH - 0.6, 0.5, 0.5, 'F')
+      // Day number — always on top, gold for SHA, muted light for weekdays
+      doc.setFontSize(3.8); doc.setFont('helvetica', 'bold')
+      doc.setTextColor(isSha ? ar : TEXC[0], isSha ? ag : TEXC[1], isSha ? ab : TEXC[2])
+      doc.text(String(dayNum), cx + 1.2, cy + 3.0)
+
+      if (dayEvs.length === 0) return
+
+      // Thin separator (~30% gold opacity) between date number and badge area
+      doc.setDrawColor(ar, ag, ab)
+      doc.setGState(doc.GState({ opacity: 0.3 }))
+      doc.setLineWidth(0.25)
+      doc.line(cx + 0.4, cy + 3.6, cx + cellW - 0.4, cy + 3.6)
+      doc.setGState(doc.GState({ opacity: 1.0 }))
+
+      // Badge area: from separator to cell bottom
+      const badgeTop = cy + 4.1
+      const badgeBot = cy + cellH - 0.3
+      const badgeAreaH = badgeBot - badgeTop
+
+      // Fit as many badges as space allows (up to 3), always show at least 1
+      const MIN_BADGE_H = 2.0
+      const BADGE_GAP   = 0.3
+      const MORE_H      = 2.0  // height reserved for "+N more" indicator
+      let maxVis = 0
+      for (let k = 1; k <= Math.min(dayEvs.length, 3); k++) {
+        const needed = k * MIN_BADGE_H + (k - 1) * BADGE_GAP + (k < dayEvs.length ? MORE_H + 0.3 : 0)
+        if (needed <= badgeAreaH) maxVis = k
+        else break
+      }
+      if (maxVis === 0) maxVis = 1
+
+      const hidden = dayEvs.length - maxVis
+      const totalBadgeH = badgeAreaH - (hidden > 0 ? MORE_H + 0.3 : 0)
+      const singleH = Math.max(MIN_BADGE_H, (totalBadgeH - (maxVis - 1) * BADGE_GAP) / maxVis)
+      // Badge font size proportional to badge height, capped 3.5–5pt
+      const badgeFS = Math.max(3.5, Math.min(5, singleH * 0.58 / 0.3527))
+
+      dayEvs.slice(0, maxVis).forEach((ev, bi) => {
+        const cat = categories.find(c => c.id === ev.category)
+        const colorHex = DE_COLORS[ev.category] || ev.color || cat?.color || '#888'
+        const [er, eg, eb] = hexToRgbLocal(colorHex)
+        const by = badgeTop + bi * (singleH + BADGE_GAP)
+        const bh = Math.min(singleH, badgeBot - by - (hidden > 0 ? MORE_H + 0.3 : 0))
+        if (bh < 1.2) return
+        doc.setFillColor(er, eg, eb)
+        doc.roundedRect(cx + 0.4, by, cellW - 0.8, bh, 1.0, 1.0, 'F')  // 1mm ≈ 3px radius
+        const abbr = deAbbrevLabel(ev.label || '')
         doc.setTextColor(255, 255, 255)
-        doc.setFontSize(3.8); doc.setFont('helvetica', 'bold')
-        doc.text(String(dayNum), cx + 1, cy + 3.5)
-        if (cellH >= 7) {
-          doc.setFontSize(2.8); doc.setFont('helvetica', 'normal')
-          const lbl = dayEvs[0].label || ''
-          doc.text(lbl.length > 9 ? lbl.slice(0, 8) + '…' : lbl, cx + 1, cy + 5.8, { maxWidth: cellW - 1.5 })
-        }
-      } else {
-        // Shabbat shade
-        if (dow === 6) { doc.setFillColor(ar, ag, ab); doc.setGState(doc.GState({ opacity: 0.1 })); doc.rect(cx, cy, cellW, cellH, 'F'); doc.setGState(doc.GState({ opacity: 1.0 })) }
-        if (dow === 6) doc.setTextColor(ar, ag, ab)
-        else doc.setTextColor(TEXC[0], TEXC[1], TEXC[2])
-        doc.setFontSize(3.8); doc.setFont('helvetica', 'normal')
-        doc.text(String(dayNum), cx + 1, cy + 3.5)
+        doc.setFontSize(badgeFS); doc.setFont('helvetica', 'bold')
+        doc.text(abbr, cx + cellW / 2, by + bh * 0.68, { align: 'center', maxWidth: cellW - 1.0 })
+      })
+
+      // "+N more" indicator — small italic, never silently drops events
+      if (hidden > 0) {
+        doc.setFontSize(3.2); doc.setFont('helvetica', 'italic')
+        doc.setTextColor(170, 185, 210)
+        doc.text(`+${hidden} more`, cx + cellW - 0.5, badgeBot - 0.2, { align: 'right' })
       }
     })
+
     if (!showBottomPanel) {
-      drawNotesStrip(doc, events, catMapDE, x, y + MONTH_H, MONTH_W, NOTES_H, year, month)
+      deDarkNotesStrip(doc, events, catMapDE, x, y + MONTH_H, MONTH_W, NOTES_H, year, month, DE_COLORS)
     }
   })
 
   if (showBottomPanel && bottomLayoutDE) {
-    const panelY = startY + 3 * deRowStep
-    drawBottomEventsPanel(doc, categories, panelY, PAGE_W, MARGIN, SIDEBAR_W, bottomLayoutDE, settings)
+    const panelY = rowStartY[2] + rowMonthH[2] + ROW_GAP
+    // Gold rule separating calendar grid from events panel
+    doc.setDrawColor(...GOLD); doc.setLineWidth(0.7)
+    doc.line(MARGIN, panelY - 1.5, PAGE_W - MARGIN - SIDEBAR_W, panelY - 1.5)
+    drawBottomEventsPanel(doc, categories, panelY, PAGE_W, MARGIN, SIDEBAR_W, bottomLayoutDE, settings, {
+      titleColor:     GOLD,
+      colBorderColor: GOLD,
+      colBorderWidth: 0.5,
+      colBorderAll:   true,
+    })
   }
 
-  // Dark sidebar — blocks rendered using shared helper with dark theme colors
+  // ── Sidebar panel ─────────────────────────────────────────────────────────
   const sbX = PAGE_W - MARGIN - SIDEBAR_W
-  doc.setFillColor(...CARD); doc.rect(sbX, HEADER_H + 2, SIDEBAR_W, PAGE_H - HEADER_H - MARGIN - 2, 'F')
-  doc.setFillColor(ar, ag, ab); doc.rect(sbX, HEADER_H + 2, SIDEBAR_W, 8, 'F')
-  doc.setTextColor(...BG); doc.setFontSize(7); doc.setFont(titleFont, 'bold')
-  doc.text('', sbX + SIDEBAR_W / 2, HEADER_H + 8, { align: 'center' }) // spacer
-  const deSbCx = sbX + SIDEBAR_W / 2
-  const deRuleW = SIDEBAR_W * 0.78
+  const sbCx = sbX + SIDEBAR_W / 2
+  const sbTop = HEADER_H + 1.5
+  const sbH = PAGE_H - sbTop - MARGIN
+  // Slightly lighter background to distinguish from CARD
+  doc.setFillColor(...PANEL_BG); doc.rect(sbX, sbTop, SIDEBAR_W, sbH, 'F')
+  // Gold left border (2pt weight)
+  doc.setDrawColor(...GOLD); doc.setLineWidth(2)
+  doc.line(sbX, sbTop, sbX, sbTop + sbH)
+
   const deBlocks = (settings.sidebarBlocks || DEFAULT_SIDEBAR_BLOCKS).filter(b => b.visible !== false)
-  let deBlockY = HEADER_H + 14
-  const [deAr, deAg, deAb] = [ar, ag, ab]
-  const deBlockOpts = {
-    sbX, sbCx: deSbCx, SIDEBAR_W, ruleW: deRuleW,
-    pr: ar, pg: ag, pb: ab,   // use accent as heading color on dark bg
-    ar: deAr, ag: deAg, ab: deAb,
-    textRgb: TEXC, linkRgb: [ar, ag, ab],
-    schoolInfo, categories,
-  }
-  deBlocks.forEach(b => { deBlockY = renderSidebarBlock(doc, b.id, deBlockY, deBlockOpts) })
+  let deBlockY = sbTop + 8
+  deBlocks.forEach(b => {
+    deBlockY = deDarkSidebarBlock(doc, b.id, deBlockY, {
+      sbX, sbCx, SIDEBAR_W, GOLD, TEXC, schoolInfo, categories, DE_COLORS,
+    })
+  })
 
   if (preview) return doc.output('datauristring')
   doc.save(`${(schoolInfo.name || 'Calendar').replace(/\s+/g, '-')}-DarkElegant.pdf`)

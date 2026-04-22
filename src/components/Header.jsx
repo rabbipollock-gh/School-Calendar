@@ -15,6 +15,7 @@ export default function Header({
   onOpenHolidays,
   onPreviewPDF,
   onOpenCollab,
+  onOpenCalendarManager,
   conflictCount = 0,
 }) {
   const { state, dispatch, readOnly, isSharedView, canUndo, canRedo } = useCalendar()
@@ -166,6 +167,15 @@ export default function Header({
             </span>
           </button>
         )}
+
+        {/* Calendar Manager */}
+        <button
+          onClick={onOpenCalendarManager}
+          className="hidden sm:flex items-center gap-1.5 bg-white/10 hover:bg-white/20 transition px-2.5 py-1.5 rounded-full text-sm font-medium"
+          title="Manage calendars"
+        >
+          🗂 <span className="hidden md:inline text-xs">Calendars</span>
+        </button>
 
         {/* Collaborate */}
         <button
