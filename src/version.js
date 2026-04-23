@@ -8,4 +8,4 @@
 //   MAJOR (x.0.0) — paradigm shift (new monetization model, full redesign)
 //                   *** Always confirm with user before bumping major ***
 
-export const APP_VERSION = '1.2.0'
+export const APP_VERSION = '1.3.0'

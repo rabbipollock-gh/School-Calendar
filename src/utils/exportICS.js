@@ -1,5 +1,6 @@
 import { saveAs } from 'file-saver'
 import { parseDateKey } from './dateUtils.js'
+import { recordExport } from './sessionMetrics.js'
 
 /**
  * Export events as a .ics file
@@ -9,6 +10,7 @@ import { parseDateKey } from './dateUtils.js'
  * @param {string} schoolName - school name for calendar title
  */
 export async function exportICS(events, categories, filterMode = 'all', schoolName = 'YAYOE') {
+  recordExport('ICS', 'iCalendar')
   const { createEvents } = await import('ics')
 
   const catMap = {}

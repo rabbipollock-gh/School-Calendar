@@ -1,10 +1,12 @@
 import { saveAs } from 'file-saver'
 import { parseDateKey } from './dateUtils.js'
+import { recordExport } from './sessionMetrics.js'
 
 /**
  * Export all calendar events as a CSV file
  */
 export function exportCSV(events, categories, schoolName = 'YAYOE') {
+  recordExport('CSV', 'CSV')
   const catMap = {}
   categories.forEach(c => { catMap[c.id] = c })
 

@@ -2,6 +2,7 @@ import { saveAs } from 'file-saver'
 import { getAcademicMonths } from './academicMonths.js'
 import { getDaysInMonth, getFirstDayOfWeek, formatDateKey, groupConsecutiveDates, formatRangeLabel } from './dateUtils.js'
 import { getHebrewMonthLabel } from '../data/hebrewMonthNames.js'
+import { recordExport } from './sessionMetrics.js'
 
 const DAYS = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SHA']
 
@@ -13,6 +14,7 @@ function hexToRgb255(hex) {
 }
 
 export async function exportPPTX(state) {
+  recordExport('PPTX', 'PowerPoint')
   const PptxGenJS = (await import('pptxgenjs')).default
   const pptx = new PptxGenJS()
   pptx.layout = 'LAYOUT_WIDE' // 13.33" x 7.5"

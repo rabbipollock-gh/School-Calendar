@@ -87,6 +87,7 @@ const PDF_STYLES = [
     tagColor: 'bg-blue-100 text-blue-700',
     previewBg: 'from-[#1e3a5f] to-[#2a4d7a]',
     type: 'yearly',
+    enabled: true,
   },
   {
     id: 'portrait-classic',
@@ -97,6 +98,7 @@ const PDF_STYLES = [
     tagColor: 'bg-emerald-100 text-emerald-700',
     previewBg: 'from-[#1e3a5f] to-[#2a4d7a]',
     type: 'yearly',
+    enabled: true,
   },
   {
     id: 'minimal',
@@ -107,6 +109,7 @@ const PDF_STYLES = [
     tagColor: 'bg-gray-100 text-gray-600',
     previewBg: 'from-gray-100 to-white',
     type: 'yearly',
+    enabled: true,
   },
   {
     id: 'year-at-a-glance',
@@ -117,6 +120,7 @@ const PDF_STYLES = [
     tagColor: 'bg-amber-100 text-amber-700',
     previewBg: 'from-amber-50 to-white',
     type: 'yearly',
+    enabled: true,
   },
   {
     id: 'dark-elegant',
@@ -127,6 +131,7 @@ const PDF_STYLES = [
     tagColor: 'bg-purple-100 text-purple-700',
     previewBg: 'from-gray-900 to-gray-700',
     type: 'yearly',
+    enabled: true,
   },
   {
     id: 'bulletin-board',
@@ -137,6 +142,7 @@ const PDF_STYLES = [
     tagColor: 'bg-orange-100 text-orange-700',
     previewBg: 'from-orange-400 to-pink-400',
     type: 'yearly',
+    enabled: true,
   },
   {
     id: 'dual-heritage',
@@ -147,6 +153,7 @@ const PDF_STYLES = [
     tagColor: 'bg-blue-100 text-blue-800',
     previewBg: 'from-[#1C3557] to-[#2E5480]',
     type: 'yearly',
+    enabled: false,
   },
   {
     id: 'regal-triptych',
@@ -157,6 +164,7 @@ const PDF_STYLES = [
     tagColor: 'bg-indigo-100 text-indigo-800',
     previewBg: 'from-[#1A3A5C] to-[#2A5280]',
     type: 'yearly',
+    enabled: false,
   },
   {
     id: 'hebrew-date-focus',
@@ -167,6 +175,7 @@ const PDF_STYLES = [
     tagColor: 'bg-green-100 text-green-800',
     previewBg: 'from-[#14532d] to-[#166534]',
     type: 'yearly',
+    enabled: false,
   },
   // ── Monthly ───────────────────────────────────────────────────────────────
   {
@@ -178,6 +187,7 @@ const PDF_STYLES = [
     tagColor: 'bg-green-100 text-green-700',
     previewBg: 'from-green-50 to-white',
     type: 'monthly',
+    enabled: true,
   },
   {
     id: 'parchment-scroll',
@@ -188,6 +198,7 @@ const PDF_STYLES = [
     tagColor: 'bg-amber-100 text-amber-800',
     previewBg: 'from-[#3B2206] to-[#7A4010]',
     type: 'monthly',
+    enabled: false,
   },
   {
     id: 'photo-showcase',
@@ -198,6 +209,7 @@ const PDF_STYLES = [
     tagColor: 'bg-purple-100 text-purple-800',
     previewBg: 'from-[#1e3a5f] to-[#6b21a8]',
     type: 'monthly',
+    enabled: false,
   },
   {
     id: 'elegant-feminine',
@@ -208,6 +220,7 @@ const PDF_STYLES = [
     tagColor: 'bg-pink-100 text-pink-800',
     previewBg: 'from-[#7B4F72] to-[#A0708A]',
     type: 'monthly',
+    enabled: false,
   },
 ]
 
@@ -296,7 +309,7 @@ export default function PDFPreviewModal({ onClose }) {
   }
 
   const filteredStyles = PDF_STYLES.filter(s =>
-    viewFilter === 'all' ? true : s.type === viewFilter
+    s.enabled !== false && (viewFilter === 'all' ? true : s.type === viewFilter)
   )
 
   const activeStyle = PDF_STYLES.find(s => s.id === selectedStyle)

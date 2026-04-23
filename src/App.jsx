@@ -42,6 +42,7 @@ export default function App() {
   const [collabOpen, setCollabOpen] = useState(false)
   const [diagnosticsOpen, setDiagnosticsOpen] = useState(false)
   const [calendarManagerOpen, setCalendarManagerOpen] = useState(false)
+  const [onboardingPreviewOpen, setOnboardingPreviewOpen] = useState(false)
   const [highlightDate, setHighlightDate] = useState(null)
 
   // Keyboard shortcut: Cmd+K opens search
@@ -207,6 +208,7 @@ export default function App() {
         onOpenCategories={() => { setSettingsOpen(false); setCategoriesOpen(true) }}
         onOpenTemplates={() => { setSettingsOpen(false); setTemplatesOpen(true) }}
         onOpenDiagnostics={() => { setSettingsOpen(false); setDiagnosticsOpen(true) }}
+        onPreviewOnboarding={() => { setSettingsOpen(false); setOnboardingPreviewOpen(true) }}
       />
 
       {categoriesOpen && (
@@ -245,6 +247,10 @@ export default function App() {
 
       {calendarManagerOpen && (
         <CalendarManagerModal onClose={() => setCalendarManagerOpen(false)} />
+      )}
+
+      {onboardingPreviewOpen && (
+        <OnboardingWizard preview onClose={() => setOnboardingPreviewOpen(false)} />
       )}
 
       {/* Shared view banner (mobile) */}

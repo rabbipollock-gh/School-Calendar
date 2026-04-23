@@ -10,6 +10,7 @@ import { loadFromCloud, saveToCloud, loadAllCalendarsFromCloud, debounce } from 
 import { upsertCalendarEntry, adoptExistingCalendarIfNeeded, seedIndexFromCloud } from '../utils/calendarManager.js'
 import { useAuth } from './AuthContext.jsx'
 import { logger } from '../utils/logger.js'
+import { incrementDispatch } from '../utils/sessionMetrics.js'
 
 function getStorageKey() {
   return `yayoe-calendar-v1-${getSchoolCode() || 'default'}`
@@ -178,6 +179,7 @@ function pushUndo(state) {
 }
 
 function reducer(state, action) {
+  incrementDispatch()
   if (action.type === 'UNDO') {
     if (state.undoPast.length === 0) return state
     const prev = state.undoPast[state.undoPast.length - 1]
