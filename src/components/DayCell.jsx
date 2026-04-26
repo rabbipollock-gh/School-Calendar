@@ -5,15 +5,6 @@ import { getRoshChodeshMap, getHolidayMap } from '../data/hebrewCalendar.js'
 
 const TOOLTIP_DELAY = 500
 
-// Extracts HH:MM from a category name like "Chanukah 3:45 Dismissal" → "15:45"
-function parseCategoryTime(name) {
-  const m = (name || '').match(/\b(\d{1,2}):(\d{2})\b/)
-  if (!m) return null
-  const h = parseInt(m[1])
-  const h24 = (h >= 1 && h <= 7) ? h + 12 : h
-  return `${String(h24).padStart(2, '0')}:${m[2]}`
-}
-
 export default function DayCell({ date, onOpenModal, focusedDate, settings }) {
   const { state, schoolDayMap } = useCalendar()
   const { events, categories } = state
@@ -74,14 +65,6 @@ export default function DayCell({ date, onOpenModal, focusedDate, settings }) {
   const isCompact = settings.template === 'compact'
   const isMinimal = settings.template === 'minimal'
 
-  // Find the first dismissal-type event (early-dismissal category or name contains "dismissal")
-  const dismissalEv = nonBannerEvents.find(e => {
-    const cat = catMap[e.category]
-    return e.category === 'early-dismissal' || (cat?.name?.toLowerCase() || '').includes('dismissal')
-  })
-  const dismissalTime = dismissalEv
-    ? formatTime(dismissalEv.time || parseCategoryTime(catMap[dismissalEv.category]?.name))
-    : null
 
   return (
     <button
@@ -152,18 +135,8 @@ export default function DayCell({ date, onOpenModal, focusedDate, settings }) {
         <span className="text-[8px] text-white/80 leading-none mt-0.5">+{nonBannerEvents.length - 1}</span>
       )}
 
-      {/* Dismissal time badge */}
-      {!isCompact && dismissalTime && (
-        <span className={`
-          text-[7px] leading-none font-medium truncate max-w-full
-          ${isFilled ? 'text-white/80' : 'text-amber-600/80 dark:text-amber-400/70'}
-        `}>
-          {dismissalTime}
-        </span>
-      )}
-
       {/* Regular Dismissal badge */}
-      {!isCompact && !dismissalTime && nonBannerEvents.some(e => e.regularDismissal) && (
+      {!isCompact && nonBannerEvents.some(e => e.regularDismissal) && (
         <span className={`
           text-[7px] leading-none font-medium truncate max-w-full
           ${isFilled ? 'text-white/80' : 'text-orange-600/80 dark:text-orange-400/70'}
