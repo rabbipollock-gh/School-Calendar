@@ -1241,7 +1241,7 @@ export async function exportPDF(state, { preview = false, pdfStyle = 'classic', 
       const timeMaxW = ibW - PAD - labelColW - PAD
       doc.setFontSize(isCompactCard ? 6 : 6.5)
       hourLines2.forEach(line => {
-        if (cy2 >= ibY + ibH - PAD) return
+        if (cy2 >= ibY + ibH - 2) return
         const colonIdx = line.indexOf(':')
         if (colonIdx > 0 && colonIdx < 13) {
           const lbl  = line.slice(0, colonIdx + 1)
@@ -1570,7 +1570,7 @@ async function exportTraditional(state, ctx) {
       const timeMaxW = ibW - PAD - labelColW - PAD
       doc.setFontSize(isCompactCard ? 6 : 6.5)
       hourLines2.forEach(line => {
-        if (cy2 >= ibY + ibH - PAD) return
+        if (cy2 >= ibY + ibH - 2) return
         const colonIdx = line.indexOf(':')
         if (colonIdx > 0 && colonIdx < 13) {
           const lbl  = line.slice(0, colonIdx + 1)
