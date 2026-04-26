@@ -90,6 +90,17 @@ const PDF_STYLES = [
     enabled: true,
   },
   {
+    id: 'traditional',
+    name: 'Traditional',
+    description: 'Landscape · 4 months across · events listed under each month row',
+    icon: '🗒️',
+    tag: 'Custom',
+    tagColor: 'bg-teal-100 text-teal-700',
+    previewBg: 'from-[#1e3a5f] to-[#2a4d7a]',
+    type: 'yearly',
+    enabled: true,
+  },
+  {
     id: 'portrait-classic',
     name: 'Classic Portrait',
     description: 'Portrait · 2 columns · month label on side · notes beside each calendar',
@@ -225,7 +236,7 @@ const PDF_STYLES = [
 ]
 
 // Styles that support the events-panel toggle (per-month notes vs. bottom list)
-const BOTTOM_PANEL_STYLES = ['classic', 'minimal', 'dark-elegant', 'bulletin-board']
+const BOTTOM_PANEL_STYLES = ['classic', 'traditional', 'minimal', 'dark-elegant', 'bulletin-board']
 
 export default function PDFPreviewModal({ onClose }) {
   const { state } = useCalendar()

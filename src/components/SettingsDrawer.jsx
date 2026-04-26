@@ -122,7 +122,7 @@ export default function SettingsDrawer({ isOpen, onClose, onOpenCategories, onOp
                 </Field>
               </div>
               <Field label="School Hours">
-                <textarea value={schoolInfo.hours} onChange={e => updateInfo('hours', e.target.value)} readOnly={readOnly} rows={3} className={inputCls + ' resize-none'} />
+                <textarea value={schoolInfo.hours} onChange={e => updateInfo('hours', e.target.value)} readOnly={readOnly} rows={4} className={inputCls + ' resize-none'} />
               </Field>
               <Field label="Regular Dismissal Time">
                 <input type="time" value={settings.regularDismissalTime || ''} onChange={e => updateSettings('regularDismissalTime', e.target.value)} readOnly={readOnly} className={inputCls} title="Default dismissal time shown on PDF for events marked 'Regular Dismissal'" />

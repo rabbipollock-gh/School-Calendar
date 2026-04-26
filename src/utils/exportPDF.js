@@ -72,6 +72,16 @@ function formatTime(t) {
   return m === 0 ? `${hour}${ampm}` : `${hour}:${String(m).padStart(2, '0')}${ampm}`
 }
 
+// Extracts "HH:MM" from a category name like "Chanukah 3:45 Dismissal" → "15:45"
+// Hours 1–7 are assumed PM (school dismissal context); 8–11 assumed AM; 12+ kept as-is.
+function parseCategoryTime(name) {
+  const m = (name || '').match(/\b(\d{1,2}):(\d{2})\b/)
+  if (!m) return null
+  const h = parseInt(m[1])
+  const h24 = (h >= 1 && h <= 7) ? h + 12 : h
+  return `${String(h24).padStart(2, '0')}:${m[2]}`
+}
+
 const DEFAULT_SIDEBAR_BLOCKS = [
   { id: 'hours',     visible: true },
   { id: 'legend',    visible: true },
@@ -231,7 +241,7 @@ function drawDecorativeDiamondBand(doc, bandY, pageW, primaryRgb, accentRgb, mar
   }
 }
 
-function drawMonth(doc, { year, month }, events, categories, settings, x, y, w, h, shabbatLabel, notesStripH, theme, emojiCache = {}, titleFont = 'helvetica', numWeeks = 6) {
+function drawMonth(doc, { year, month }, events, categories, settings, x, y, w, h, shabbatLabel, notesStripH, theme, emojiCache = {}, titleFont = 'helvetica', numWeeks = 6, notesRowH = 5.0) {
   const catMap = {}
   categories.forEach(c => { catMap[c.id] = c })
   const isFilled = settings.cellStyle === 'filled'
@@ -244,7 +254,7 @@ function drawMonth(doc, { year, month }, events, categories, settings, x, y, w, 
 
   // ── Card backgrounds (drawn first so content renders on top) ─────────────
   doc.setFillColor(255, 255, 255)
-  doc.roundedRect(x, y, w, h, 4, 4, 'F')
+  doc.roundedRect(x, y, w, h, 2, 2, 'F')
   if (notesStripH > 0) {
     doc.setFillColor(250, 251, 253)  // #FAFBFD — events zone tint
     doc.rect(x, y + h - notesStripH, w, notesStripH, 'F')
@@ -305,7 +315,7 @@ function drawMonth(doc, { year, month }, events, categories, settings, x, y, w, 
         noSchoolMap[dateKey] = { label: ev.label }
       }
       if (ev.category === 'early-dismissal' || cname.includes('dismissal')) {
-        earlyDismissMap[dateKey] = { label: ev.label, time: ev.time, color: ev.color || cat?.color || '#D68910' }
+        earlyDismissMap[dateKey] = { label: ev.label, time: ev.time || parseCategoryTime(cat?.name), color: ev.color || cat?.color || '#D68910' }
       }
     })
   })
@@ -331,8 +341,9 @@ function drawMonth(doc, { year, month }, events, categories, settings, x, y, w, 
       doc.rect(cx, cy, cellW, cellH, 'F')
     }
 
-    // Date number always on the same baseline — RC label renders above it, not by pushing it down.
-    const dateNumY = Math.min(cy + 2.8 * s, cy + cellH - 0.3)
+    // Date number baseline: fixed 2.8mm from cell top, but capped proportionally so small
+    // cells (6-week months) don't push the number to the very bottom edge.
+    const dateNumY = Math.min(cy + 2.8 * s, cy + cellH * 0.60)
 
     if (isNoSchool) {
       doc.setFillColor(208, 80, 80)  // #D05050 — no-school red
@@ -478,8 +489,8 @@ function drawMonth(doc, { year, month }, events, categories, settings, x, y, w, 
     })
 
     const maxNoteY = y + h - 0.5
-    let noteLineY = notesY + 8
-    const ROW_H    = 5.0   // mm ≈ 14pt
+    let noteLineY = notesY + 4
+    const ROW_H    = notesRowH
     const BAR_W    = 1.06  // mm = 3pt
     const LEFT_PAD = 2.0   // mm from card left edge to accent bar
     const TEXT_X   = x + LEFT_PAD + BAR_W + 2.8  // 8pt right of bar
@@ -530,7 +541,7 @@ function drawMonth(doc, { year, month }, events, categories, settings, x, y, w, 
       const EVENT_X = TEXT_X + shortDateW + 2.5
 
       const regTime = ev.regularDismissal && settings?.regularDismissalTime ? settings.regularDismissalTime : null
-      const effectiveTime = ev.time || regTime
+      const effectiveTime = ev.time || regTime || parseCategoryTime(cat?.name)
       const timeStr = effectiveTime ? ` ${formatTime(effectiveTime)}` : ''
       doc.setFontSize(8.5); doc.setFont('helvetica', 'italic')
       const timeW = timeStr ? doc.getTextWidth(timeStr) : 0
@@ -580,7 +591,7 @@ function drawMonth(doc, { year, month }, events, categories, settings, x, y, w, 
   // ── Card border + grid/notes divider (drawn last — sits on top of all content) ──
   doc.setDrawColor(216, 220, 227)  // #D8DCE3
   doc.setLineWidth(0.5)
-  doc.roundedRect(x, y, w, h, 4, 4, 'S')
+  doc.roundedRect(x, y, w, h, 2, 2, 'S')
   if (notesStripH > 0) {
     const divY = y + h - notesStripH
     doc.setDrawColor(225, 228, 234)  // #E1E4EA
@@ -855,7 +866,7 @@ function drawBottomEventsPanel(doc, categories, y, pageW, margin, sidebarW, layo
         const dGroups   = groupConsecutiveDates([...dates].sort())
         const rangeText = formatRangeGroups(dGroups)
         const regTime   = ev.regularDismissal && settings?.regularDismissalTime ? settings.regularDismissalTime : null
-        const effectiveTime = ev.time || regTime
+        const effectiveTime = ev.time || regTime || parseCategoryTime(cat?.name)
         const timeStr   = effectiveTime ? ` ${formatTime(effectiveTime)}` : ''
         doc.setFontSize(p.dateFontSz)
         doc.setFont('helvetica', effectiveTime ? 'italic' : 'normal')
@@ -906,7 +917,8 @@ function drawNotesStrip(doc, events, catMap, x, y, w, h, year, month, { modernSt
       doc.text(dateStr, x + 2.5, lineY)
       const dw = doc.getTextWidth(dateStr)
       const remainW = w - 3.5 - dw
-      const timeStr = ev.time ? `  ${formatTime(ev.time)}` : ''
+      const catTimeStr = parseCategoryTime(cat?.name)
+      const timeStr = ev.time || catTimeStr ? `  ${formatTime(ev.time || catTimeStr)}` : ''
       const fullLabel = `${ev.label}${timeStr}`
       const labelLines = doc.splitTextToSize(fullLabel, remainW)
       const displayLabel = labelLines.length > 1 ? labelLines[0].replace(/\s+\S*$/, '') + '…' : labelLines[0]
@@ -954,12 +966,13 @@ export async function exportPDF(state, { preview = false, pdfStyle = 'classic', 
   if (pdfStyle === 'hebrew-date-focus') return exportHebrewDateFocus(state, { preview, theme, doc, titleFont, shabbatLabel })
   if (pdfStyle === 'elegant-feminine')  return exportElegantFeminine(state, { preview, monthIndex })
   if (pdfStyle === 'portrait-classic')  return exportPortraitClassic(state, { preview })
+  if (pdfStyle === 'traditional')       return exportTraditional(effectiveState, ctx)
   // default: classic
   const isCompact = settings.template === 'compact'
   const showBottomPanel = settings.eventsPanel === 'bottom'
 
   // Layout measurements — full-width grid (sidebar moved to footer bar at page bottom)
-  const CLASSIC_FOOTER_H = showBottomPanel ? 0 : 6
+  const CLASSIC_FOOTER_H = showBottomPanel ? 0 : 9
   const GRID_W = PAGE_W - MARGIN * 2
   const MONTH_W = (GRID_W / COL_COUNT) - 2
   const MONTH_ROWS = 3
@@ -976,7 +989,7 @@ export async function exportPDF(state, { preview = false, pdfStyle = 'classic', 
   const MIN_CELL_H   = 2.5
   const MIN_GRID_H   = MONTH_ROWS * MIN_CELL_H * 6 + (MONTH_ROWS - 1) * ROW_GAP + MONTH_ROWS * HEADER_OFFSET
   // Bottom-panel mode gets a slim contact footer below the events panel
-  const BP_FOOTER_H  = showBottomPanel ? 6 : 0
+  const BP_FOOTER_H  = showBottomPanel ? 9 : 0
   const TOTAL_AVAIL  = PAGE_H - (HEADER_H + 2) - MARGIN - CLASSIC_FOOTER_H - BP_FOOTER_H
   const maxSafePanelH = Math.max(38, Math.floor(TOTAL_AVAIL - MIN_GRID_H))
 
@@ -1111,22 +1124,25 @@ export async function exportPDF(state, { preview = false, pdfStyle = 'classic', 
     const panelTop = rowStartY[MONTH_ROWS - 1] + perRowMonthH[MONTH_ROWS - 1] + 2
     drawBottomEventsPanel(doc, categories, panelTop, PAGE_W, MARGIN, 0, bottomLayout, settings)
 
-    // ── One-line contact footer below the events panel ──
+    // ── Two-line contact footer below the events panel ──
     const bpFY = PAGE_H - MARGIN - BP_FOOTER_H
     doc.setFillColor(248, 249, 252)
     doc.rect(MARGIN, bpFY, PAGE_W - MARGIN * 2, BP_FOOTER_H, 'F')
     doc.setDrawColor(225, 228, 234); doc.setLineWidth(0.4)
     doc.line(MARGIN, bpFY, PAGE_W - MARGIN, bpFY)
-    const bpContactParts = [
-      schoolInfo.name,
+    const bpDetailParts = [
       schoolInfo.address,
-      [schoolInfo.phone ? `Tel: ${schoolInfo.phone}` : '', schoolInfo.fax ? `Fax: ${schoolInfo.fax}` : ''].filter(Boolean).join('  '),
+      [schoolInfo.phone ? `Tel: ${schoolInfo.phone}` : '', schoolInfo.fax ? `Fax: ${schoolInfo.fax}` : ''].filter(Boolean).join('   '),
       schoolInfo.email,
       schoolInfo.website,
     ].filter(Boolean)
-    if (bpContactParts.length) {
-      doc.setFontSize(5.5); doc.setFont('helvetica', 'bold'); doc.setTextColor(74, 90, 122)
-      doc.text(bpContactParts.join('   •   '), PAGE_W / 2, bpFY + 3.8, { align: 'center' })
+    if (schoolInfo.name) {
+      doc.setFontSize(6); doc.setFont('helvetica', 'bold'); doc.setTextColor(pr, pg, pb)
+      doc.text(schoolInfo.name, PAGE_W / 2, bpFY + 3.5, { align: 'center' })
+    }
+    if (bpDetailParts.length) {
+      doc.setFontSize(4.8); doc.setFont('helvetica', 'normal'); doc.setTextColor(100, 112, 135)
+      doc.text(bpDetailParts.join('   ·   '), PAGE_W / 2, bpFY + 7, { align: 'center', maxWidth: PAGE_W - MARGIN * 4 })
     }
   }
 
@@ -1204,10 +1220,10 @@ export async function exportPDF(state, { preview = false, pdfStyle = 'classic', 
     // ── School Hours — gray shaded band, left-aligned label/time table ──────
     const hourLines2 = (schoolInfo.hours || '').split('\n').filter(l => l.trim())
     if (hourLines2.length && cy2 < ibY + ibH - 8) {
-      const HOURS_ROW_H = isCompactCard ? 5.0 : 6.0
-      const bandPadV    = 2.5
+      const HOURS_ROW_H = isCompactCard ? 5.0 : 4.5
+      const bandPadV    = 1.5
       const bandH       = Math.min(
-        bandPadV * 2 + 4.5 + hourLines2.length * HOURS_ROW_H,
+        bandPadV * 2 + 4.0 + hourLines2.length * HOURS_ROW_H,
         ibY + ibH - PAD - cy2
       )
       // Gray background band
@@ -1217,13 +1233,13 @@ export async function exportPDF(state, { preview = false, pdfStyle = 'classic', 
       cy2 += bandPadV
 
       doc.setFontSize(isCompactCard ? 4.5 : 5); doc.setFont('helvetica', 'bold'); doc.setTextColor(pr, pg, pb)
-      doc.text('SCHOOL HOURS', ibX + PAD, cy2); cy2 += 4.5
+      doc.text('SCHOOL HOURS', ibX + PAD, cy2); cy2 += 4.0
 
       // Split "Label: time" into two columns; fallback to full-width single line
       const labelColW = 14
       const timeX = ibX + PAD + labelColW
       const timeMaxW = ibW - PAD - labelColW - PAD
-      doc.setFontSize(isCompactCard ? 6 : 7)
+      doc.setFontSize(isCompactCard ? 6 : 6.5)
       hourLines2.forEach(line => {
         if (cy2 >= ibY + ibH - PAD) return
         const colonIdx = line.indexOf(':')
@@ -1243,22 +1259,25 @@ export async function exportPDF(state, { preview = false, pdfStyle = 'classic', 
       cy2 += bandPadV
     }
 
-    // ── Footer — thin rule + muted contact info ──────────────────────────────
+    // ── Footer — thin rule + centered contact info ──────────────────────────────
     const contactLines2 = !showBottomPanel ? [
       schoolInfo.otherInfo,
       schoolInfo.address,
-      [schoolInfo.phone ? `Tel: ${schoolInfo.phone}` : '', schoolInfo.fax ? `Fax: ${schoolInfo.fax}` : ''].filter(Boolean).join('  '),
+      [schoolInfo.phone ? `Tel: ${schoolInfo.phone}` : '', schoolInfo.fax ? `Fax: ${schoolInfo.fax}` : ''].filter(Boolean).join('   '),
       schoolInfo.email,
       schoolInfo.website,
     ].filter(Boolean) : []
     if (contactLines2.length && cy2 < ibY + ibH - 5) {
-      doc.setDrawColor(210, 215, 225); doc.setLineWidth(0.3)
-      doc.line(ibX + PAD, cy2 + 1, ibX + ibW - PAD, cy2 + 1); cy2 += 3
-      doc.setFontSize(isCompactCard ? 4.5 : 5); doc.setFont('helvetica', 'normal'); doc.setTextColor(85, 85, 85)
-      contactLines2.forEach(line => {
+      doc.setDrawColor(ar, ag, ab); doc.setLineWidth(0.4)
+      doc.line(ibX + PAD * 2, cy2 + 1.5, ibX + ibW - PAD * 2, cy2 + 1.5); cy2 += 4.5
+      contactLines2.forEach((line, i) => {
         if (cy2 >= ibY + ibH - 2) return
-        doc.text(line, ibX + PAD, cy2, { maxWidth: ibW - PAD * 2 })
-        cy2 += 3.2
+        const isFirst = i === 0
+        doc.setFontSize(isFirst ? (isCompactCard ? 5 : 5.5) : (isCompactCard ? 4.5 : 5))
+        doc.setFont('helvetica', isFirst ? 'bold' : 'normal')
+        doc.setTextColor(isFirst ? pr : 80, isFirst ? pg : 90, isFirst ? pb : 110)
+        doc.text(line, ibCX, cy2, { align: 'center', maxWidth: ibW - PAD * 2 })
+        cy2 += isFirst ? 4 : 3.4
       })
     }
 
@@ -1267,28 +1286,358 @@ export async function exportPDF(state, { preview = false, pdfStyle = 'classic', 
     doc.roundedRect(ibX, ibY, ibW, ibH, 4, 4, 'S')
   }
 
-  // ── Slim contact footer (inline-notes mode only) ───────────────────────────
+  // ── Two-line contact footer (inline-notes mode only) ──────────────────────
   if (!showBottomPanel) {
     const cfY = PAGE_H - MARGIN - CLASSIC_FOOTER_H
     doc.setFillColor(248, 249, 252)
     doc.rect(MARGIN, cfY, PAGE_W - MARGIN * 2, CLASSIC_FOOTER_H, 'F')
     doc.setDrawColor(225, 228, 234); doc.setLineWidth(0.4)
     doc.line(MARGIN, cfY, PAGE_W - MARGIN, cfY)
-    const cfParts = [
-      schoolInfo.name,
+    const cfDetailParts = [
       schoolInfo.address,
-      [schoolInfo.phone ? `Tel: ${schoolInfo.phone}` : '', schoolInfo.fax ? `Fax: ${schoolInfo.fax}` : ''].filter(Boolean).join('  '),
+      [schoolInfo.phone ? `Tel: ${schoolInfo.phone}` : '', schoolInfo.fax ? `Fax: ${schoolInfo.fax}` : ''].filter(Boolean).join('   '),
       schoolInfo.email,
       schoolInfo.website,
     ].filter(Boolean)
-    if (cfParts.length) {
-      doc.setFontSize(5.5); doc.setFont('helvetica', 'normal'); doc.setTextColor(74, 90, 122)
-      doc.text(cfParts.join('   •   '), PAGE_W / 2, cfY + 3.8, { align: 'center', maxWidth: PAGE_W - MARGIN * 4 })
+    if (schoolInfo.name) {
+      doc.setFontSize(6); doc.setFont('helvetica', 'bold'); doc.setTextColor(pr, pg, pb)
+      doc.text(schoolInfo.name, PAGE_W / 2, cfY + 3.5, { align: 'center' })
+    }
+    if (cfDetailParts.length) {
+      doc.setFontSize(4.8); doc.setFont('helvetica', 'normal'); doc.setTextColor(100, 112, 135)
+      doc.text(cfDetailParts.join('   ·   '), PAGE_W / 2, cfY + 7, { align: 'center', maxWidth: PAGE_W - MARGIN * 4 })
     }
   }
 
   if (preview) return doc.output('datauristring')
   doc.save(`${(schoolInfo.name || 'YAYOE').replace(/\s+/g, '-')}-Calendar-${settings.academicYear || '2026-27'}-${pdfStyle}.pdf`)
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// Traditional — landscape 4-col with inline notes strip under each month row
+// Independent copy of Classic; modify freely without affecting Classic.
+// ────────────────────────────────────────────────────────────────────────────
+async function exportTraditional(state, ctx) {
+  const { events, categories, schoolInfo, settings } = state
+  const { preview, theme, doc, titleFont, shabbatLabel } = ctx
+  const [pr, pg, pb] = hexToRgbLocal(theme.primary)
+  const [ar, ag, ab] = hexToRgbLocal(theme.accent)
+
+  const isCompact = settings.template === 'compact'
+  const showBottomPanel = settings.eventsPanel === 'bottom'
+
+  const CLASSIC_FOOTER_H = showBottomPanel ? 0 : 9
+  const GRID_W = PAGE_W - MARGIN * 2
+  const MONTH_W = (GRID_W / COL_COUNT) - 2
+  const MONTH_ROWS = 3
+  const ROW_GAP = 3
+  const HEADER_OFFSET = isCompact ? 9 : 10
+
+  const MIN_CELL_H   = 2.5
+  const MIN_GRID_H   = MONTH_ROWS * MIN_CELL_H * 6 + (MONTH_ROWS - 1) * ROW_GAP + MONTH_ROWS * HEADER_OFFSET
+  const BP_FOOTER_H  = showBottomPanel ? 9 : 0
+  const TOTAL_AVAIL  = PAGE_H - (HEADER_H + 2) - MARGIN - CLASSIC_FOOTER_H - BP_FOOTER_H
+  const maxSafePanelH = Math.max(38, Math.floor(TOTAL_AVAIL - MIN_GRID_H))
+
+  const bpPanelW = PAGE_W - MARGIN * 2 - 2
+  const bottomLayout = showBottomPanel ? bpComputeLayout(doc, events, settings.academicYear, bpPanelW, maxSafePanelH) : null
+  const dynamicPanelH = bottomLayout ? bottomLayout.panelH : 0
+  const availH = showBottomPanel
+    ? PAGE_H - (HEADER_H + 2) - MARGIN - dynamicPanelH - CLASSIC_FOOTER_H - BP_FOOTER_H
+    : PAGE_H - (HEADER_H + 2) - MARGIN - CLASSIC_FOOTER_H
+  const allMonths = getAcademicMonths(settings.academicYear)
+  // Single pass: compute ideal layout height AND true minimum draw height per row
+  // minH = actual space needed to render every event at 4pt (2.4mm/line + 3mm overhead)
+  const perRowData = showBottomPanel
+    ? Array(MONTH_ROWS).fill({ idealH: 0, minH: 0 })
+    : Array.from({ length: MONTH_ROWS }, (_, row) => {
+        const rowMonths = allMonths.filter((_, idx) => Math.floor(idx / COL_COUNT) === row)
+        const counts = rowMonths.map(({ year, month }) => {
+          const mk = `${year}-${String(month + 1).padStart(2, '0')}`
+          const seen = new Set()
+          Object.entries(events).forEach(([dk, evs]) => {
+            if (!dk.startsWith(mk)) return
+            ;(evs || []).filter(e => e.category !== 'rosh-chodesh').forEach(ev => seen.add(`${ev.category}::${ev.label}`))
+          })
+          return seen.size
+        })
+        const maxEv = counts.length > 0 ? Math.max(...counts) : 0
+        return {
+          idealH: maxEv > 0 ? Math.max(16, maxEv * 5 + 8) : 0,
+          minH:   maxEv > 0 ? Math.max(12, maxEv * 4 + 8) : 0,
+        }
+      })
+  const totalNotesHIdeal = perRowData.reduce((s, d) => s + d.idealH, 0)
+  const minTotalNotes    = perRowData.reduce((s, d) => s + d.minH,   0)
+  const FIXED_H = (MONTH_ROWS - 1) * ROW_GAP + MONTH_ROWS * HEADER_OFFSET
+  const baseCellH = Math.max(MIN_CELL_H, (availH - FIXED_H - totalNotesHIdeal) / (MONTH_ROWS * 6))
+  // Boost 17.5%, capped so minH notes space is always preserved (no cut-off events)
+  const maxCellH = (availH - FIXED_H - minTotalNotes) / (MONTH_ROWS * 6)
+  const CELL_H = Math.min(maxCellH, Math.max(MIN_CELL_H, baseCellH * 1.175))
+  // Remaining space → notes: each row guaranteed its minH, surplus distributed by idealH weight
+  const gridUsed  = MONTH_ROWS * CELL_H * 6 + FIXED_H
+  const notesAvail = Math.max(0, availH - gridUsed)
+  const surplus    = Math.max(0, notesAvail - minTotalNotes)
+  const perRowNotesH = perRowData.map(d =>
+    d.minH === 0 ? 0 : d.minH + (totalNotesHIdeal > 0 ? Math.floor(surplus * d.idealH / totalNotesHIdeal) : 0)
+  )
+  const perRowMonthH = perRowNotesH.map(nh => CELL_H * 6 + HEADER_OFFSET + nh)
+
+  // ── Header ──────────────────────────────────────────
+  doc.setFillColor(pr, pg, pb)
+  doc.rect(0, 0, PAGE_W * 0.62, HEADER_H, 'F')
+  doc.setFillColor(Math.min(255,pr+12), Math.min(255,pg+16), Math.min(255,pb+25))
+  doc.rect(PAGE_W * 0.62, 0, PAGE_W * 0.38, HEADER_H, 'F')
+  doc.setFillColor(ar, ag, ab)
+  doc.rect(0, HEADER_H - 1.5, PAGE_W, 1.5, 'F')
+
+  const LOGO_SIZE = 11
+  const logoY = (HEADER_H - LOGO_SIZE) / 2
+  let tradCircularLogo = null
+  if (schoolInfo.logo) {
+    try {
+      tradCircularLogo = await cropLogoImage(schoolInfo.logo, settings.logoShape || 'circle')
+      doc.addImage(tradCircularLogo, 'PNG', MARGIN, logoY, LOGO_SIZE, LOGO_SIZE)
+    } catch {}
+  }
+
+  doc.setFillColor(ar, ag, ab)
+  doc.rect(0, 0, 3, HEADER_H - 1.5, 'F')
+
+  const titleX = MARGIN + LOGO_SIZE + 3
+  const titleY = 2 + 4.5
+  const yearLineY = titleY + 5
+
+  const displayTitle = settings.calendarTitle || schoolInfo.name || 'YAYOE Calendar'
+  doc.setFontSize(18)
+  doc.setFont(titleFont, 'bold')
+  doc.setTextColor(255, 255, 255)
+  doc.text(displayTitle, titleX, titleY)
+
+  doc.setFontSize(10)
+  doc.setFont(titleFont, 'normal')
+  doc.setTextColor(200, 212, 232)
+  const hebrewYear = settings.hebrewYear || ''
+  const yearLine = settings.showHebrewYear !== false && hebrewYear
+    ? `Academic Year  ${settings.academicYear || '2026–2027'}  •  ${hebrewYear}`
+    : `Academic Year  ${settings.academicYear || '2026–2027'}`
+  doc.text(yearLine, titleX, yearLineY)
+
+  if (settings.draftWatermark) {
+    doc.setTextColor(200, 50, 50)
+    doc.setFontSize(72)
+    doc.setFont('helvetica', 'bold')
+    doc.setGState(doc.GState({ opacity: 0.18 }))
+    doc.text('DRAFT', PAGE_W / 2, PAGE_H / 2, { align: 'center', angle: 35 })
+    doc.setGState(doc.GState({ opacity: 1.0 }))
+  }
+
+  const holidayMap = getHolidayMap(settings.academicYear)
+  const emojiCache = {}
+  await Promise.all(
+    [...new Set(Object.values(holidayMap).map(h => (settings.hebrewHolidayIcons || {})[h.group] || h.icon).filter(Boolean))].map(
+      async icon => { emojiCache[icon] = await renderEmojiToImage(icon) }
+    )
+  )
+
+  // ── Calendar Grid ──────────────────────────────────
+  const startY = HEADER_H + 2
+  const rowStartY = Array.from({ length: MONTH_ROWS }, (_, row) => {
+    let y = startY
+    for (let r = 0; r < row; r++) y += perRowMonthH[r] + ROW_GAP
+    return y
+  })
+
+  allMonths.forEach(({ year, month }, idx) => {
+    const row = Math.floor(idx / COL_COUNT)
+    const col = idx % COL_COUNT
+    const mx = MARGIN + col * (MONTH_W + 2)
+    const mw = MONTH_W
+    const y = rowStartY[row]
+    const monthH = perRowMonthH[row]
+    const notesH = perRowNotesH[row]
+    const numWeeks = Math.ceil((getFirstDayOfWeek(year, month) + getDaysInMonth(year, month).length) / 7)
+    drawMonth(doc, { year, month }, events, categories, settings, mx, y, mw, monthH, shabbatLabel, notesH, theme, emojiCache, titleFont, numWeeks, 4.0)
+  })
+
+  // ── Bottom Events Panel ──────────────────────────────
+  if (showBottomPanel) {
+    const panelTop = rowStartY[MONTH_ROWS - 1] + perRowMonthH[MONTH_ROWS - 1] + 2
+    drawBottomEventsPanel(doc, categories, panelTop, PAGE_W, MARGIN, 0, bottomLayout, settings)
+
+    const bpFY = PAGE_H - MARGIN - BP_FOOTER_H
+    doc.setFillColor(248, 249, 252)
+    doc.rect(MARGIN, bpFY, PAGE_W - MARGIN * 2, BP_FOOTER_H, 'F')
+    doc.setDrawColor(225, 228, 234); doc.setLineWidth(0.4)
+    doc.line(MARGIN, bpFY, PAGE_W - MARGIN, bpFY)
+    const bpDetailParts2 = [
+      schoolInfo.address,
+      [schoolInfo.phone ? `Tel: ${schoolInfo.phone}` : '', schoolInfo.fax ? `Fax: ${schoolInfo.fax}` : ''].filter(Boolean).join('   '),
+      schoolInfo.email,
+      schoolInfo.website,
+    ].filter(Boolean)
+    if (schoolInfo.name) {
+      doc.setFontSize(6); doc.setFont('helvetica', 'bold'); doc.setTextColor(pr, pg, pb)
+      doc.text(schoolInfo.name, PAGE_W / 2, bpFY + 3.5, { align: 'center' })
+    }
+    if (bpDetailParts2.length) {
+      doc.setFontSize(4.8); doc.setFont('helvetica', 'normal'); doc.setTextColor(100, 112, 135)
+      doc.text(bpDetailParts2.join('   ·   '), PAGE_W / 2, bpFY + 7, { align: 'center', maxWidth: PAGE_W - MARGIN * 4 })
+    }
+  }
+
+  // ── Info card ──────────────────────────────────────
+  {
+    const ibX = MARGIN + 3 * (MONTH_W + 2)
+    const ibY = rowStartY[2]
+    const ibW = MONTH_W
+    const ibH = showBottomPanel ? perRowMonthH[2] : Math.max(perRowMonthH[2], PAGE_H - MARGIN - CLASSIC_FOOTER_H - ibY)
+    const isCompactCard = ibH < 55
+    const IH_H = isCompactCard ? 8 : 12
+    const PAD  = isCompactCard ? 3 : 5
+
+    doc.setFillColor(255, 255, 255)
+    doc.roundedRect(ibX, ibY, ibW, ibH, 4, 4, 'F')
+
+    doc.setFillColor(pr, pg, pb)
+    doc.roundedRect(ibX, ibY, ibW, IH_H, 1, 1, 'F')
+
+    if (tradCircularLogo) {
+      const lsz = IH_H - 2
+      doc.addImage(tradCircularLogo, 'PNG', ibX + PAD, ibY + 1, lsz, lsz)
+    }
+    const ibCX = ibX + ibW / 2
+    doc.setFontSize(isCompactCard ? 6 : 7); doc.setFont(titleFont, 'bold'); doc.setTextColor(255, 255, 255)
+    doc.text('School Information', ibCX, ibY + (isCompactCard ? 5 : 5.5), { align: 'center' })
+    if (!isCompactCard) {
+      doc.setFontSize(5.5); doc.setFont(titleFont, 'normal'); doc.setTextColor(200, 212, 232)
+      doc.text(settings.calendarTitle || schoolInfo.name || 'YAYOE', ibCX, ibY + 9.5, { align: 'center' })
+    }
+
+    let cy2 = ibY + IH_H + PAD
+
+    const visibleCatsIB = categories.filter(c => c.visible && c.id !== 'rosh-chodesh')
+    if (visibleCatsIB.length > 0) {
+      const SWATCH_W  = 5.3
+      const SWATCH_H  = 3.7
+      const LEG_ROW_H = isCompactCard ? 4.5 : 5.2
+      const legCols2  = 2
+      const legColW2  = (ibW - PAD * 2) / legCols2
+      const TEXT_X_OFF = SWATCH_W + 1.5
+
+      const catMax = Math.min(visibleCatsIB.length, 12)
+      let legRowsDrawn = 0
+      visibleCatsIB.slice(0, catMax).forEach((cat, i) => {
+        const col  = i % legCols2
+        const row  = Math.floor(i / legCols2)
+        const itemX = ibX + PAD + col * legColW2
+        const itemY = cy2 + row * LEG_ROW_H
+        if (itemY + SWATCH_H > ibY + ibH - 2) return
+        legRowsDrawn = Math.max(legRowsDrawn, row + 1)
+        const [r, g, b] = cat.id === 'no-school'
+          ? [208, 80, 80]
+          : hexToRgbLocal(catColor(cat.id, cat.color))
+        doc.setFillColor(r, g, b)
+        doc.roundedRect(itemX, itemY, SWATCH_W, SWATCH_H, 0.5, 0.5, 'F')
+        if (cat.id === 'no-school') {
+          doc.setDrawColor(165, 50, 50); doc.setLineWidth(0.25)
+          doc.roundedRect(itemX, itemY, SWATCH_W, SWATCH_H, 0.5, 0.5, 'S')
+        }
+        doc.setTextColor(31, 45, 74); doc.setFontSize(isCompactCard ? 6 : 6.5); doc.setFont('helvetica', 'normal')
+        doc.text(cat.name, itemX + TEXT_X_OFF, itemY + SWATCH_H * 0.72, { maxWidth: legColW2 - TEXT_X_OFF - 1 })
+      })
+      cy2 += legRowsDrawn * LEG_ROW_H + 2.5
+    }
+
+    const hourLines2 = (schoolInfo.hours || '').split('\n').filter(l => l.trim())
+    if (hourLines2.length && cy2 < ibY + ibH - 8) {
+      const HOURS_ROW_H = isCompactCard ? 5.0 : 4.5
+      const bandPadV    = 1.5
+      const bandH       = Math.min(
+        bandPadV * 2 + 4.0 + hourLines2.length * HOURS_ROW_H,
+        ibY + ibH - PAD - cy2
+      )
+      doc.setFillColor(240, 243, 247)
+      doc.rect(ibX + 1, cy2, ibW - 2, bandH, 'F')
+
+      cy2 += bandPadV
+
+      doc.setFontSize(isCompactCard ? 4.5 : 5); doc.setFont('helvetica', 'bold'); doc.setTextColor(pr, pg, pb)
+      doc.text('SCHOOL HOURS', ibX + PAD, cy2); cy2 += 4.0
+
+      const labelColW = 14
+      const timeX = ibX + PAD + labelColW
+      const timeMaxW = ibW - PAD - labelColW - PAD
+      doc.setFontSize(isCompactCard ? 6 : 6.5)
+      hourLines2.forEach(line => {
+        if (cy2 >= ibY + ibH - PAD) return
+        const colonIdx = line.indexOf(':')
+        if (colonIdx > 0 && colonIdx < 13) {
+          const lbl  = line.slice(0, colonIdx + 1)
+          const time = line.slice(colonIdx + 1).trim()
+          doc.setFont('helvetica', 'bold'); doc.setTextColor(pr, pg, pb)
+          doc.text(lbl, ibX + PAD, cy2)
+          doc.setFont('helvetica', 'normal'); doc.setTextColor(50, 60, 80)
+          doc.text(time, timeX, cy2, { maxWidth: timeMaxW })
+        } else {
+          doc.setFont('helvetica', 'normal'); doc.setTextColor(50, 60, 80)
+          doc.text(line.trim(), ibX + PAD, cy2, { maxWidth: ibW - PAD * 2 })
+        }
+        cy2 += HOURS_ROW_H
+      })
+      cy2 += bandPadV
+    }
+
+    const contactLines2 = !showBottomPanel ? [
+      schoolInfo.otherInfo,
+      schoolInfo.address,
+      [schoolInfo.phone ? `Tel: ${schoolInfo.phone}` : '', schoolInfo.fax ? `Fax: ${schoolInfo.fax}` : ''].filter(Boolean).join('   '),
+      schoolInfo.email,
+      schoolInfo.website,
+    ].filter(Boolean) : []
+    if (contactLines2.length && cy2 < ibY + ibH - 5) {
+      doc.setDrawColor(ar, ag, ab); doc.setLineWidth(0.4)
+      doc.line(ibX + PAD * 2, cy2 + 1.5, ibX + ibW - PAD * 2, cy2 + 1.5); cy2 += 4.5
+      contactLines2.forEach((line, i) => {
+        if (cy2 >= ibY + ibH - 2) return
+        const isFirst = i === 0
+        doc.setFontSize(isFirst ? (isCompactCard ? 5 : 5.5) : (isCompactCard ? 4.5 : 5))
+        doc.setFont('helvetica', isFirst ? 'bold' : 'normal')
+        doc.setTextColor(isFirst ? pr : 80, isFirst ? pg : 90, isFirst ? pb : 110)
+        doc.text(line, ibCX, cy2, { align: 'center', maxWidth: ibW - PAD * 2 })
+        cy2 += isFirst ? 4 : 3.4
+      })
+    }
+
+    doc.setDrawColor(216, 220, 227); doc.setLineWidth(0.5)
+    doc.roundedRect(ibX, ibY, ibW, ibH, 4, 4, 'S')
+  }
+
+  // ── Two-line contact footer ────────────────────────
+  if (!showBottomPanel) {
+    const cfY = PAGE_H - MARGIN - CLASSIC_FOOTER_H
+    doc.setFillColor(248, 249, 252)
+    doc.rect(MARGIN, cfY, PAGE_W - MARGIN * 2, CLASSIC_FOOTER_H, 'F')
+    doc.setDrawColor(225, 228, 234); doc.setLineWidth(0.4)
+    doc.line(MARGIN, cfY, PAGE_W - MARGIN, cfY)
+    const cfDetailParts2 = [
+      schoolInfo.address,
+      [schoolInfo.phone ? `Tel: ${schoolInfo.phone}` : '', schoolInfo.fax ? `Fax: ${schoolInfo.fax}` : ''].filter(Boolean).join('   '),
+      schoolInfo.email,
+      schoolInfo.website,
+    ].filter(Boolean)
+    if (schoolInfo.name) {
+      doc.setFontSize(6); doc.setFont('helvetica', 'bold'); doc.setTextColor(pr, pg, pb)
+      doc.text(schoolInfo.name, PAGE_W / 2, cfY + 3.5, { align: 'center' })
+    }
+    if (cfDetailParts2.length) {
+      doc.setFontSize(4.8); doc.setFont('helvetica', 'normal'); doc.setTextColor(100, 112, 135)
+      doc.text(cfDetailParts2.join('   ·   '), PAGE_W / 2, cfY + 7, { align: 'center', maxWidth: PAGE_W - MARGIN * 4 })
+    }
+  }
+
+  if (preview) return doc.output('datauristring')
+  doc.save(`${(schoolInfo.name || 'YAYOE').replace(/\s+/g, '-')}-Calendar-${settings.academicYear || '2026-27'}-traditional.pdf`)
 }
 
 // ────────────────────────────────────────────────────────────────────────────
