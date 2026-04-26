@@ -1224,7 +1224,7 @@ export async function exportPDF(state, { preview = false, pdfStyle = 'classic', 
       const bandPadV    = 1.5
       const bandH       = Math.min(
         bandPadV * 2 + 4.0 + hourLines2.length * HOURS_ROW_H,
-        ibY + ibH - PAD - cy2
+        ibY + ibH - 2 - cy2
       )
       // Gray background band
       doc.setFillColor(240, 243, 247)
@@ -1555,7 +1555,7 @@ async function exportTraditional(state, ctx) {
       const bandPadV    = 1.5
       const bandH       = Math.min(
         bandPadV * 2 + 4.0 + hourLines2.length * HOURS_ROW_H,
-        ibY + ibH - PAD - cy2
+        ibY + ibH - 2 - cy2
       )
       doc.setFillColor(240, 243, 247)
       doc.rect(ibX + 1, cy2, ibW - 2, bandH, 'F')
