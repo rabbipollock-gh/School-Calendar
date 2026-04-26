@@ -380,11 +380,11 @@ function drawMonth(doc, { year, month }, events, categories, settings, x, y, w, 
       doc.setFontSize(5.5 * s)
       doc.setFont('helvetica', 'bold')
       doc.text(String(dayNum), cx + 0.8, dateNumY)
-      if (firstEv.label && dateNumY + 3.5 * s < cy + cellH) {
-        doc.setFontSize(3.5 * s)
+      if (firstEv.label && dateNumY + 3.0 * s < cy + cellH) {
+        doc.setFontSize(3.0 * s)
         doc.setFont('helvetica', 'normal')
         const lbl = firstEv.label.length > 12 ? firstEv.label.slice(0, 11) + '…' : firstEv.label
-        doc.text(lbl, cx + 0.8, dateNumY + 3.5 * s, { maxWidth: cellW - 1.2 })
+        doc.text(lbl, cx + 0.8, dateNumY + 3.0 * s, { maxWidth: cellW - 1.2 })
       }
       doc.setFont('helvetica', 'normal')
     } else {
@@ -401,7 +401,7 @@ function drawMonth(doc, { year, month }, events, categories, settings, x, y, w, 
         doc.setFillColor(r, g, b)
         doc.circle(cx + 1.2, dotY, 0.9 * s, 'F')
         if (ev.label && cellW > 8 && dotY + 1.5 < cy + cellH) {
-          doc.setFontSize(3.5 * s)
+          doc.setFontSize(3.0 * s)
           doc.setTextColor(r, g, b)
           const lbl = ev.label.length > 11 ? ev.label.slice(0, 10) + '…' : ev.label
           doc.text(lbl, cx + 3, dotY + 0.6, { maxWidth: cellW - 3.5 })
@@ -428,10 +428,10 @@ function drawMonth(doc, { year, month }, events, categories, settings, x, y, w, 
       // Max safe font: date number is at cy+2.8mm, its cap-top ≈ cy+1.4mm.
       // RC baseline must stay ≤ cy+1.4mm → 3.5pt gives baseline at cy+1.1mm (0.3mm clearance).
       doc.setFont('helvetica', 'italic')
-      let rcFontPt = 3.5 * s
+      let rcFontPt = 3.0 * s
       doc.setFontSize(rcFontPt)
       if (doc.getTextWidth(rcText) > maxRcW) {
-        rcFontPt = 3 * s
+        rcFontPt = 2.6 * s
         doc.setFontSize(rcFontPt)
       }
       while (rcText.length > 5 && doc.getTextWidth(rcText) > maxRcW) {
@@ -536,43 +536,43 @@ function drawMonth(doc, { year, month }, events, categories, settings, x, y, w, 
         }).filter(Boolean).join(', ')
       }
 
-      doc.setFontSize(9); doc.setFont('helvetica', 'normal')
+      doc.setFontSize(8); doc.setFont('helvetica', 'normal')
       const shortDateW = doc.getTextWidth(shortDateStr)
       const EVENT_X = TEXT_X + shortDateW + 2.5
 
       const regTime = ev.regularDismissal && settings?.regularDismissalTime ? settings.regularDismissalTime : null
       const effectiveTime = ev.time || regTime || parseCategoryTime(cat?.name)
       const timeStr = effectiveTime ? ` ${formatTime(effectiveTime)}` : ''
-      doc.setFontSize(8.5); doc.setFont('helvetica', 'italic')
+      doc.setFontSize(7.5); doc.setFont('helvetica', 'italic')
       const timeW = timeStr ? doc.getTextWidth(timeStr) : 0
       const contStr = isContinuation ? ' (cont.)' : ''
       const contW = isContinuation ? doc.getTextWidth(contStr) : 0
 
-      doc.setFontSize(9); doc.setFont('helvetica', 'bold')
+      doc.setFontSize(8); doc.setFont('helvetica', 'bold')
       const availNameW = Math.max(DATE_X - EVENT_X - timeW - contW, 12)
       const displayLabel = doc.splitTextToSize(cleanLabel, availNameW)[0] || cleanLabel
       const nameW = doc.getTextWidth(displayLabel)
 
       // Date — day number(s), left side, muted blue-gray
-      doc.setFontSize(9); doc.setFont('helvetica', 'normal')
+      doc.setFontSize(8); doc.setFont('helvetica', 'normal')
       doc.setTextColor(74, 90, 122)
       doc.text(shortDateStr, TEXT_X, noteLineY + BASE_OFF)
 
-      // Event name — bold 9pt #1F2D4A, after date column
+      // Event name — bold 8pt #1F2D4A, after date column
       doc.setFont('helvetica', 'bold')
       doc.setTextColor(31, 45, 74)
       doc.text(displayLabel, EVENT_X, noteLineY + BASE_OFF)
 
-      // Inline time — italic 8.5pt #5A6A82, follows event name
+      // Inline time — italic 7.5pt #5A6A82, follows event name
       if (timeStr) {
-        doc.setFontSize(8.5); doc.setFont('helvetica', 'italic')
+        doc.setFontSize(7.5); doc.setFont('helvetica', 'italic')
         doc.setTextColor(90, 106, 130)
         doc.text(timeStr, EVENT_X + nameW, noteLineY + BASE_OFF)
       }
 
-      // (cont.) suffix — italic 8.5pt #5A6A82, follows time if present
+      // (cont.) suffix — italic 7.5pt #5A6A82, follows time if present
       if (isContinuation) {
-        doc.setFontSize(8.5); doc.setFont('helvetica', 'italic')
+        doc.setFontSize(7.5); doc.setFont('helvetica', 'italic')
         doc.setTextColor(90, 106, 130)
         doc.text(contStr, EVENT_X + nameW + timeW, noteLineY + BASE_OFF)
       }
@@ -1371,9 +1371,9 @@ async function exportTraditional(state, ctx) {
   const minTotalNotes    = perRowData.reduce((s, d) => s + d.minH,   0)
   const FIXED_H = (MONTH_ROWS - 1) * ROW_GAP + MONTH_ROWS * HEADER_OFFSET
   const baseCellH = Math.max(MIN_CELL_H, (availH - FIXED_H - totalNotesHIdeal) / (MONTH_ROWS * 6))
-  // Boost 17.5%, capped so minH notes space is always preserved (no cut-off events)
+  // Boost 50%, capped so minH notes space is always preserved (no cut-off events)
   const maxCellH = (availH - FIXED_H - minTotalNotes) / (MONTH_ROWS * 6)
-  const CELL_H = Math.min(maxCellH, Math.max(MIN_CELL_H, baseCellH * 1.175))
+  const CELL_H = Math.min(maxCellH, Math.max(MIN_CELL_H, baseCellH * 1.5))
   // Remaining space → notes: each row guaranteed its minH, surplus distributed by idealH weight
   const gridUsed  = MONTH_ROWS * CELL_H * 6 + FIXED_H
   const notesAvail = Math.max(0, availH - gridUsed)
