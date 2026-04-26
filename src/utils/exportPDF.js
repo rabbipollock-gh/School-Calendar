@@ -2033,7 +2033,7 @@ async function exportPortraitClassic(state, { preview = false } = {}) {
     doc.setFontSize(4.5); doc.setFont('helvetica', 'bold'); doc.setTextColor(pr, pg, pb)
     doc.text('SCHOOL HOURS', footHoursX, footerY + 5.5)
     doc.setFontSize(6); doc.setFont('helvetica', 'bold'); doc.setTextColor(50, 60, 80)
-    hourLines.slice(0, 3).forEach((line, i) => {
+    hourLines.forEach((line, i) => {
       const lineY = footerY + 9 + i * 2.8
       if (lineY <= footBottom) doc.text(line.trim(), footHoursX, lineY, { maxWidth: 52 })
     })
