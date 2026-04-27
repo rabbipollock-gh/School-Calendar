@@ -8,7 +8,8 @@ const MONTH_NAMES = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct'
 
 export default function HolidaySuggestionsPanel({ isOpen, onClose, onOpenModal }) {
   const { state, dispatch, readOnly } = useCalendar()
-  const { events, categories } = state
+  const { events, categories, settings } = state
+  const shabbatLabel = settings.shabbatLabel || 'Shabbat'
 
   const catMap = {}
   categories.forEach(c => { catMap[c.id] = c })
@@ -38,13 +39,13 @@ export default function HolidaySuggestionsPanel({ isOpen, onClose, onOpenModal }
   // Group by month
   const grouped = useMemo(() => {
     const groups = {}
-    getHolidaySuggestions(state.settings.academicYear).forEach(h => {
+    getHolidaySuggestions(settings.academicYear, shabbatLabel).forEach(h => {
       const monthKey = h.date.slice(0, 7)
       if (!groups[monthKey]) groups[monthKey] = []
       groups[monthKey].push(h)
     })
     return Object.entries(groups).sort(([a], [b]) => a.localeCompare(b))
-  }, [])
+  }, [settings.academicYear, shabbatLabel])
 
   if (!isOpen) return null
 

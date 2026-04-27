@@ -229,11 +229,11 @@ export const HOLIDAY_SUGGESTIONS = [
   { id: 'hs-tzom', date: '2026-09-14', label: 'Tzom Gedalya', category: 'early-dismissal', hebrewDate: '3 Tishrei 5787' },
   { id: 'hs-yk1', date: '2026-09-20', label: 'Erev Yom Kippur', category: 'no-school', hebrewDate: '9 Tishrei 5787' },
   { id: 'hs-yk2', date: '2026-09-21', label: 'Yom Kippur', category: 'no-school', hebrewDate: '10 Tishrei 5787' },
-  { id: 'hs-suk1', date: '2026-09-25', label: 'Sukkos (1st Day)', category: 'no-school', hebrewDate: '15 Tishrei 5787' },
-  { id: 'hs-suk2', date: '2026-09-26', label: 'Sukkos (2nd Day)', category: 'no-school', hebrewDate: '16 Tishrei 5787' },
+  { id: 'hs-suk1', date: '2026-09-25', ashkenaz: 'Sukkos (1st Day)', sephardi: 'Sukkot (1st Day)', category: 'no-school', hebrewDate: '15 Tishrei 5787' },
+  { id: 'hs-suk2', date: '2026-09-26', ashkenaz: 'Sukkos (2nd Day)', sephardi: 'Sukkot (2nd Day)', category: 'no-school', hebrewDate: '16 Tishrei 5787' },
   { id: 'hs-hoshana', date: '2026-10-02', label: 'Hoshana Raba', category: 'no-school', hebrewDate: '21 Tishrei 5787' },
-  { id: 'hs-smini', date: '2026-10-03', label: 'Shmini Atzeres', category: 'no-school', hebrewDate: '22 Tishrei 5787' },
-  { id: 'hs-simcha', date: '2026-10-04', label: 'Simchas Torah', category: 'no-school', hebrewDate: '23 Tishrei 5787' },
+  { id: 'hs-smini', date: '2026-10-03', ashkenaz: 'Shmini Atzeres', sephardi: 'Shemini Atzeret', category: 'no-school', hebrewDate: '22 Tishrei 5787' },
+  { id: 'hs-simcha', date: '2026-10-04', ashkenaz: 'Simchas Torah', sephardi: 'Simchat Torah', category: 'no-school', hebrewDate: '23 Tishrei 5787' },
 
   // Kislev / Tevet
   { id: 'hs-chan1', date: '2026-12-05', label: 'Chanukah (1st Night)', category: 'chanukah', hebrewDate: '25 Kislev 5787' },
@@ -244,13 +244,13 @@ export const HOLIDAY_SUGGESTIONS = [
   { id: 'hs-chan6', date: '2026-12-10', label: 'Chanukah (6th Night)', category: 'chanukah', hebrewDate: '1 Tevet 5787' },
   { id: 'hs-chan7', date: '2026-12-11', label: 'Chanukah (7th Night)', category: 'chanukah', hebrewDate: '2 Tevet 5787' },
   { id: 'hs-chan8', date: '2026-12-12', label: 'Chanukah (8th Night)', category: 'chanukah', hebrewDate: '3 Tevet 5787' },
-  { id: 'hs-asara', date: '2026-12-20', label: 'Asara B\'Teves', category: 'early-dismissal', hebrewDate: '10 Tevet 5787' },
+  { id: 'hs-asara', date: '2026-12-20', ashkenaz: "Asara B'Teves", sephardi: "Asara B'Tevet", category: 'early-dismissal', hebrewDate: '10 Tevet 5787' },
 
   // Shvat
   { id: 'hs-tubshvat', date: '2027-01-22', label: 'Tu B\'Shvat', category: 'school-event', hebrewDate: '15 Shvat 5787' },
 
   // Adar
-  { id: 'hs-taanit', date: '2027-03-22', label: 'Taanis Esther', category: 'early-dismissal', hebrewDate: '13 Adar 5787' },
+  { id: 'hs-taanit', date: '2027-03-22', ashkenaz: 'Taanis Esther', sephardi: "Ta'anit Esther", category: 'early-dismissal', hebrewDate: '13 Adar 5787' },
   { id: 'hs-purim', date: '2027-03-23', label: 'Purim', category: 'no-school', hebrewDate: '14 Adar 5787' },
   { id: 'hs-shushan', date: '2027-03-24', label: 'Shushan Purim', category: 'no-school', hebrewDate: '15 Adar 5787' },
 
@@ -267,9 +267,9 @@ export const HOLIDAY_SUGGESTIONS = [
   { id: 'hs-lagbaomer', date: '2027-05-25', label: "Lag B'Omer", category: 'school-event', hebrewDate: '18 Iyar 5787' },
 
   // Sivan / Shavuot
-  { id: 'hs-erev-shavuos', date: '2027-06-10', label: 'Erev Shavuos', category: 'early-dismissal', hebrewDate: '5 Sivan 5787' },
-  { id: 'hs-shavuos1', date: '2027-06-11', label: 'Shavuos (1st Day)', category: 'no-school', hebrewDate: '6 Sivan 5787' },
-  { id: 'hs-shavuos2', date: '2027-06-12', label: 'Shavuos (2nd Day)', category: 'no-school', hebrewDate: '7 Sivan 5787' },
+  { id: 'hs-erev-shavuos', date: '2027-06-10', ashkenaz: 'Erev Shavuos', sephardi: 'Erev Shavuot', category: 'early-dismissal', hebrewDate: '5 Sivan 5787' },
+  { id: 'hs-shavuos1', date: '2027-06-11', ashkenaz: 'Shavuos (1st Day)', sephardi: 'Shavuot (1st Day)', category: 'no-school', hebrewDate: '6 Sivan 5787' },
+  { id: 'hs-shavuos2', date: '2027-06-12', ashkenaz: 'Shavuos (2nd Day)', sephardi: 'Shavuot (2nd Day)', category: 'no-school', hebrewDate: '7 Sivan 5787' },
 
   // Tammuz
   { id: 'hs-17tammuz', date: '2027-07-11', label: '17 B\'Tammuz', category: 'early-dismissal', hebrewDate: '17 Tammuz 5787' },
@@ -283,11 +283,11 @@ const HOLIDAY_SUGGESTIONS_5788 = [
   { id: 'hs88-tzom', date: '2027-10-04', label: 'Tzom Gedalya', category: 'early-dismissal', hebrewDate: '3 Tishrei 5788' },
   { id: 'hs88-yk1', date: '2027-10-10', label: 'Erev Yom Kippur', category: 'no-school', hebrewDate: '9 Tishrei 5788' },
   { id: 'hs88-yk2', date: '2027-10-11', label: 'Yom Kippur', category: 'no-school', hebrewDate: '10 Tishrei 5788' },
-  { id: 'hs88-suk1', date: '2027-10-16', label: 'Sukkos (1st Day)', category: 'no-school', hebrewDate: '15 Tishrei 5788' },
-  { id: 'hs88-suk2', date: '2027-10-17', label: 'Sukkos (2nd Day)', category: 'no-school', hebrewDate: '16 Tishrei 5788' },
+  { id: 'hs88-suk1', date: '2027-10-16', ashkenaz: 'Sukkos (1st Day)', sephardi: 'Sukkot (1st Day)', category: 'no-school', hebrewDate: '15 Tishrei 5788' },
+  { id: 'hs88-suk2', date: '2027-10-17', ashkenaz: 'Sukkos (2nd Day)', sephardi: 'Sukkot (2nd Day)', category: 'no-school', hebrewDate: '16 Tishrei 5788' },
   { id: 'hs88-hoshana', date: '2027-10-22', label: 'Hoshana Raba', category: 'no-school', hebrewDate: '21 Tishrei 5788' },
-  { id: 'hs88-smini', date: '2027-10-23', label: 'Shmini Atzeres', category: 'no-school', hebrewDate: '22 Tishrei 5788' },
-  { id: 'hs88-simcha', date: '2027-10-24', label: 'Simchas Torah', category: 'no-school', hebrewDate: '23 Tishrei 5788' },
+  { id: 'hs88-smini', date: '2027-10-23', ashkenaz: 'Shmini Atzeres', sephardi: 'Shemini Atzeret', category: 'no-school', hebrewDate: '22 Tishrei 5788' },
+  { id: 'hs88-simcha', date: '2027-10-24', ashkenaz: 'Simchas Torah', sephardi: 'Simchat Torah', category: 'no-school', hebrewDate: '23 Tishrei 5788' },
 
   // Kislev / Tevet
   { id: 'hs88-chan1', date: '2027-12-25', label: 'Chanukah (1st Night)', category: 'chanukah', hebrewDate: '25 Kislev 5788' },
@@ -298,13 +298,13 @@ const HOLIDAY_SUGGESTIONS_5788 = [
   { id: 'hs88-chan6', date: '2027-12-30', label: 'Chanukah (6th Night)', category: 'chanukah', hebrewDate: '30 Kislev 5788' },
   { id: 'hs88-chan7', date: '2027-12-31', label: 'Chanukah (7th Night)', category: 'chanukah', hebrewDate: '1 Tevet 5788' },
   { id: 'hs88-chan8', date: '2028-01-01', label: 'Chanukah (8th Night)', category: 'chanukah', hebrewDate: '2 Tevet 5788' },
-  { id: 'hs88-asara', date: '2028-01-09', label: "Asara B'Teves", category: 'early-dismissal', hebrewDate: '10 Tevet 5788' },
+  { id: 'hs88-asara', date: '2028-01-09', ashkenaz: "Asara B'Teves", sephardi: "Asara B'Tevet", category: 'early-dismissal', hebrewDate: '10 Tevet 5788' },
 
   // Shvat
   { id: 'hs88-tubshvat', date: '2028-02-12', label: "Tu B'Shvat", category: 'school-event', hebrewDate: '15 Shvat 5788' },
 
   // Adar
-  { id: 'hs88-taanit', date: '2028-03-11', label: 'Taanis Esther', category: 'early-dismissal', hebrewDate: '13 Adar 5788' },
+  { id: 'hs88-taanit', date: '2028-03-11', ashkenaz: 'Taanis Esther', sephardi: "Ta'anit Esther", category: 'early-dismissal', hebrewDate: '13 Adar 5788' },
   { id: 'hs88-purim', date: '2028-03-12', label: 'Purim', category: 'no-school', hebrewDate: '14 Adar 5788' },
   { id: 'hs88-shushan', date: '2028-03-13', label: 'Shushan Purim', category: 'no-school', hebrewDate: '15 Adar 5788' },
 
@@ -321,15 +321,21 @@ const HOLIDAY_SUGGESTIONS_5788 = [
   { id: 'hs88-lagbaomer', date: '2028-05-14', label: "Lag B'Omer", category: 'school-event', hebrewDate: '18 Iyar 5788' },
 
   // Sivan / Shavuot
-  { id: 'hs88-erev-shavuos', date: '2028-05-30', label: 'Erev Shavuos', category: 'early-dismissal', hebrewDate: '5 Sivan 5788' },
-  { id: 'hs88-shavuos1', date: '2028-05-31', label: 'Shavuos (1st Day)', category: 'no-school', hebrewDate: '6 Sivan 5788' },
-  { id: 'hs88-shavuos2', date: '2028-06-01', label: 'Shavuos (2nd Day)', category: 'no-school', hebrewDate: '7 Sivan 5788' },
+  { id: 'hs88-erev-shavuos', date: '2028-05-30', ashkenaz: 'Erev Shavuos', sephardi: 'Erev Shavuot', category: 'early-dismissal', hebrewDate: '5 Sivan 5788' },
+  { id: 'hs88-shavuos1', date: '2028-05-31', ashkenaz: 'Shavuos (1st Day)', sephardi: 'Shavuot (1st Day)', category: 'no-school', hebrewDate: '6 Sivan 5788' },
+  { id: 'hs88-shavuos2', date: '2028-06-01', ashkenaz: 'Shavuos (2nd Day)', sephardi: 'Shavuot (2nd Day)', category: 'no-school', hebrewDate: '7 Sivan 5788' },
 ]
 
-/** Returns the holiday suggestions array for the given academic year string */
-export function getHolidaySuggestions(academicYear) {
-  if (academicYear === '2027-2028') return HOLIDAY_SUGGESTIONS_5788
-  return HOLIDAY_SUGGESTIONS
+/** Returns the holiday suggestions array for the given academic year string, with labels resolved for the given pronunciation */
+export function getHolidaySuggestions(academicYear, shabbatLabel) {
+  const raw = academicYear === '2027-2028' ? HOLIDAY_SUGGESTIONS_5788 : HOLIDAY_SUGGESTIONS
+  const isAshkenaz = shabbatLabel === 'Shabbos'
+  return raw.map(h => {
+    if (h.ashkenaz && h.sephardi) {
+      return { ...h, label: isAshkenaz ? h.ashkenaz : h.sephardi }
+    }
+    return h
+  })
 }
 
 // ── Hebrew Month Start Map ────────────────────────────────────────────────

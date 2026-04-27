@@ -97,7 +97,8 @@ export default function SettingsDrawer({ isOpen, onClose, onOpenCategories, onOp
         <div className="flex-1 overflow-y-auto p-5 space-y-6">
           {/* School Info */}
           <section>
-            <h3 className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-widest mb-3">School Information</h3>
+            <h3 className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-widest mb-1">School Information</h3>
+            <p className="text-[10px] text-gray-400 dark:text-gray-500 mb-3">Wrap words with <span className="font-mono bg-gray-100 dark:bg-gray-700 px-0.5 rounded">**double stars**</span> to make them bold in the PDF.</p>
             <div className="space-y-3">
               <Field label="School Name">
                 <input type="text" value={schoolInfo.name} onChange={e => updateInfo('name', e.target.value)} readOnly={readOnly} className={inputCls} />

@@ -20,6 +20,39 @@ function hexToRgbLocal(hex) {
   return hexToRgb(hex)
 }
 
+// Renders text with **bold** markers for inline bold control in PDFs.
+// Falls back to plain doc.text() when no markers are present (backward-compatible).
+// The current doc fontSize and text color must already be set before calling.
+// fontFamily must match what the caller is using (default: 'helvetica').
+function renderRichText(doc, rawText, x, y, { align = 'left', maxWidth, fontFamily = 'helvetica', charSpace } = {}) {
+  const text = rawText || ''
+  const textOpts = { align, maxWidth, ...(charSpace != null ? { charSpace } : {}) }
+  if (!text.includes('**')) {
+    doc.text(text, x, y, textOpts)
+    return
+  }
+  const segments = []
+  const re = /\*\*(.*?)\*\*/g
+  let last = 0, m
+  while ((m = re.exec(text)) !== null) {
+    if (m.index > last) segments.push({ t: text.slice(last, m.index), bold: false })
+    if (m[1]) segments.push({ t: m[1], bold: true })
+    last = m.index + m[0].length
+  }
+  if (last < text.length) segments.push({ t: text.slice(last), bold: false })
+  const widths = segments.map(seg => {
+    doc.setFont(fontFamily, seg.bold ? 'bold' : 'normal')
+    return doc.getTextWidth(seg.t)
+  })
+  const totalW = widths.reduce((a, b) => a + b, 0)
+  let cx = align === 'center' ? x - totalW / 2 : align === 'right' ? x - totalW : x
+  segments.forEach((seg, i) => {
+    doc.setFont(fontFamily, seg.bold ? 'bold' : 'normal')
+    doc.text(seg.t, cx, y, charSpace != null ? { charSpace } : undefined)
+    cx += widths[i]
+  })
+}
+
 function computeMaxEventsPerMonth(events, academicYear) {
   return Math.max(...getAcademicMonths(academicYear).map(({ year, month }) => {
     const monthKey = `${year}-${String(month + 1).padStart(2, '0')}`
@@ -106,7 +139,7 @@ function renderSidebarBlock(doc, blockId, startY, { sbX, sbCx, SIDEBAR_W, ruleW,
       doc.line(sbCx - ruleW / 2, y + 1.8, sbCx + ruleW / 2, y + 1.8)
       // Large, highly readable hours — this is daily reference info
       doc.setFont('helvetica', 'bold'); doc.setFontSize(8); doc.setTextColor(tr, tg, tb)
-      hourLines.forEach((line, i) => doc.text(line.trim(), sbCx, y + 8 + i * 7, { align: 'center', maxWidth: SIDEBAR_W - 4 }))
+      hourLines.forEach((line, i) => renderRichText(doc, line.trim(), sbCx, y + 8 + i * 7, { align: 'center', maxWidth: SIDEBAR_W - 4 }))
       y += 8 + hourLines.length * 7 + 4
       doc.setDrawColor(ar, ag, ab); doc.setLineWidth(0.5)
       doc.line(sbX + 3, y, sbX + SIDEBAR_W - 3, y)
@@ -135,22 +168,24 @@ function renderSidebarBlock(doc, blockId, startY, { sbX, sbCx, SIDEBAR_W, ruleW,
     }
     case 'otherInfo': {
       if (!schoolInfo.otherInfo) return y
-      doc.setFontSize(4.5); doc.setFont('helvetica', 'normal')
-      const lines = doc.splitTextToSize(schoolInfo.otherInfo, SIDEBAR_W - 6).slice(0, 4)
-      doc.setTextColor(tr, tg, tb)
-      lines.forEach((line, i) => doc.text(line, sbCx, y + i * 5, { align: 'center' }))
-      y += lines.length * 5 + 4
+      doc.setFontSize(4.5); doc.setFont('helvetica', 'normal'); doc.setTextColor(tr, tg, tb)
+      const rawOther = schoolInfo.otherInfo
+      const otherLines = rawOther.includes('**')
+        ? rawOther.split('\n').filter(l => l.trim()).slice(0, 4)
+        : doc.splitTextToSize(rawOther, SIDEBAR_W - 6).slice(0, 4)
+      otherLines.forEach((line, i) => renderRichText(doc, line, sbCx, y + i * 5, { align: 'center', maxWidth: SIDEBAR_W - 6 }))
+      y += otherLines.length * 5 + 4
       doc.setDrawColor(ar, ag, ab); doc.setLineWidth(0.5)
       doc.line(sbX + 3, y, sbX + SIDEBAR_W - 3, y)
       return y + 6
     }
     case 'contact': {
       doc.setFont('helvetica', 'normal'); doc.setFontSize(4.5); doc.setTextColor(tr, tg, tb)
-      if (schoolInfo.address) { doc.text(schoolInfo.address, sbCx, y, { align: 'center', maxWidth: SIDEBAR_W - 6 }); y += 5 }
-      if (schoolInfo.phone) { doc.text(`Tel: ${schoolInfo.phone}`, sbCx, y, { align: 'center' }); y += 4.5 }
-      if (schoolInfo.fax) { doc.text(`Fax: ${schoolInfo.fax}`, sbCx, y, { align: 'center' }); y += 4.5 }
-      if (schoolInfo.email) { doc.setTextColor(lr, lg, lb); doc.text(schoolInfo.email, sbCx, y, { align: 'center', maxWidth: SIDEBAR_W - 6 }); doc.setTextColor(tr, tg, tb); y += 4.5 }
-      if (schoolInfo.website) { doc.setTextColor(lr, lg, lb); doc.text(schoolInfo.website, sbCx, y, { align: 'center', maxWidth: SIDEBAR_W - 6 }) }
+      if (schoolInfo.address) { renderRichText(doc, schoolInfo.address, sbCx, y, { align: 'center', maxWidth: SIDEBAR_W - 6 }); y += 5 }
+      if (schoolInfo.phone) { renderRichText(doc, `Tel: ${schoolInfo.phone}`, sbCx, y, { align: 'center' }); y += 4.5 }
+      if (schoolInfo.fax) { renderRichText(doc, `Fax: ${schoolInfo.fax}`, sbCx, y, { align: 'center' }); y += 4.5 }
+      if (schoolInfo.email) { doc.setTextColor(lr, lg, lb); renderRichText(doc, schoolInfo.email, sbCx, y, { align: 'center', maxWidth: SIDEBAR_W - 6 }); doc.setTextColor(tr, tg, tb); y += 4.5 }
+      if (schoolInfo.website) { doc.setTextColor(lr, lg, lb); renderRichText(doc, schoolInfo.website, sbCx, y, { align: 'center', maxWidth: SIDEBAR_W - 6 }) }
       return y
     }
     default: return y
@@ -1138,7 +1173,7 @@ export async function exportPDF(state, { preview = false, pdfStyle = 'classic', 
     ].filter(Boolean)
     if (schoolInfo.name) {
       doc.setFontSize(6); doc.setFont('helvetica', 'bold'); doc.setTextColor(pr, pg, pb)
-      doc.text(schoolInfo.name, PAGE_W / 2, bpFY + 3.5, { align: 'center' })
+      renderRichText(doc, schoolInfo.name, PAGE_W / 2, bpFY + 3.5, { align: 'center' })
     }
     if (bpDetailParts.length) {
       doc.setFontSize(4.8); doc.setFont('helvetica', 'normal'); doc.setTextColor(100, 112, 135)
@@ -1243,7 +1278,7 @@ export async function exportPDF(state, { preview = false, pdfStyle = 'classic', 
       hourLines2.forEach(line => {
         if (cy2 >= ibY + ibH - 2) return
         const colonIdx = line.indexOf(':')
-        if (colonIdx > 0 && colonIdx < 13) {
+        if (colonIdx > 0 && colonIdx < 13 && !line.includes('**')) {
           const lbl  = line.slice(0, colonIdx + 1)
           const time = line.slice(colonIdx + 1).trim()
           doc.setFont('helvetica', 'bold'); doc.setTextColor(pr, pg, pb)
@@ -1252,7 +1287,7 @@ export async function exportPDF(state, { preview = false, pdfStyle = 'classic', 
           doc.text(time, timeX, cy2, { maxWidth: timeMaxW })
         } else {
           doc.setFont('helvetica', 'normal'); doc.setTextColor(50, 60, 80)
-          doc.text(line.trim(), ibX + PAD, cy2, { maxWidth: ibW - PAD * 2 })
+          renderRichText(doc, line.trim(), ibX + PAD, cy2, { maxWidth: ibW - PAD * 2 })
         }
         cy2 += HOURS_ROW_H
       })
@@ -1276,7 +1311,7 @@ export async function exportPDF(state, { preview = false, pdfStyle = 'classic', 
         doc.setFontSize(isFirst ? (isCompactCard ? 5 : 5.5) : (isCompactCard ? 4.5 : 5))
         doc.setFont('helvetica', isFirst ? 'bold' : 'normal')
         doc.setTextColor(isFirst ? pr : 80, isFirst ? pg : 90, isFirst ? pb : 110)
-        doc.text(line, ibCX, cy2, { align: 'center', maxWidth: ibW - PAD * 2 })
+        renderRichText(doc, line, ibCX, cy2, { align: 'center', maxWidth: ibW - PAD * 2 })
         cy2 += isFirst ? 4 : 3.4
       })
     }
@@ -1301,7 +1336,7 @@ export async function exportPDF(state, { preview = false, pdfStyle = 'classic', 
     ].filter(Boolean)
     if (schoolInfo.name) {
       doc.setFontSize(6); doc.setFont('helvetica', 'bold'); doc.setTextColor(pr, pg, pb)
-      doc.text(schoolInfo.name, PAGE_W / 2, cfY + 3.5, { align: 'center' })
+      renderRichText(doc, schoolInfo.name, PAGE_W / 2, cfY + 3.5, { align: 'center' })
     }
     if (cfDetailParts.length) {
       doc.setFontSize(4.8); doc.setFont('helvetica', 'normal'); doc.setTextColor(100, 112, 135)
@@ -1478,7 +1513,7 @@ async function exportTraditional(state, ctx) {
     ].filter(Boolean)
     if (schoolInfo.name) {
       doc.setFontSize(6); doc.setFont('helvetica', 'bold'); doc.setTextColor(pr, pg, pb)
-      doc.text(schoolInfo.name, PAGE_W / 2, bpFY + 3.5, { align: 'center' })
+      renderRichText(doc, schoolInfo.name, PAGE_W / 2, bpFY + 3.5, { align: 'center' })
     }
     if (bpDetailParts2.length) {
       doc.setFontSize(4.8); doc.setFont('helvetica', 'normal'); doc.setTextColor(100, 112, 135)
@@ -1572,7 +1607,7 @@ async function exportTraditional(state, ctx) {
       hourLines2.forEach(line => {
         if (cy2 >= ibY + ibH - 2) return
         const colonIdx = line.indexOf(':')
-        if (colonIdx > 0 && colonIdx < 13) {
+        if (colonIdx > 0 && colonIdx < 13 && !line.includes('**')) {
           const lbl  = line.slice(0, colonIdx + 1)
           const time = line.slice(colonIdx + 1).trim()
           doc.setFont('helvetica', 'bold'); doc.setTextColor(pr, pg, pb)
@@ -1581,7 +1616,7 @@ async function exportTraditional(state, ctx) {
           doc.text(time, timeX, cy2, { maxWidth: timeMaxW })
         } else {
           doc.setFont('helvetica', 'normal'); doc.setTextColor(50, 60, 80)
-          doc.text(line.trim(), ibX + PAD, cy2, { maxWidth: ibW - PAD * 2 })
+          renderRichText(doc, line.trim(), ibX + PAD, cy2, { maxWidth: ibW - PAD * 2 })
         }
         cy2 += HOURS_ROW_H
       })
@@ -1604,7 +1639,7 @@ async function exportTraditional(state, ctx) {
         doc.setFontSize(isFirst ? (isCompactCard ? 5 : 5.5) : (isCompactCard ? 4.5 : 5))
         doc.setFont('helvetica', isFirst ? 'bold' : 'normal')
         doc.setTextColor(isFirst ? pr : 80, isFirst ? pg : 90, isFirst ? pb : 110)
-        doc.text(line, ibCX, cy2, { align: 'center', maxWidth: ibW - PAD * 2 })
+        renderRichText(doc, line, ibCX, cy2, { align: 'center', maxWidth: ibW - PAD * 2 })
         cy2 += isFirst ? 4 : 3.4
       })
     }
@@ -1628,7 +1663,7 @@ async function exportTraditional(state, ctx) {
     ].filter(Boolean)
     if (schoolInfo.name) {
       doc.setFontSize(6); doc.setFont('helvetica', 'bold'); doc.setTextColor(pr, pg, pb)
-      doc.text(schoolInfo.name, PAGE_W / 2, cfY + 3.5, { align: 'center' })
+      renderRichText(doc, schoolInfo.name, PAGE_W / 2, cfY + 3.5, { align: 'center' })
     }
     if (cfDetailParts2.length) {
       doc.setFontSize(4.8); doc.setFont('helvetica', 'normal'); doc.setTextColor(100, 112, 135)
@@ -2006,7 +2041,7 @@ async function exportPortraitClassic(state, { preview = false } = {}) {
   const footInfoX = footLogoX + FOOT_LOGO_SZ + 2.5
   const footInfoMaxW = 52
   doc.setFontSize(6.5); doc.setFont(titleFont, 'bold'); doc.setTextColor(pr, pg, pb)
-  doc.text(schoolInfo.name || 'YAYOE', footInfoX, footerY + 5.5, { maxWidth: footInfoMaxW })
+  renderRichText(doc, schoolInfo.name || 'YAYOE', footInfoX, footerY + 5.5, { maxWidth: footInfoMaxW, fontFamily: titleFont })
   let fcy = footerY + 9
   const footLine = (text, color) => {
     if (!text || fcy > footBottom) return
@@ -2035,7 +2070,7 @@ async function exportPortraitClassic(state, { preview = false } = {}) {
     doc.setFontSize(6); doc.setFont('helvetica', 'bold'); doc.setTextColor(50, 60, 80)
     hourLines.forEach((line, i) => {
       const lineY = footerY + 9 + i * 2.8
-      if (lineY <= footBottom) doc.text(line.trim(), footHoursX, lineY, { maxWidth: 52 })
+      if (lineY <= footBottom) renderRichText(doc, line.trim(), footHoursX, lineY, { maxWidth: 52 })
     })
   }
 
@@ -2836,7 +2871,7 @@ function deDarkSidebarBlock(doc, blockId, startY, { sbX, sbCx, SIDEBAR_W, GOLD, 
       doc.line(sbCx - ruleW / 2, y + 2, sbCx + ruleW / 2, y + 2)
       y += 6
       doc.setFont('helvetica', 'normal'); doc.setFontSize(5); doc.setTextColor(tr, tg, tb)
-      hourLines.forEach((line, i) => doc.text(line.trim(), sbCx, y + i * 5.5, { align: 'center', maxWidth: SIDEBAR_W - 4 }))
+      hourLines.forEach((line, i) => renderRichText(doc, line.trim(), sbCx, y + i * 5.5, { align: 'center', maxWidth: SIDEBAR_W - 4 }))
       y += hourLines.length * 5.5 + 6
       doc.setDrawColor(ar, ag, ab); doc.setLineWidth(0.4)
       doc.line(sbX + 4, y, sbX + SIDEBAR_W - 4, y)
@@ -2867,10 +2902,13 @@ function deDarkSidebarBlock(doc, blockId, startY, { sbX, sbCx, SIDEBAR_W, GOLD, 
     }
     case 'otherInfo': {
       if (!schoolInfo.otherInfo) return y
-      const lines = doc.splitTextToSize(schoolInfo.otherInfo, SIDEBAR_W - 6).slice(0, 4)
       doc.setFontSize(4.5); doc.setFont('helvetica', 'normal'); doc.setTextColor(tr, tg, tb)
-      lines.forEach((line, i) => doc.text(line, sbCx, y + i * 5, { align: 'center' }))
-      y += lines.length * 5 + 4
+      const rawOtherDE = schoolInfo.otherInfo
+      const otherLinesDE = rawOtherDE.includes('**')
+        ? rawOtherDE.split('\n').filter(l => l.trim()).slice(0, 4)
+        : doc.splitTextToSize(rawOtherDE, SIDEBAR_W - 6).slice(0, 4)
+      otherLinesDE.forEach((line, i) => renderRichText(doc, line, sbCx, y + i * 5, { align: 'center', maxWidth: SIDEBAR_W - 6 }))
+      y += otherLinesDE.length * 5 + 4
       doc.setDrawColor(ar, ag, ab); doc.setLineWidth(0.4)
       doc.line(sbX + 4, y, sbX + SIDEBAR_W - 4, y)
       return y + 7
@@ -2878,17 +2916,19 @@ function deDarkSidebarBlock(doc, blockId, startY, { sbX, sbCx, SIDEBAR_W, GOLD, 
     case 'contact': {
       doc.setFont('helvetica', 'normal'); doc.setFontSize(5); doc.setTextColor(tr, tg, tb)
       if (schoolInfo.address) {
-        const addrLines = doc.splitTextToSize(schoolInfo.address, SIDEBAR_W - 6)
-        addrLines.forEach((line, i) => doc.text(line, sbCx, y + i * 4.5, { align: 'center' }))
+        const addrLines = schoolInfo.address.includes('**')
+          ? schoolInfo.address.split('\n').filter(l => l.trim())
+          : doc.splitTextToSize(schoolInfo.address, SIDEBAR_W - 6)
+        addrLines.forEach((line, i) => { renderRichText(doc, line, sbCx, y + i * 4.5, { align: 'center', maxWidth: SIDEBAR_W - 6 }) })
         y += addrLines.length * 4.5 + 1
       }
-      if (schoolInfo.phone) { doc.text(`Tel: ${schoolInfo.phone}`, sbCx, y, { align: 'center' }); y += 5 }
-      if (schoolInfo.fax) { doc.text(`Fax: ${schoolInfo.fax}`, sbCx, y, { align: 'center' }); y += 5 }
-      if (schoolInfo.email) { doc.text(schoolInfo.email, sbCx, y, { align: 'center', maxWidth: SIDEBAR_W - 6 }); y += 5 }
+      if (schoolInfo.phone) { renderRichText(doc, `Tel: ${schoolInfo.phone}`, sbCx, y, { align: 'center' }); y += 5 }
+      if (schoolInfo.fax) { renderRichText(doc, `Fax: ${schoolInfo.fax}`, sbCx, y, { align: 'center' }); y += 5 }
+      if (schoolInfo.email) { renderRichText(doc, schoolInfo.email, sbCx, y, { align: 'center', maxWidth: SIDEBAR_W - 6 }); y += 5 }
       if (schoolInfo.website) {
         // Website URL in gold (only item styled this way per design spec)
         doc.setTextColor(ar, ag, ab); doc.setFont('helvetica', 'bold')
-        doc.text(schoolInfo.website, sbCx, y, { align: 'center', maxWidth: SIDEBAR_W - 6 })
+        renderRichText(doc, schoolInfo.website, sbCx, y, { align: 'center', maxWidth: SIDEBAR_W - 6 })
       }
       return y
     }

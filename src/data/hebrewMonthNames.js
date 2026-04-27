@@ -14,9 +14,22 @@ export const HEBREW_MONTH_NAMES = {
   '2027-06': { primary: 'Sivan', secondary: 'Tammuz' },
 }
 
-export function getHebrewMonthLabel(year, month) {
+// Ashkenaz spelling variants for Hebrew month names
+const ASHKENAZ_MONTH_MAP = {
+  'Tevet': 'Teves',
+}
+
+function applyAshkenazMonth(name, isAshkenaz) {
+  if (!isAshkenaz) return name
+  return ASHKENAZ_MONTH_MAP[name] || name
+}
+
+export function getHebrewMonthLabel(year, month, shabbatLabel) {
   const key = `${year}-${String(month + 1).padStart(2, '0')}`
   const entry = HEBREW_MONTH_NAMES[key]
   if (!entry) return ''
-  return entry.secondary ? `${entry.primary}–${entry.secondary}` : entry.primary
+  const isAshkenaz = shabbatLabel === 'Shabbos'
+  const primary = applyAshkenazMonth(entry.primary, isAshkenaz)
+  const secondary = entry.secondary ? applyAshkenazMonth(entry.secondary, isAshkenaz) : null
+  return secondary ? `${primary}–${secondary}` : primary
 }

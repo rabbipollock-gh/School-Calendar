@@ -12,7 +12,7 @@ export default function MonthBlock({ year, month, onOpenModal, focusedDate, onRe
   const { settings, events, categories } = state
 
   const shabbatLabel = settings.shabbatLabel || 'Shabbat'
-  const hebrewLabel = getHebrewMonthLabel(year, month)
+  const hebrewLabel = getHebrewMonthLabel(year, month, shabbatLabel)
 
   const days = useMemo(() => getDaysInMonth(year, month), [year, month])
   const startDow = useMemo(() => getFirstDayOfWeek(year, month), [year, month])

@@ -24,6 +24,7 @@ export default function DayCell({ date, onOpenModal, focusedDate, settings }) {
   const showHoliday = hebrewHoliday && holidayToggles[hebrewHoliday.group] !== false
   const isAshkenaz = settings.shabbatLabel === 'Shabbos'
   const holidayName = hebrewHoliday ? (isAshkenaz ? hebrewHoliday.ashkenaz : hebrewHoliday.sephardi) : null
+  const rcMonthDisplay = rcMonth && isAshkenaz && rcMonth === 'Tevet' ? 'Teves' : rcMonth
   const customIcons = settings.hebrewHolidayIcons || {}
   const holidayIcon = hebrewHoliday ? (customIcons[hebrewHoliday.group] || hebrewHoliday.icon) : null
 
@@ -151,7 +152,7 @@ export default function DayCell({ date, onOpenModal, focusedDate, settings }) {
           text-[7px] leading-none font-medium mt-auto truncate max-w-full
           ${isFilled ? 'text-white/80' : 'text-purple-500/70 dark:text-purple-400/60'}
         `}>
-          🌙 {rcMonth}
+          🌙 {rcMonthDisplay}
         </span>
       )}
 
