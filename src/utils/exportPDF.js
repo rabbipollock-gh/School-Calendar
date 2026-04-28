@@ -350,7 +350,7 @@ function drawMonth(doc, { year, month }, events, categories, settings, x, y, w, 
         noSchoolMap[dateKey] = { label: ev.label }
       }
       if (ev.category === 'early-dismissal' || cname.includes('dismissal')) {
-        earlyDismissMap[dateKey] = { label: ev.label, time: ev.time || parseCategoryTime(cat?.name), color: ev.color || cat?.color || '#D68910' }
+        earlyDismissMap[dateKey] = { label: ev.label, time: ev.time || parseCategoryTime(cat?.name), color: ev.color || cat?.color || '#D68910', regularDismissal: ev.regularDismissal }
       }
     })
   })
@@ -398,10 +398,10 @@ function drawMonth(doc, { year, month }, events, categories, settings, x, y, w, 
       doc.setFontSize(5.5 * s)
       doc.setFont('helvetica', 'bold')
       doc.text(String(dayNum), cx + 0.8, dateNumY)
-      if (ed.time && dateNumY + 3.5 < cy + cellH) {
+      if ((ed.time || ed.regularDismissal) && dateNumY + 3.5 < cy + cellH) {
         doc.setFontSize(3.2 * s)
         doc.setFont('helvetica', 'normal')
-        doc.text(formatTime(ed.time), cx + 0.8, dateNumY + 3.5, { maxWidth: cellW - 1.2 })
+        doc.text(ed.regularDismissal ? 'reg. dismissal' : formatTime(ed.time), cx + 0.8, dateNumY + 3.5, { maxWidth: cellW - 1.2 })
       }
     } else if (isFilled && dayEvs.length > 0) {
       // Filled cell mode for other events
@@ -575,9 +575,9 @@ function drawMonth(doc, { year, month }, events, categories, settings, x, y, w, 
       const shortDateW = doc.getTextWidth(shortDateStr)
       const EVENT_X = TEXT_X + shortDateW + 2.5
 
-      const regTime = ev.regularDismissal && settings?.regularDismissalTime ? settings.regularDismissalTime : null
-      const effectiveTime = ev.time || regTime || parseCategoryTime(cat?.name)
-      const timeStr = effectiveTime ? ` ${formatTime(effectiveTime)}` : ''
+      const timeStr = ev.regularDismissal
+        ? '  reg. dismissal'
+        : (() => { const t = ev.time || parseCategoryTime(cat?.name); return t ? ` ${formatTime(t)}` : '' })()
       doc.setFontSize(7.5); doc.setFont('helvetica', 'italic')
       const timeW = timeStr ? doc.getTextWidth(timeStr) : 0
       const contStr = isContinuation ? ' (cont.)' : ''
@@ -900,11 +900,11 @@ function drawBottomEventsPanel(doc, categories, y, pageW, margin, sidebarW, layo
         const dateY     = lastNameY + p.dateGap
         const dGroups   = groupConsecutiveDates([...dates].sort())
         const rangeText = formatRangeGroups(dGroups)
-        const regTime   = ev.regularDismissal && settings?.regularDismissalTime ? settings.regularDismissalTime : null
-        const effectiveTime = ev.time || regTime || parseCategoryTime(cat?.name)
-        const timeStr   = effectiveTime ? ` ${formatTime(effectiveTime)}` : ''
+        const timeStr = ev.regularDismissal
+          ? '  reg. dismissal'
+          : (() => { const t = ev.time || parseCategoryTime(cat?.name); return t ? ` ${formatTime(t)}` : '' })()
         doc.setFontSize(p.dateFontSz)
-        doc.setFont('helvetica', effectiveTime ? 'italic' : 'normal')
+        doc.setFont('helvetica', timeStr ? 'italic' : 'normal')
         doc.setTextColor(200, 212, 232)   // #C8D4E8
         doc.text(rangeText + timeStr, colX + 4, dateY)
         doc.setFont('helvetica', 'normal')
@@ -953,7 +953,7 @@ function drawNotesStrip(doc, events, catMap, x, y, w, h, year, month, { modernSt
       const dw = doc.getTextWidth(dateStr)
       const remainW = w - 3.5 - dw
       const catTimeStr = parseCategoryTime(cat?.name)
-      const timeStr = ev.time || catTimeStr ? `  ${formatTime(ev.time || catTimeStr)}` : ''
+      const timeStr = ev.regularDismissal ? '  reg. dismissal' : (ev.time || catTimeStr ? `  ${formatTime(ev.time || catTimeStr)}` : '')
       const fullLabel = `${ev.label}${timeStr}`
       const labelLines = doc.splitTextToSize(fullLabel, remainW)
       const displayLabel = labelLines.length > 1 ? labelLines[0].replace(/\s+\S*$/, '') + '…' : labelLines[0]
@@ -1876,7 +1876,7 @@ async function exportPortraitClassic(state, { preview = false } = {}) {
         if (ev.category === 'no-school' || cname.includes('no school'))
           noSchoolMap[dk] = { label: ev.label }
         if (ev.category === 'early-dismissal' || cname.includes('dismissal'))
-          earlyDismissMap[dk] = { label: ev.label, time: ev.time, color: ev.color || cat?.color || '#D68910' }
+          earlyDismissMap[dk] = { label: ev.label, time: ev.time, color: ev.color || cat?.color || '#D68910', regularDismissal: ev.regularDismissal }
       })
     })
 
@@ -1909,9 +1909,9 @@ async function exportPortraitClassic(state, { preview = false } = {}) {
         doc.roundedRect(cx + 0.1, cy + 0.1, cellW - 0.2, cellH - 0.2, 0.4, 0.4, 'F')
         doc.setTextColor(255, 255, 255); doc.setFontSize(5); doc.setFont('helvetica', 'bold')
         doc.text(String(dayNum), cx + 0.7, cy + 2.9)
-        if (ed.time) {
+        if (ed.time || ed.regularDismissal) {
           doc.setFontSize(3); doc.setFont('helvetica', 'normal')
-          doc.text(formatTime(ed.time), cx + 0.7, cy + cellH - 0.6, { maxWidth: cellW - 1 })
+          doc.text(ed.regularDismissal ? 'reg. dismissal' : formatTime(ed.time), cx + 0.7, cy + cellH - 0.6, { maxWidth: cellW - 1 })
         }
       } else if (settings.cellStyle === 'filled' && dayEvs.length > 0) {
         const firstEv = dayEvs[0]
@@ -2000,7 +2000,7 @@ async function exportPortraitClassic(state, { preview = false } = {}) {
       doc.roundedRect(notesX, noteY - 2.1, 2.1, 2.1, 0.25, 0.25, 'F')
       // Label (colored) + time + range (muted)
       const isED = ev.category === 'early-dismissal' || (cat?.name?.toLowerCase() || '').includes('dismissal')
-      const timeStr = isED && ev.time ? ` ${formatTime(ev.time)}` : ''
+      const timeStr = ev.regularDismissal ? '  reg. dismissal' : (isED && ev.time ? ` ${formatTime(ev.time)}` : '')
       const groups = groupConsecutiveDates([...dates].sort())
       const rangeStr = formatRangeGroups(groups)
       const rangePart = `  –  ${rangeStr}`

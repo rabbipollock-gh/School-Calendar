@@ -91,6 +91,9 @@ export default function NotesStrip({ year, month, onOpenModal }) {
                 <span className="font-medium">{group.rangeStr}</span>
                 {' | '}
                 {group.ev.label}
+                {group.ev.regularDismissal && (
+                  <span className="ml-1">(reg. dismissal)</span>
+                )}
               </span>
             </button>
           ))}

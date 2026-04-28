@@ -105,9 +105,11 @@ export default function MonthEventsPanel({ onOpenModal }) {
                   <span className="text-[10px] leading-snug text-white/70 group-hover:text-white transition truncate">
                     <span className="text-white/50 mr-1">{group.rangeStr}</span>
                     {group.ev.label}
-                    {group.ev.time && (
+                    {group.ev.regularDismissal ? (
+                      <span className="ml-1 text-white/45 group-hover:text-white/70">(reg. dismissal)</span>
+                    ) : group.ev.time ? (
                       <span className="ml-1 text-white/45 group-hover:text-white/70">{formatTime(group.ev.time)}</span>
-                    )}
+                    ) : null}
                   </span>
                 </button>
               ))}

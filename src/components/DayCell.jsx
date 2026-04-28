@@ -136,15 +136,6 @@ export default function DayCell({ date, onOpenModal, focusedDate, settings }) {
         <span className="text-[8px] text-white/80 leading-none mt-0.5">+{nonBannerEvents.length - 1}</span>
       )}
 
-      {/* Regular Dismissal badge */}
-      {!isCompact && nonBannerEvents.some(e => e.regularDismissal) && (
-        <span className={`
-          text-[7px] leading-none font-medium truncate max-w-full
-          ${isFilled ? 'text-white/80' : 'text-orange-600/80 dark:text-orange-400/70'}
-        `}>
-          Reg. Dismissal
-        </span>
-      )}
 
       {/* Rosh Chodesh badge */}
       {rcMonth && (
