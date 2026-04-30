@@ -102,7 +102,7 @@ export default function MonthEventsPanel({ onOpenModal }) {
                     className="inline-block w-2 h-2 rounded-full mt-0.5 shrink-0 ring-1 ring-white/20"
                     style={{ background: group.ev.color || group.cat?.color || '#999' }}
                   />
-                  <span className="text-[10px] leading-snug text-white/70 group-hover:text-white transition truncate">
+                  <span className="text-[10px] leading-snug text-white/70 group-hover:text-white transition min-w-0">
                     <span className="text-white/50 mr-1">{group.rangeStr}</span>
                     {group.ev.label}
                     {group.ev.regularDismissal ? (

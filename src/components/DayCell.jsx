@@ -166,7 +166,7 @@ export default function DayCell({ date, onOpenModal, focusedDate, settings }) {
       {/* Hover tooltip — smart positioning */}
       {showTooltip && dayEvents.length > 0 && (
         <div className={`
-          absolute z-30 mb-1 mt-1 w-48 bg-gray-900 text-white text-xs rounded-lg shadow-xl p-2 space-y-1 pointer-events-none
+          absolute z-30 mb-1 mt-1 w-64 bg-gray-900 text-white text-xs rounded-lg shadow-xl p-2 space-y-1 pointer-events-none
           ${flipY ? 'top-full bottom-auto' : 'bottom-full top-auto'}
           ${flipX ? 'right-0 left-auto' : 'left-0 right-auto'}
         `}>
@@ -177,7 +177,7 @@ export default function DayCell({ date, onOpenModal, focusedDate, settings }) {
             return (
               <div key={i} className="flex items-center gap-1.5">
                 <span className="w-2 h-2 rounded-full shrink-0" style={{ background: color }} />
-                <span className="truncate">{ev.label}{timeStr && <span className="text-white/60"> {timeStr}</span>}</span>
+                <span className="min-w-0">{ev.label}{timeStr && <span className="text-white/60"> {timeStr}</span>}</span>
               </div>
             )
           })}
