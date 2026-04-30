@@ -544,10 +544,6 @@ function drawMonth(doc, { year, month }, events, categories, settings, x, y, w, 
       // Mixed content like "(9AM Start)" is left as-is (TODO: ask user about semantics)
       const cleanLabel = ev.label.replace(/\s*\(\d{1,2}(?::\d{2})?\s*(?:[ap]m|AM|PM)?\)/gi, '').trim()
 
-      // Accent bar — 3pt wide, full row height
-      doc.setFillColor(br, bg_c, bb)
-      doc.rect(x + LEFT_PAD, noteLineY, BAR_W, ROW_H, 'F')
-
       // Date string: "MMM D–MMM D" for cross-month runs, plain day numbers otherwise.
       // isContinuation: true only when THIS run group started in a prior month.
       const sortedDates = [...dates].sort()
@@ -585,41 +581,50 @@ function drawMonth(doc, { year, month }, events, categories, settings, x, y, w, 
 
       doc.setFontSize(8); doc.setFont('helvetica', 'bold')
       const availNameW = Math.max(DATE_X - EVENT_X - timeW - contW, 12)
-      const displayLabel = doc.splitTextToSize(cleanLabel, availNameW)[0] || cleanLabel
-      const nameW = doc.getTextWidth(displayLabel)
+      const labelLines = doc.splitTextToSize(cleanLabel, availNameW)
+      const LABEL_LINE_H = 3.8  // mm per additional wrapped line
+      const actualRowH = ROW_H + (labelLines.length - 1) * LABEL_LINE_H
+
+      // Accent bar — 3pt wide, full actual row height
+      doc.setFillColor(br, bg_c, bb)
+      doc.rect(x + LEFT_PAD, noteLineY, BAR_W, actualRowH, 'F')
+      const lastLineY = noteLineY + BASE_OFF + (labelLines.length - 1) * LABEL_LINE_H
+      const lastLineW = doc.getTextWidth(labelLines[labelLines.length - 1])
 
       // Date — day number(s), left side, muted blue-gray
       doc.setFontSize(8); doc.setFont('helvetica', 'normal')
       doc.setTextColor(74, 90, 122)
       doc.text(shortDateStr, TEXT_X, noteLineY + BASE_OFF)
 
-      // Event name — bold 8pt #1F2D4A, after date column
+      // Event name — bold 8pt #1F2D4A, after date column (all wrapped lines)
       doc.setFont('helvetica', 'bold')
       doc.setTextColor(31, 45, 74)
-      doc.text(displayLabel, EVENT_X, noteLineY + BASE_OFF)
+      labelLines.forEach((line, li) => {
+        doc.text(line, EVENT_X, noteLineY + BASE_OFF + li * LABEL_LINE_H)
+      })
 
-      // Inline time — italic 7.5pt #5A6A82, follows event name
+      // Inline time — italic 7.5pt #5A6A82, follows last label line
       if (timeStr) {
         doc.setFontSize(7.5); doc.setFont('helvetica', 'italic')
         doc.setTextColor(90, 106, 130)
-        doc.text(timeStr, EVENT_X + nameW, noteLineY + BASE_OFF)
+        doc.text(timeStr, EVENT_X + lastLineW, lastLineY)
       }
 
       // (cont.) suffix — italic 7.5pt #5A6A82, follows time if present
       if (isContinuation) {
         doc.setFontSize(7.5); doc.setFont('helvetica', 'italic')
         doc.setTextColor(90, 106, 130)
-        doc.text(contStr, EVENT_X + nameW + timeW, noteLineY + BASE_OFF)
+        doc.text(contStr, EVENT_X + lastLineW + timeW, lastLineY)
       }
 
       // Hairline separator — 0.25pt #EEF0F3, indented from bar; skip last row
       if (entryIdx < entries.length - 1) {
         doc.setDrawColor(238, 240, 243)
         doc.setLineWidth(0.25)
-        doc.line(TEXT_X - 0.5, noteLineY + ROW_H, DATE_X, noteLineY + ROW_H)
+        doc.line(TEXT_X - 0.5, noteLineY + actualRowH, DATE_X, noteLineY + actualRowH)
       }
 
-      noteLineY += ROW_H
+      noteLineY += actualRowH
     })
   }
 
