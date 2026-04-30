@@ -115,10 +115,10 @@ export const YAYOE_EVENTS = {
     { id: 'ev-' + Math.random().toString(36).slice(2), category: 'rosh-chodesh', label: 'Rosh Chodesh Kislev' },
   ],
   '2026-11-26': [
-    { id: 'ev-' + Math.random().toString(36).slice(2), category: 'early-dismissal', label: 'Thanksgiving Kodesh Only, Y-8th', time: '12:00' },
+    { id: 'ev-' + Math.random().toString(36).slice(2), category: 'hebrew-only', label: 'Thanksgiving Kodesh Only, Y-8th', time: '12:00' },
   ],
   '2026-11-27': [
-    { id: 'ev-' + Math.random().toString(36).slice(2), category: 'early-dismissal', label: 'Thanksgiving Kodesh Only, Y-8th', time: '11:30' },
+    { id: 'ev-' + Math.random().toString(36).slice(2), category: 'hebrew-only', label: 'Thanksgiving Kodesh Only, Y-8th', time: '11:30' },
   ],
 
   // ── DECEMBER 2026 ────────────────────────────────────

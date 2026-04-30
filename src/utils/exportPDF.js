@@ -59,7 +59,7 @@ function computeMaxEventsPerMonth(events, academicYear) {
     const seen = new Set()
     Object.entries(events).forEach(([dk, evs]) => {
       if (!dk.startsWith(monthKey)) return
-      ;(evs || []).filter(e => e.category !== 'rosh-chodesh').forEach(ev => seen.add(`${ev.category}::${ev.label}`))
+      ;(evs || []).filter(e => e.category !== 'rosh-chodesh').forEach(ev => seen.add(`${ev.category}::${ev.label}::${ev.time || ''}`))
     })
     return seen.size
   }), 0)
@@ -498,7 +498,7 @@ function drawMonth(doc, { year, month }, events, categories, settings, x, y, w, 
     const allEventRanges = {}
     Object.entries(events).forEach(([dk, dayEvs]) => {
       ;(dayEvs || []).filter(e => e.category !== 'rosh-chodesh').forEach(ev => {
-        const key = `${ev.category}::${ev.label}`
+        const key = `${ev.category}::${ev.label}::${ev.time || ''}`
         if (!allEventRanges[key]) allEventRanges[key] = []
         allEventRanges[key].push(dk)
       })
@@ -512,7 +512,7 @@ function drawMonth(doc, { year, month }, events, categories, settings, x, y, w, 
     days.forEach(date => {
       const dateKey = formatDateKey(date)
       ;(events[dateKey] || []).filter(e => e.category !== 'rosh-chodesh').forEach(ev => {
-        const key = `${ev.category}::${ev.label}`
+        const key = `${ev.category}::${ev.label}::${ev.time || ''}`
         const runGroups = allEventRunGroups[key] || [[dateKey]]
         const groupIdx = runGroups.findIndex(g => g.includes(dateKey))
         const idx = groupIdx >= 0 ? groupIdx : 0
@@ -667,7 +667,7 @@ function bpRawGroups(events, academicYear) {
     Object.entries(events).forEach(([dk, evs]) => {
       if (!dk.startsWith(monthKey)) return
       ;(evs || []).filter(e => e.category !== 'rosh-chodesh').forEach(ev => {
-        const key = `${ev.category}::${ev.label}`
+        const key = `${ev.category}::${ev.label}::${ev.time || ''}`
         if (!monthEvs[key]) monthEvs[key] = { ev, dates: [] }
         monthEvs[key].dates.push(dk)
       })
@@ -926,7 +926,7 @@ function drawNotesStrip(doc, events, catMap, x, y, w, h, year, month, { modernSt
   days.forEach(date => {
     const dateKey = formatDateKey(date)
     ;(events[dateKey] || []).filter(e => e.category !== 'rosh-chodesh').forEach(ev => {
-      const key = `${ev.category}::${ev.label}`
+      const key = `${ev.category}::${ev.label}::${ev.time || ''}`
       if (!notesEvents[key]) notesEvents[key] = { ev, dates: [] }
       notesEvents[key].dates.push(dateKey)
     })
@@ -1049,7 +1049,7 @@ export async function exportPDF(state, { preview = false, pdfStyle = 'classic', 
           const seen = new Set()
           Object.entries(events).forEach(([dk, evs]) => {
             if (!dk.startsWith(mk)) return
-            ;(evs || []).filter(e => e.category !== 'rosh-chodesh').forEach(ev => seen.add(`${ev.category}::${ev.label}`))
+            ;(evs || []).filter(e => e.category !== 'rosh-chodesh').forEach(ev => seen.add(`${ev.category}::${ev.label}::${ev.time || ''}`))
           })
           return seen.size
         })
@@ -1392,7 +1392,7 @@ async function exportTraditional(state, ctx) {
           const seen = new Set()
           Object.entries(events).forEach(([dk, evs]) => {
             if (!dk.startsWith(mk)) return
-            ;(evs || []).filter(e => e.category !== 'rosh-chodesh').forEach(ev => seen.add(`${ev.category}::${ev.label}`))
+            ;(evs || []).filter(e => e.category !== 'rosh-chodesh').forEach(ev => seen.add(`${ev.category}::${ev.label}::${ev.time || ''}`))
           })
           return seen.size
         })
@@ -1788,7 +1788,7 @@ async function exportPortraitClassic(state, { preview = false } = {}) {
   const allEventRanges = {}
   Object.entries(events).forEach(([dk, dayEvs]) => {
     ;(dayEvs || []).filter(e => e.category !== 'rosh-chodesh').forEach(ev => {
-      const key = `${ev.category}::${ev.label}`
+      const key = `${ev.category}::${ev.label}::${ev.time || ''}`
       if (!allEventRanges[key]) allEventRanges[key] = []
       allEventRanges[key].push(dk)
     })
@@ -1978,7 +1978,7 @@ async function exportPortraitClassic(state, { preview = false } = {}) {
     days.forEach(date => {
       const dk = formatDateKey(date)
       ;(events[dk] || []).filter(e => e.category !== 'rosh-chodesh').forEach(ev => {
-        const key = `${ev.category}::${ev.label}`
+        const key = `${ev.category}::${ev.label}::${ev.time || ''}`
         const runGroups = allEventRunGroups[key] || [[dk]]
         const groupIdx = runGroups.findIndex(g => g.includes(dk))
         const idx = groupIdx >= 0 ? groupIdx : 0
@@ -2836,7 +2836,7 @@ function deDarkNotesStrip(doc, events, catMap, x, y, w, h, year, month, colorOve
   days.forEach(date => {
     const dateKey = formatDateKey(date)
     ;(events[dateKey] || []).filter(e => e.category !== 'rosh-chodesh').forEach(ev => {
-      const key = `${ev.category}::${ev.label}`
+      const key = `${ev.category}::${ev.label}::${ev.time || ''}`
       if (!notesEvents[key]) notesEvents[key] = { ev, dates: [] }
       notesEvents[key].dates.push(dateKey)
     })
@@ -2946,7 +2946,7 @@ function deDarkComputePanelH(events, academicYear) {
     Object.entries(events).forEach(([dk, evs]) => {
       if (!dk.startsWith(mk)) return
       ;(evs || []).filter(e => e.category !== 'rosh-chodesh')
-        .forEach(ev => seen.add(`${ev.category}::${ev.label}`))
+        .forEach(ev => seen.add(`${ev.category}::${ev.label}::${ev.time || ''}`))
     })
     return seen.size
   }
@@ -2982,7 +2982,7 @@ function deDarkBottomPanel(doc, events, categories, academicYear, y, panelW, pan
     Object.entries(events).forEach(([dk, evs]) => {
       if (!dk.startsWith(mk)) return
       ;(evs || []).filter(e => e.category !== 'rosh-chodesh').forEach(ev => {
-        const key = `${ev.category}::${ev.label}`
+        const key = `${ev.category}::${ev.label}::${ev.time || ''}`
         if (!seen[key]) seen[key] = { ev, dates: [] }
         seen[key].dates.push(dk)
       })
@@ -3098,7 +3098,7 @@ async function exportDarkElegant(state, { preview, theme, doc, titleFont, shabba
       const seen = new Set()
       Object.entries(events).forEach(([dk, evs]) => {
         if (!dk.startsWith(mk)) return
-        ;(evs || []).filter(e => e.category !== 'rosh-chodesh').forEach(ev => seen.add(`${ev.category}::${ev.label}`))
+        ;(evs || []).filter(e => e.category !== 'rosh-chodesh').forEach(ev => seen.add(`${ev.category}::${ev.label}::${ev.time || ''}`))
       })
       return seen.size
     }))
