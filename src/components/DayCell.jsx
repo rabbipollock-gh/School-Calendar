@@ -177,7 +177,7 @@ export default function DayCell({ date, onOpenModal, focusedDate, settings }) {
             return (
               <div key={i} className="flex items-center gap-1.5">
                 <span className="w-2 h-2 rounded-full shrink-0" style={{ background: color }} />
-                <span className="truncate">{ev.label}{timeStr && <span className="ml-1 text-white/60">{timeStr}</span>}</span>
+                <span className="truncate">{ev.label}{timeStr && <span className="text-white/60"> {timeStr}</span>}</span>
               </div>
             )
           })}

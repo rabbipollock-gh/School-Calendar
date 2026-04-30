@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react'
-import { formatDateKey, groupConsecutiveDates, formatRangeLabel, parseDateKey } from '../utils/dateUtils.js'
+import { formatDateKey, groupConsecutiveDates, formatRangeLabel, parseDateKey, formatTime } from '../utils/dateUtils.js'
 import { useCalendar } from '../context/CalendarContext.jsx'
 
 const MONTH_NAMES = ['January','February','March','April','May','June','July','August','September','October','November','December']
@@ -91,9 +91,11 @@ export default function NotesStrip({ year, month, onOpenModal }) {
                 <span className="font-medium">{group.rangeStr}</span>
                 {' | '}
                 {group.ev.label}
-                {group.ev.regularDismissal && (
-                  <span className="ml-1">(reg. dismissal)</span>
-                )}
+                {group.ev.regularDismissal ? (
+                  <span> (reg. dismissal)</span>
+                ) : group.ev.time ? (
+                  <span> {formatTime(group.ev.time)}</span>
+                ) : null}
               </span>
             </button>
           ))}

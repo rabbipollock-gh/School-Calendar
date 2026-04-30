@@ -577,7 +577,7 @@ function drawMonth(doc, { year, month }, events, categories, settings, x, y, w, 
 
       const timeStr = ev.regularDismissal
         ? '  reg. dismissal'
-        : (() => { const t = ev.time || parseCategoryTime(cat?.name); return t ? ` ${formatTime(t)}` : '' })()
+        : (() => { const t = ev.time || parseCategoryTime(cat?.name); return t ? `  ${formatTime(t)}` : '' })()
       doc.setFontSize(7.5); doc.setFont('helvetica', 'italic')
       const timeW = timeStr ? doc.getTextWidth(timeStr) : 0
       const contStr = isContinuation ? ' (cont.)' : ''
@@ -884,7 +884,7 @@ function drawBottomEventsPanel(doc, categories, y, pageW, margin, sidebarW, layo
 
         // Left accent bar — category color, full row height
         doc.setFillColor(r, g, b)
-        doc.rect(colX + 1, drawY, 1.06, rowH, 'F')
+        doc.rect(colX + 1, drawY, 1.5, rowH, 'F')
 
         // Name — one or more wrapped lines, bold white
         doc.setFontSize(p.nameFontSz)
@@ -902,7 +902,7 @@ function drawBottomEventsPanel(doc, categories, y, pageW, margin, sidebarW, layo
         const rangeText = formatRangeGroups(dGroups)
         const timeStr = ev.regularDismissal
           ? '  reg. dismissal'
-          : (() => { const t = ev.time || parseCategoryTime(cat?.name); return t ? ` ${formatTime(t)}` : '' })()
+          : (() => { const t = ev.time || parseCategoryTime(cat?.name); return t ? `  ${formatTime(t)}` : '' })()
         doc.setFontSize(p.dateFontSz)
         doc.setFont('helvetica', timeStr ? 'italic' : 'normal')
         doc.setTextColor(200, 212, 232)   // #C8D4E8
@@ -2000,7 +2000,7 @@ async function exportPortraitClassic(state, { preview = false } = {}) {
       doc.roundedRect(notesX, noteY - 2.1, 2.1, 2.1, 0.25, 0.25, 'F')
       // Label (colored) + time + range (muted)
       const isED = ev.category === 'early-dismissal' || (cat?.name?.toLowerCase() || '').includes('dismissal')
-      const timeStr = ev.regularDismissal ? '  reg. dismissal' : (isED && ev.time ? ` ${formatTime(ev.time)}` : '')
+      const timeStr = ev.regularDismissal ? '  reg. dismissal' : (isED && ev.time ? `  ${formatTime(ev.time)}` : '')
       const groups = groupConsecutiveDates([...dates].sort())
       const rangeStr = formatRangeGroups(groups)
       const rangePart = `  –  ${rangeStr}`
@@ -2818,7 +2818,7 @@ function deAbbrevLabel(label) {
     ['spring recess',            'Spring Brk'],
     ['parent teacher',           'PT Conf.'],
     ['no school',                'No School'],
-    ['early dismissal',          'Early Dis.'],
+    ['early dismissal',          'Early Dism.'],
     ['3:45 dismissal',           '3:45 Dis.'],
   ]
   for (const [key, abbr] of ABBREVS) { if (lower.includes(key)) return abbr }
@@ -2841,8 +2841,8 @@ function deDarkNotesStrip(doc, events, catMap, x, y, w, h, year, month, colorOve
       notesEvents[key].dates.push(dateKey)
     })
   })
-  let lineY = y + 3.2; const lineSpacing = 2.6; const maxY = y + h - 1
-  doc.setFontSize(4.5); doc.setFont('helvetica', 'normal')
+  let lineY = y + 6.5; const lineSpacing = 4.0; const maxY = y + h - 1
+  doc.setFontSize(8); doc.setFont('helvetica', 'normal')
   for (const { ev, dates } of Object.values(notesEvents)) {
     if (lineY > maxY) break
     const cat = catMap[ev.category]
@@ -2936,6 +2936,119 @@ function deDarkSidebarBlock(doc, blockId, startY, { sbX, sbCx, SIDEBAR_W, GOLD, 
   }
 }
 
+// Estimate the height needed for the dark-elegant two-column flowing events panel.
+// Uses 7pt/3.5mm compact spacing so all 11 months fit.
+function deDarkComputePanelH(events, academicYear) {
+  const months = getAcademicMonths(academicYear)
+  const countEvs = ({ year, month }) => {
+    const mk = `${year}-${String(month + 1).padStart(2, '0')}`
+    const seen = new Set()
+    Object.entries(events).forEach(([dk, evs]) => {
+      if (!dk.startsWith(mk)) return
+      ;(evs || []).filter(e => e.category !== 'rosh-chodesh')
+        .forEach(ev => seen.add(`${ev.category}::${ev.label}`))
+    })
+    return seen.size
+  }
+  const colH = (indices) => {
+    let h = 0; let any = false
+    indices.forEach(i => {
+      const n = countEvs(months[i])
+      if (n === 0) return
+      if (any) h += 1.5  // small gap between months
+      h += 5.5 + n * 3.5  // month header + events at 3.5mm each
+      any = true
+    })
+    return h
+  }
+  const maxH = Math.max(colH([0,1,2,3,4]), colH([5,6,7,8,9,10]))
+  return Math.min(95, Math.max(30, maxH + 18))
+}
+
+// Two-column flowing events panel for dark-elegant style.
+// Left column: Aug–Dec, right column: Jan–Jun.
+// Month labels: gold 7pt small-caps. Events: 8pt light text with left color strip.
+function deDarkBottomPanel(doc, events, categories, academicYear, y, panelW, panelH, margin, deColors) {
+  const GOLD      = [201, 168, 76]
+  const TEXC      = [203, 213, 224]
+  const RULE_CLR  = [51, 71, 107]   // (0.20, 0.28, 0.42)*255
+  const MONTH_ABBR = ['Aug','Sep','Oct','Nov','Dec','Jan','Feb','Mar','Apr','May','Jun']
+  const catMap = {}; categories.forEach(c => { catMap[c.id] = c })
+
+  // Collect events per month
+  const allMonths = getAcademicMonths(academicYear).map(({ year, month }, mi) => {
+    const mk = `${year}-${String(month + 1).padStart(2, '0')}`
+    const seen = {}
+    Object.entries(events).forEach(([dk, evs]) => {
+      if (!dk.startsWith(mk)) return
+      ;(evs || []).filter(e => e.category !== 'rosh-chodesh').forEach(ev => {
+        const key = `${ev.category}::${ev.label}`
+        if (!seen[key]) seen[key] = { ev, dates: [] }
+        seen[key].dates.push(dk)
+      })
+    })
+    const evItems = Object.values(seen).sort((a, b) => a.dates[0].localeCompare(b.dates[0]))
+    return { mi, year, abbr: MONTH_ABBR[mi], evItems }
+  })
+
+  // Panel background
+  doc.setFillColor(26, 38, 64)
+  doc.roundedRect(margin, y, panelW, panelH, 2, 2, 'F')
+
+  // Panel title
+  doc.setFontSize(10); doc.setFont('helvetica', 'bold'); doc.setTextColor(...GOLD)
+  doc.text('EVENTS BY MONTH', margin + 4, y + 9)
+
+  const colW = panelW / 2
+  const startY = y + 14
+  const maxY = y + panelH - 4
+
+  const drawColumn = (monthSlice, colX) => {
+    let drawY = startY
+    monthSlice.forEach(({ abbr, year, evItems }, pos) => {
+      if (evItems.length === 0) return
+      if (drawY > maxY) return
+
+      // Small gap between months (not before first)
+      if (pos > 0) drawY += 1.5
+
+      // Month label — gold bold uppercase
+      if (drawY + 4 > maxY) return
+      doc.setFontSize(7); doc.setFont('helvetica', 'bold')
+      doc.setTextColor(...GOLD)
+      doc.text(abbr.toUpperCase() + " '" + String(year).slice(2), colX + 3, drawY + 3.5)
+      drawY += 5.5
+
+      // Event entries at 7pt, 3.5mm line height (compact to fit all 11 months)
+      evItems.forEach(({ ev, dates }) => {
+        if (drawY + 3 > maxY) return
+        const cat = catMap[ev.category]
+        const colorHex = deColors[ev.category] || ev.color || cat?.color || '#888'
+        const [r, g, b] = hexToRgbLocal(colorHex)
+
+        // Left accent strip
+        doc.setFillColor(r, g, b); doc.rect(colX + 2, drawY + 0.2, 1.5, 3.2, 'F')
+
+        // Event label + date range
+        const groups = groupConsecutiveDates([...dates].sort())
+        const rangeStr = formatRangeGroups(groups)
+        doc.setFontSize(7); doc.setFont('helvetica', 'normal')
+        doc.setTextColor(...TEXC)
+        const entryText = `${rangeStr} | ${ev.label}`
+        doc.text(entryText, colX + 5, drawY + 2.8, { maxWidth: colW - 8 })
+        drawY += 3.5
+      })
+    })
+  }
+
+  drawColumn(allMonths.slice(0, 5), margin)
+  drawColumn(allMonths.slice(5), margin + colW)
+
+  // Vertical divider between columns
+  doc.setDrawColor(...RULE_CLR); doc.setLineWidth(0.5)
+  doc.line(margin + colW, y + 3, margin + colW, y + panelH - 3)
+}
+
 async function exportDarkElegant(state, { preview, theme, doc, titleFont, shabbatLabel }) {
   const { events, categories, schoolInfo, settings } = state
 
@@ -2946,17 +3059,17 @@ async function exportDarkElegant(state, { preview, theme, doc, titleFont, shabba
   const PANEL_BG  = [26, 43, 69]     // #1A2B45 — sidebar (slightly lighter than CARD)
   const TEXC      = [203, 213, 224]  // #CBD5E0 — body text
   const GRID_LINE = [46, 64, 96]     // #2E4060 — hairline grid
-  const SHA_TINT  = [20, 27, 50]     // subtle warm tint for entire SHA column
-  const CHARCOAL  = [58, 58, 58]     // #3A3A3A — Hebrew range secondary text
+  const SHA_TINT  = [31, 43, 77]     // slightly brighter mid-navy so column separation is visible
+  const CHARCOAL  = [130, 145, 175]   // blue-gray — Hebrew range secondary text, ~4.8:1 on CARD
 
   // Refined category colors optimised for dark background
   const DE_COLORS = {
-    'no-school':       '#C0392B',
-    'early-dismissal': '#D4872A',
-    'staff':           '#7B5EA7',
-    'school-event':    '#2E7FBF',
-    'chanukah':        '#C4622D',
-    'hebrew-only':     '#2A8C6E',
+    'no-school':       '#E64D33',   // brighter red — higher contrast on dark bg
+    'early-dismissal': '#4AA8E8',   // lighter, cooler blue
+    'staff':           '#D68A0F',   // amber — restored (0.84,0.54,0.06)
+    'school-event':    '#B070E0',   // vivid lilac — distinguishable on dark navy
+    'chanukah':        '#C7960A',   // gold — restored (0.78,0.59,0.04)
+    'hebrew-only':     '#2A8C6E',   // teal — keep
   }
 
   const [ar, ag, ab] = GOLD
@@ -2965,20 +3078,44 @@ async function exportDarkElegant(state, { preview, theme, doc, titleFont, shabba
   const GAP = 3                                            // gap between month columns
   const MONTH_W = (GRID_W - 3 * GAP) / 4                  // ~55.5mm per month
   const HEADER_H = 20
-  const HDR_H = 9                                          // gold month-header band height
-  const GRID_OVERHEAD = 13                                 // from month-y to first cell row
-  const ROW_GAP = 3                                        // vertical gap between rows
-
+  const HDR_H = 7                                          // gold month-header band height
   const showBottomPanel = settings.eventsPanel === 'bottom'
-  const NOTES_H = showBottomPanel ? 0 : 10                 // fixed 10mm strip — keeps cells taller
+  // V7 (bottom panel): tighter row gap to leave room for events panel but with separator clearance
+  // V8 (notes strips): compact overhead to give notes more height
+  const GRID_OVERHEAD = showBottomPanel ? 12 : 9           // from month-y to first cell row
+  const ROW_GAP = showBottomPanel ? 6 : 3                  // V7 needs room for Hebrew caption + separator
+
   const bpPanelWDE = PAGE_W - MARGIN * 2 - SIDEBAR_W - 2
-  // includeEmpty=true ensures all 11 academic months appear in the panel
-  const bottomLayoutDE = showBottomPanel ? bpComputeLayout(doc, events, settings.academicYear, bpPanelWDE, 85, true) : null
-  const BOTTOM_H = showBottomPanel ? (bottomLayoutDE?.panelH || 26) : 0
+  const BOTTOM_H = showBottomPanel ? deDarkComputePanelH(events, settings.academicYear) : 0
   const catMapDE = {}; categories.forEach(c => { catMapDE[c.id] = c })
 
-  // Per-row dynamic heights: high-density rows (e.g. September) get proportionally more space
   const deMonths = getAcademicMonths(settings.academicYear)
+
+  // V8: compute per-row max unique event count for dynamic notes strip height
+  const rowUniqueEvCounts = !showBottomPanel ? [0, 1, 2].map(r =>
+    Math.max(0, ...deMonths.slice(r * 4, r * 4 + 4).map(({ year, month }) => {
+      const mk = `${year}-${String(month + 1).padStart(2, '0')}`
+      const seen = new Set()
+      Object.entries(events).forEach(([dk, evs]) => {
+        if (!dk.startsWith(mk)) return
+        ;(evs || []).filter(e => e.category !== 'rosh-chodesh').forEach(ev => seen.add(`${ev.category}::${ev.label}`))
+      })
+      return seen.size
+    }))
+  ) : [0, 0, 0]
+  // Notes strip height per row: enough lines for all events (8pt at 4.5mm spacing)
+  const rowNotesH = showBottomPanel ? [0, 0, 0] : rowUniqueEvCounts.map(n =>
+    Math.max(12, 6.5 + n * 4.5 + 1)
+  )
+
+  // V7: actual calendar rows needed per month (5 or 6) — drives cell height
+  const rowMaxCalRows = showBottomPanel ? [0, 1, 2].map(r =>
+    Math.max(...deMonths.slice(r * 4, r * 4 + 4).map(({ year, month }) =>
+      Math.ceil((getFirstDayOfWeek(year, month) + getDaysInMonth(year, month).length) / 7)
+    ))
+  ) : [6, 6, 6]
+
+  // Per-row dynamic heights: high-density rows (e.g. September) get proportionally more space
   const monthMaxEv = deMonths.map(({ year, month }) => {
     const mDays = getDaysInMonth(year, month); let mx = 0
     mDays.forEach(date => {
@@ -2988,12 +3125,17 @@ async function exportDarkElegant(state, { preview, theme, doc, titleFont, shabba
     return mx
   })
   const rowMaxEv = [0, 1, 2].map(r => Math.max(0, ...monthMaxEv.slice(r * 4, r * 4 + 4)))
-  // Budget-neutral redistribution: dense rows gain height, sparse rows give it up
-  const baseMH = (PAGE_H - HEADER_H - MARGIN - 6 - BOTTOM_H - 2 * ROW_GAP) / 3 - NOTES_H
+  const totalRowNotes = rowNotesH.reduce((a, b) => a + b, 0)
+  const baseMH = (PAGE_H - HEADER_H - MARGIN - 6 - BOTTOM_H - 2 * ROW_GAP - totalRowNotes) / 3
   const rowBonus = rowMaxEv.map(mx => mx > 3 ? 3.5 : mx > 1 ? 1.5 : 0)
   const totalBonus = rowBonus.reduce((s, b) => s + b, 0)
   const rowMonthH = rowBonus.map(b => Math.max(22, baseMH + b - totalBonus / 3))
-  const rowCellH = rowMonthH.map(mh => Math.max(4.0, (mh - GRID_OVERHEAD) / 6))
+  // V7: cellH sized to fit actual max rows; V8: size for 6 rows (no hard floor)
+  const rowCellH = rowMonthH.map((mh, r) =>
+    showBottomPanel
+      ? (mh - GRID_OVERHEAD) / rowMaxCalRows[r]
+      : Math.max(3.0, (mh - GRID_OVERHEAD) / 6)
+  )
 
   // Pre-compute circular logo
   let circLogoDark = null
@@ -3035,8 +3177,8 @@ async function exportDarkElegant(state, { preview, theme, doc, titleFont, shabba
   const startY = HEADER_H + 2.5
   const rowStartY = [
     startY,
-    startY + rowMonthH[0] + NOTES_H + ROW_GAP,
-    startY + rowMonthH[0] + NOTES_H + ROW_GAP + rowMonthH[1] + NOTES_H + ROW_GAP,
+    startY + rowMonthH[0] + rowNotesH[0] + ROW_GAP,
+    startY + rowMonthH[0] + rowNotesH[0] + ROW_GAP + rowMonthH[1] + rowNotesH[1] + ROW_GAP,
   ]
 
   deMonths.forEach(({ year, month }, idx) => {
@@ -3055,24 +3197,17 @@ async function exportDarkElegant(state, { preview, theme, doc, titleFont, shabba
     doc.roundedRect(x, y, MONTH_W, HDR_H, 2.5, 2.5, 'F')
     doc.rect(x, y + 2.5, MONTH_W, HDR_H - 2.5, 'F')  // flatten bottom corners
 
-    // Month name — 8pt bold for stronger hierarchy
+    // Month name — 9pt bold for stronger hierarchy
     const mName = new Date(year, month, 1).toLocaleString('default', { month: 'long' })
-    doc.setTextColor(...BG); doc.setFontSize(8); doc.setFont(titleFont, 'bold')
-    doc.text(`${mName} ${year}`, x + 2.5, y + 6.5)
+    doc.setTextColor(...BG); doc.setFontSize(9); doc.setFont(titleFont, 'bold')
+    doc.text(`${mName} ${year}`, x + 2.5, y + 5.8)
 
-    // Hebrew month range — italic, lighter, clearly secondary
-    const hebrewRange = getHebrewMonthLabel(year, month)
-    if (hebrewRange) {
-      doc.setTextColor(45, 45, 45); doc.setFontSize(4.5); doc.setFont('helvetica', 'italic')
-      doc.text(hebrewRange, x + MONTH_W - 2.5, y + 7.2, { align: 'right' })
-    }
-
-    // ── Day-of-week column headers — 4pt, consistent center alignment per column ──
+    // ── Day-of-week column headers — 5pt, consistent center alignment per column ──
     const headY = y + HDR_H + 2.5
     DAYS.forEach((d, i) => {
       const isSha = i === 6
       doc.setTextColor(isSha ? ar : 140, isSha ? ag : 155, isSha ? ab : 185)
-      doc.setFontSize(4); doc.setFont('helvetica', 'bold')
+      doc.setFontSize(5); doc.setFont('helvetica', 'bold')
       doc.text(isSha ? shabbatLabel.slice(0, 3).toUpperCase() : d, x + i * cellW + cellW / 2, headY, { align: 'center' })
     })
 
@@ -3081,14 +3216,17 @@ async function exportDarkElegant(state, { preview, theme, doc, titleFont, shabba
     const startDow = getFirstDayOfWeek(year, month)
     const gridTop = y + GRID_OVERHEAD
 
+    // Number of calendar rows this row-group needs (V7: computed; V8: always 6)
+    const gridRows = showBottomPanel ? rowMaxCalRows[row] : 6
+
     // SHA column background tint
     doc.setFillColor(...SHA_TINT)
-    doc.rect(x + 6 * cellW, gridTop, cellW, 6 * cellH, 'F')
+    doc.rect(x + 6 * cellW, gridTop, cellW, gridRows * cellH, 'F')
 
     // Hairline grid lines
     doc.setDrawColor(...GRID_LINE); doc.setLineWidth(0.3)
-    for (let r = 0; r <= 6; r++) doc.line(x, gridTop + r * cellH, x + MONTH_W, gridTop + r * cellH)
-    for (let c = 0; c <= 7; c++) doc.line(x + c * cellW, gridTop, x + c * cellW, gridTop + 6 * cellH)
+    for (let r = 0; r <= gridRows; r++) doc.line(x, gridTop + r * cellH, x + MONTH_W, gridTop + r * cellH)
+    for (let c = 0; c <= 7; c++) doc.line(x + c * cellW, gridTop, x + c * cellW, gridTop + gridRows * cellH)
 
     days.forEach(date => {
       const dayNum = date.getDate()
@@ -3101,81 +3239,69 @@ async function exportDarkElegant(state, { preview, theme, doc, titleFont, shabba
       const isSha = dow === 6
 
       // Day number — always on top, gold for SHA, muted light for weekdays
-      doc.setFontSize(3.8); doc.setFont('helvetica', 'bold')
+      // x offset = 11pt ≈ 3.9mm so numeral clears the 9pt left-edge strip
+      doc.setFontSize(7); doc.setFont('helvetica', 'bold')
       doc.setTextColor(isSha ? ar : TEXC[0], isSha ? ag : TEXC[1], isSha ? ab : TEXC[2])
-      doc.text(String(dayNum), cx + 1.2, cy + 3.0)
+      doc.text(String(dayNum), cx + 3.9, cy + 3.5)
 
       if (dayEvs.length === 0) return
 
-      // Thin separator (~30% gold opacity) between date number and badge area
-      doc.setDrawColor(ar, ag, ab)
-      doc.setGState(doc.GState({ opacity: 0.3 }))
-      doc.setLineWidth(0.25)
-      doc.line(cx + 0.4, cy + 3.6, cx + cellW - 0.4, cy + 3.6)
-      doc.setGState(doc.GState({ opacity: 1.0 }))
-
-      // Badge area: from separator to cell bottom
-      const badgeTop = cy + 4.1
-      const badgeBot = cy + cellH - 0.3
-      const badgeAreaH = badgeBot - badgeTop
-
-      // Fit as many badges as space allows (up to 3), always show at least 1
-      const MIN_BADGE_H = 2.0
-      const BADGE_GAP   = 0.3
-      const MORE_H      = 2.0  // height reserved for "+N more" indicator
-      let maxVis = 0
-      for (let k = 1; k <= Math.min(dayEvs.length, 3); k++) {
-        const needed = k * MIN_BADGE_H + (k - 1) * BADGE_GAP + (k < dayEvs.length ? MORE_H + 0.3 : 0)
-        if (needed <= badgeAreaH) maxVis = k
-        else break
-      }
-      if (maxVis === 0) maxVis = 1
-
-      const hidden = dayEvs.length - maxVis
-      const totalBadgeH = badgeAreaH - (hidden > 0 ? MORE_H + 0.3 : 0)
-      const singleH = Math.max(MIN_BADGE_H, (totalBadgeH - (maxVis - 1) * BADGE_GAP) / maxVis)
-      // Badge font size proportional to badge height, capped 3.5–5pt
-      const badgeFS = Math.max(3.5, Math.min(5, singleH * 0.58 / 0.3527))
-
-      dayEvs.slice(0, maxVis).forEach((ev, bi) => {
+      // Left-edge color strips: 9pt = 3.175mm wide, stacked vertically for multiple events
+      const STRIP_W = 3.175  // 9pt in mm
+      const maxVis = Math.min(dayEvs.length, 3)
+      const stripH = cellH / maxVis
+      dayEvs.slice(0, maxVis).forEach((ev, si) => {
         const cat = categories.find(c => c.id === ev.category)
         const colorHex = DE_COLORS[ev.category] || ev.color || cat?.color || '#888'
         const [er, eg, eb] = hexToRgbLocal(colorHex)
-        const by = badgeTop + bi * (singleH + BADGE_GAP)
-        const bh = Math.min(singleH, badgeBot - by - (hidden > 0 ? MORE_H + 0.3 : 0))
-        if (bh < 1.2) return
         doc.setFillColor(er, eg, eb)
-        doc.roundedRect(cx + 0.4, by, cellW - 0.8, bh, 1.0, 1.0, 'F')  // 1mm ≈ 3px radius
-        const abbr = deAbbrevLabel(ev.label || '')
-        doc.setTextColor(255, 255, 255)
-        doc.setFontSize(badgeFS); doc.setFont('helvetica', 'bold')
-        doc.text(abbr, cx + cellW / 2, by + bh * 0.68, { align: 'center', maxWidth: cellW - 1.0 })
+        doc.rect(cx, cy + si * stripH, STRIP_W, stripH, 'F')
       })
 
-      // "+N more" indicator — small italic, never silently drops events
+      // "+N more" indicator when events exceed 3
+      const hidden = dayEvs.length - maxVis
       if (hidden > 0) {
-        doc.setFontSize(3.2); doc.setFont('helvetica', 'italic')
-        doc.setTextColor(170, 185, 210)
-        doc.text(`+${hidden} more`, cx + cellW - 0.5, badgeBot - 0.2, { align: 'right' })
+        doc.setFontSize(3.5); doc.setFont('helvetica', 'italic')
+        doc.setTextColor(190, 205, 230)
+        doc.text(`+${hidden}`, cx + cellW - 0.4, cy + cellH - 0.5, { align: 'right' })
       }
     })
 
+    // Hebrew month caption — 5pt italic, left-aligned, just below the actual grid bottom
+    const hebrewRange = getHebrewMonthLabel(year, month)
+    if (hebrewRange) {
+      doc.setFontSize(5); doc.setFont('helvetica', 'italic')
+      doc.setTextColor(130, 145, 176)
+      if (showBottomPanel) {
+        // V7: place 2mm below this month's actual grid rows (may be less than full card)
+        const mNumRows = Math.ceil((startDow + days.length) / 7)
+        doc.text(hebrewRange, x + 1.5, gridTop + mNumRows * cellH + 2.0)
+      } else {
+        // V8: 3mm into the notes strip below the card
+        doc.text(hebrewRange, x + 1.5, y + MONTH_H + 3.0)
+      }
+    }
+
     if (!showBottomPanel) {
-      deDarkNotesStrip(doc, events, catMapDE, x, y + MONTH_H, MONTH_W, NOTES_H, year, month, DE_COLORS)
+      deDarkNotesStrip(doc, events, catMapDE, x, y + MONTH_H, MONTH_W, rowNotesH[row], year, month, DE_COLORS)
     }
   })
 
-  if (showBottomPanel && bottomLayoutDE) {
+  // V7: draw gold separator bars between calendar row groups (BUG 4 fix)
+  if (showBottomPanel) {
+    const SEP_H = 0.7  // mm
+    const SEP_OFFSET = 3.5  // mm below card bottom (leaves room for Hebrew caption at +2mm)
+    ;[0, 1].forEach(r => {
+      const sepY = rowStartY[r] + rowMonthH[r] + SEP_OFFSET
+      doc.setFillColor(...GOLD)
+      doc.rect(MARGIN, sepY, GRID_W, SEP_H, 'F')
+    })
+
     const panelY = rowStartY[2] + rowMonthH[2] + ROW_GAP
     // Gold rule separating calendar grid from events panel
     doc.setDrawColor(...GOLD); doc.setLineWidth(0.7)
     doc.line(MARGIN, panelY - 1.5, PAGE_W - MARGIN - SIDEBAR_W, panelY - 1.5)
-    drawBottomEventsPanel(doc, categories, panelY, PAGE_W, MARGIN, SIDEBAR_W, bottomLayoutDE, settings, {
-      titleColor:     GOLD,
-      colBorderColor: GOLD,
-      colBorderWidth: 0.5,
-      colBorderAll:   true,
-    })
+    deDarkBottomPanel(doc, events, categories, settings.academicYear, panelY, bpPanelWDE, BOTTOM_H, MARGIN, DE_COLORS)
   }
 
   // ── Sidebar panel ─────────────────────────────────────────────────────────
