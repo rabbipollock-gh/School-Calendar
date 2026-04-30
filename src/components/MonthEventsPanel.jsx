@@ -20,7 +20,7 @@ export default function MonthEventsPanel({ onOpenModal }) {
       Object.entries(events).forEach(([dateKey, dayEvs]) => {
         if (!dateKey.startsWith(monthKey)) return
         ;(dayEvs || []).forEach(ev => {
-          const key = `${ev.category}::${ev.label}`
+          const key = `${ev.category}::${ev.label}::${ev.time || ''}`
           if (!byEvent[key]) byEvent[key] = { ev, dates: [] }
           byEvent[key].dates.push(dateKey)
         })
