@@ -584,6 +584,7 @@ function drawMonth(doc, { year, month }, events, categories, settings, x, y, w, 
       const labelLines = doc.splitTextToSize(cleanLabel, availNameW)
       const LABEL_LINE_H = 3.8  // mm per additional wrapped line
       const actualRowH = ROW_H + (labelLines.length - 1) * LABEL_LINE_H
+      if (noteLineY + actualRowH > y + h) return  // skip if full row won't fit in strip
 
       // Accent bar — 3pt wide, full actual row height
       doc.setFillColor(br, bg_c, bb)
@@ -1044,8 +1045,8 @@ export async function exportPDF(state, { preview = false, pdfStyle = 'classic', 
   const allMonths = getAcademicMonths(settings.academicYear)
   // Per-row max events → per-row notes heights
   // New row design: 5mm per event row + 8mm header padding (divider gap)
-  const perRowNotesH = showBottomPanel
-    ? Array(MONTH_ROWS).fill(0)
+  const { perRowNotesH, perRowNotesRowH } = showBottomPanel
+    ? { perRowNotesH: Array(MONTH_ROWS).fill(0), perRowNotesRowH: Array(MONTH_ROWS).fill(5.0) }
     : (() => {
         const raw = Array.from({ length: MONTH_ROWS }, (_, row) => {
           // Row-first layout: row `row` contains months at positions row*COL_COUNT … row*COL_COUNT+COL_COUNT-1
@@ -1062,14 +1063,17 @@ export async function exportPDF(state, { preview = false, pdfStyle = 'classic', 
           const maxEv = counts.length > 0 ? Math.max(...counts) : 0
           return maxEv > 0 ? Math.max(16, maxEv * 5 + 8) : 0
         })
-        // Cap total notes height so the grid always fits above the footer — never overflow
+        // Cap total notes height so the grid always fits above the footer
         const rawTotal = raw.reduce((a, b) => a + b, 0)
         const maxSafeNotesH = availH - (MONTH_ROWS - 1) * ROW_GAP - MONTH_ROWS * HEADER_OFFSET - MONTH_ROWS * MIN_CELL_H * 6
         if (rawTotal > maxSafeNotesH && rawTotal > 0) {
           const scale = maxSafeNotesH / rawTotal
-          return raw.map(h => Math.floor(h * scale))
+          const capped = raw.map(h => Math.floor(h * scale))
+          // Scale event row height proportionally so events stay within the smaller strip
+          const rowH = raw.map((h, i) => h > 0 ? Math.max(3.2, 5.0 * capped[i] / h) : 5.0)
+          return { perRowNotesH: capped, perRowNotesRowH: rowH }
         }
-        return raw
+        return { perRowNotesH: raw, perRowNotesRowH: Array(MONTH_ROWS).fill(5.0) }
       })()
   const totalNotesH = perRowNotesH.reduce((a, b) => a + b, 0)
   // Single CELL_H for all rows — fills all available space exactly (no compact shrink factor;
@@ -1165,8 +1169,9 @@ export async function exportPDF(state, { preview = false, pdfStyle = 'classic', 
     const y = rowStartY[row]
     const monthH = perRowMonthH[row]
     const notesH = perRowNotesH[row]
+    const notesRowH = perRowNotesRowH[row]
     const numWeeks = Math.ceil((getFirstDayOfWeek(year, month) + getDaysInMonth(year, month).length) / 7)
-    drawMonth(doc, { year, month }, events, categories, settings, mx, y, mw, monthH, shabbatLabel, notesH, theme, emojiCache, titleFont, numWeeks)
+    drawMonth(doc, { year, month }, events, categories, settings, mx, y, mw, monthH, shabbatLabel, notesH, theme, emojiCache, titleFont, numWeeks, notesRowH)
   })
 
   // ── Bottom Events Panel ──────────────────────────────
