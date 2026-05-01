@@ -1042,25 +1042,35 @@ export async function exportPDF(state, { preview = false, pdfStyle = 'classic', 
     ? PAGE_H - (HEADER_H + 2) - MARGIN - dynamicPanelH - CLASSIC_FOOTER_H - BP_FOOTER_H
     : PAGE_H - (HEADER_H + 2) - MARGIN - CLASSIC_FOOTER_H
   const allMonths = getAcademicMonths(settings.academicYear)
-  // Per-row max events → per-row notes heights (uncapped — grows to fit each row's busiest month)
+  // Per-row max events → per-row notes heights
   // New row design: 5mm per event row + 8mm header padding (divider gap)
   const perRowNotesH = showBottomPanel
     ? Array(MONTH_ROWS).fill(0)
-    : Array.from({ length: MONTH_ROWS }, (_, row) => {
-        // Row-first layout: row `row` contains months at positions row*COL_COUNT … row*COL_COUNT+COL_COUNT-1
-        const rowMonths = allMonths.filter((_, idx) => Math.floor(idx / COL_COUNT) === row)
-        const counts = rowMonths.map(({ year, month }) => {
-          const mk = `${year}-${String(month + 1).padStart(2, '0')}`
-          const seen = new Set()
-          Object.entries(events).forEach(([dk, evs]) => {
-            if (!dk.startsWith(mk)) return
-            ;(evs || []).filter(e => e.category !== 'rosh-chodesh').forEach(ev => seen.add(`${ev.category}::${ev.label}::${ev.time || ''}`))
+    : (() => {
+        const raw = Array.from({ length: MONTH_ROWS }, (_, row) => {
+          // Row-first layout: row `row` contains months at positions row*COL_COUNT … row*COL_COUNT+COL_COUNT-1
+          const rowMonths = allMonths.filter((_, idx) => Math.floor(idx / COL_COUNT) === row)
+          const counts = rowMonths.map(({ year, month }) => {
+            const mk = `${year}-${String(month + 1).padStart(2, '0')}`
+            const seen = new Set()
+            Object.entries(events).forEach(([dk, evs]) => {
+              if (!dk.startsWith(mk)) return
+              ;(evs || []).filter(e => e.category !== 'rosh-chodesh').forEach(ev => seen.add(`${ev.category}::${ev.label}::${ev.time || ''}`))
+            })
+            return seen.size
           })
-          return seen.size
+          const maxEv = counts.length > 0 ? Math.max(...counts) : 0
+          return maxEv > 0 ? Math.max(16, maxEv * 5 + 8) : 0
         })
-        const maxEv = counts.length > 0 ? Math.max(...counts) : 0
-        return maxEv > 0 ? Math.max(16, maxEv * 5 + 8) : 0
-      })
+        // Cap total notes height so the grid always fits above the footer — never overflow
+        const rawTotal = raw.reduce((a, b) => a + b, 0)
+        const maxSafeNotesH = availH - (MONTH_ROWS - 1) * ROW_GAP - MONTH_ROWS * HEADER_OFFSET - MONTH_ROWS * MIN_CELL_H * 6
+        if (rawTotal > maxSafeNotesH && rawTotal > 0) {
+          const scale = maxSafeNotesH / rawTotal
+          return raw.map(h => Math.floor(h * scale))
+        }
+        return raw
+      })()
   const totalNotesH = perRowNotesH.reduce((a, b) => a + b, 0)
   // Single CELL_H for all rows — fills all available space exactly (no compact shrink factor;
   // compact appearance is handled inside drawMonth via font scaling)
