@@ -59,7 +59,7 @@ function computeMaxEventsPerMonth(events, academicYear) {
     const seen = new Set()
     Object.entries(events).forEach(([dk, evs]) => {
       if (!dk.startsWith(monthKey)) return
-      ;(evs || []).filter(e => e.category !== 'rosh-chodesh').forEach(ev => seen.add(`${ev.category}::${ev.label}::${ev.time || ''}`))
+      ;(evs || []).filter(e => e.category !== 'rosh-chodesh').forEach(ev => seen.add(`${ev.category}::${ev.label}`))
     })
     return seen.size
   }), 0)
@@ -350,7 +350,7 @@ function drawMonth(doc, { year, month }, events, categories, settings, x, y, w, 
         noSchoolMap[dateKey] = { label: ev.label }
       }
       if (ev.category === 'early-dismissal' || cname.includes('dismissal')) {
-        earlyDismissMap[dateKey] = { label: ev.label, time: ev.time || parseCategoryTime(cat?.name), color: ev.color || cat?.color || '#D68910', regularDismissal: ev.regularDismissal, section: ev.section, gradeRange: ev.gradeRange }
+        earlyDismissMap[dateKey] = { label: ev.label, time: ev.time || parseCategoryTime(cat?.name), color: ev.color || cat?.color || '#D68910', regularDismissal: ev.regularDismissal }
       }
     })
   })
@@ -398,10 +398,10 @@ function drawMonth(doc, { year, month }, events, categories, settings, x, y, w, 
       doc.setFontSize(5.5 * s)
       doc.setFont('helvetica', 'bold')
       doc.text(String(dayNum), cx + 0.8, dateNumY)
-      if (dateNumY + 3.5 < cy + cellH) {
+      if ((ed.time || ed.regularDismissal) && dateNumY + 3.5 < cy + cellH) {
         doc.setFontSize(3.2 * s)
         doc.setFont('helvetica', 'normal')
-        doc.text(ed.regularDismissal ? 'reg. dismissal' : ed.time ? formatTime(ed.time) + ' dismissal' : 'dismissal', cx + 0.8, dateNumY + 3.5, { maxWidth: cellW - 1.2 })
+        doc.text(ed.regularDismissal ? 'reg. dismissal' : formatTime(ed.time), cx + 0.8, dateNumY + 3.5, { maxWidth: cellW - 1.2 })
       }
     } else if (isFilled && dayEvs.length > 0) {
       // Filled cell mode for other events
@@ -498,7 +498,7 @@ function drawMonth(doc, { year, month }, events, categories, settings, x, y, w, 
     const allEventRanges = {}
     Object.entries(events).forEach(([dk, dayEvs]) => {
       ;(dayEvs || []).filter(e => e.category !== 'rosh-chodesh').forEach(ev => {
-        const key = `${ev.category}::${ev.label}::${ev.time || ''}`
+        const key = `${ev.category}::${ev.label}`
         if (!allEventRanges[key]) allEventRanges[key] = []
         allEventRanges[key].push(dk)
       })
@@ -512,7 +512,7 @@ function drawMonth(doc, { year, month }, events, categories, settings, x, y, w, 
     days.forEach(date => {
       const dateKey = formatDateKey(date)
       ;(events[dateKey] || []).filter(e => e.category !== 'rosh-chodesh').forEach(ev => {
-        const key = `${ev.category}::${ev.label}::${ev.time || ''}`
+        const key = `${ev.category}::${ev.label}`
         const runGroups = allEventRunGroups[key] || [[dateKey]]
         const groupIdx = runGroups.findIndex(g => g.includes(dateKey))
         const idx = groupIdx >= 0 ? groupIdx : 0
@@ -544,6 +544,10 @@ function drawMonth(doc, { year, month }, events, categories, settings, x, y, w, 
       // Mixed content like "(9AM Start)" is left as-is (TODO: ask user about semantics)
       const cleanLabel = ev.label.replace(/\s*\(\d{1,2}(?::\d{2})?\s*(?:[ap]m|AM|PM)?\)/gi, '').trim()
 
+      // Accent bar — 3pt wide, full row height
+      doc.setFillColor(br, bg_c, bb)
+      doc.rect(x + LEFT_PAD, noteLineY, BAR_W, ROW_H, 'F')
+
       // Date string: "MMM D–MMM D" for cross-month runs, plain day numbers otherwise.
       // isContinuation: true only when THIS run group started in a prior month.
       const sortedDates = [...dates].sort()
@@ -570,78 +574,51 @@ function drawMonth(doc, { year, month }, events, categories, settings, x, y, w, 
       const shortDateW = doc.getTextWidth(shortDateStr)
       const EVENT_X = TEXT_X + shortDateW + 2.5
 
-      const sectionGrade = [ev.section, ev.gradeRange].filter(Boolean).join(' | ')
-      // Raw time string without a leading prefix (prefix added contextually below)
-      const rawTime = ev.regularDismissal
-        ? 'reg. dismissal'
-        : (() => { const t = ev.time || parseCategoryTime(cat?.name); return t ? `${formatTime(t)} dismissal` : '' })()
-      // When section/grade is present: time drops to sub-line; event name gets full width
-      const inlineTimeStr = sectionGrade ? '' : (rawTime ? `  ${rawTime}` : '')
-      // Sub-line: "Kodesh Only | Y-8th  |  12:00pm dismissal"
-      const subLineParts = sectionGrade ? [sectionGrade, rawTime].filter(Boolean) : []
-      const subLineText = subLineParts.join('  |  ')
-
-      // Measure only inline suffix (no sub-line impact on name width)
+      const timeStr = ev.regularDismissal
+        ? '  reg. dismissal'
+        : (() => { const t = ev.time || parseCategoryTime(cat?.name); return t ? ` ${formatTime(t)}` : '' })()
       doc.setFontSize(7.5); doc.setFont('helvetica', 'italic')
-      const inlineTimeW = inlineTimeStr ? doc.getTextWidth(inlineTimeStr) : 0
+      const timeW = timeStr ? doc.getTextWidth(timeStr) : 0
       const contStr = isContinuation ? ' (cont.)' : ''
       const contW = isContinuation ? doc.getTextWidth(contStr) : 0
 
       doc.setFontSize(8); doc.setFont('helvetica', 'bold')
-      const availNameW = Math.max(DATE_X - EVENT_X - inlineTimeW - contW, 12)
-      const labelLines = doc.splitTextToSize(cleanLabel, availNameW)
-      const LABEL_LINE_H = 3.8  // mm per additional wrapped line
-      const SUBLINE_H = subLineText ? 3.5 : 0
-      const actualRowH = ROW_H + (labelLines.length - 1) * LABEL_LINE_H + SUBLINE_H
-      if (noteLineY + actualRowH > y + h) return  // skip if full row won't fit in strip
-
-      // Accent bar — 3pt wide, full actual row height
-      doc.setFillColor(br, bg_c, bb)
-      doc.rect(x + LEFT_PAD, noteLineY, BAR_W, actualRowH, 'F')
-      const lastLineY = noteLineY + BASE_OFF + (labelLines.length - 1) * LABEL_LINE_H
-      const lastLineW = doc.getTextWidth(labelLines[labelLines.length - 1])
+      const availNameW = Math.max(DATE_X - EVENT_X - timeW - contW, 12)
+      const displayLabel = doc.splitTextToSize(cleanLabel, availNameW)[0] || cleanLabel
+      const nameW = doc.getTextWidth(displayLabel)
 
       // Date — day number(s), left side, muted blue-gray
       doc.setFontSize(8); doc.setFont('helvetica', 'normal')
       doc.setTextColor(74, 90, 122)
       doc.text(shortDateStr, TEXT_X, noteLineY + BASE_OFF)
 
-      // Event name — bold 8pt #1F2D4A, after date column (all wrapped lines)
+      // Event name — bold 8pt #1F2D4A, after date column
       doc.setFont('helvetica', 'bold')
       doc.setTextColor(31, 45, 74)
-      labelLines.forEach((line, li) => {
-        doc.text(line, EVENT_X, noteLineY + BASE_OFF + li * LABEL_LINE_H)
-      })
+      doc.text(displayLabel, EVENT_X, noteLineY + BASE_OFF)
 
-      // Inline time — only when no section/grade, italic 7.5pt after event name
-      if (inlineTimeStr) {
+      // Inline time — italic 7.5pt #5A6A82, follows event name
+      if (timeStr) {
         doc.setFontSize(7.5); doc.setFont('helvetica', 'italic')
         doc.setTextColor(90, 106, 130)
-        doc.text(inlineTimeStr, EVENT_X + lastLineW, lastLineY)
+        doc.text(timeStr, EVENT_X + nameW, noteLineY + BASE_OFF)
       }
 
-      // (cont.) suffix — italic 7.5pt, follows inline time
+      // (cont.) suffix — italic 7.5pt #5A6A82, follows time if present
       if (isContinuation) {
         doc.setFontSize(7.5); doc.setFont('helvetica', 'italic')
         doc.setTextColor(90, 106, 130)
-        doc.text(contStr, EVENT_X + lastLineW + inlineTimeW, lastLineY)
-      }
-
-      // Sub-line: "Kodesh Only | Y-8th  |  12:00pm dismissal" — 7pt below event name
-      if (subLineText) {
-        doc.setFontSize(7); doc.setFont('helvetica', 'normal')
-        doc.setTextColor(90, 106, 130)
-        doc.text(subLineText, EVENT_X, lastLineY + SUBLINE_H, { maxWidth: DATE_X - EVENT_X })
+        doc.text(contStr, EVENT_X + nameW + timeW, noteLineY + BASE_OFF)
       }
 
       // Hairline separator — 0.25pt #EEF0F3, indented from bar; skip last row
       if (entryIdx < entries.length - 1) {
         doc.setDrawColor(238, 240, 243)
         doc.setLineWidth(0.25)
-        doc.line(TEXT_X - 0.5, noteLineY + actualRowH, DATE_X, noteLineY + actualRowH)
+        doc.line(TEXT_X - 0.5, noteLineY + ROW_H, DATE_X, noteLineY + ROW_H)
       }
 
-      noteLineY += actualRowH
+      noteLineY += ROW_H
     })
   }
 
@@ -689,7 +666,7 @@ function bpRawGroups(events, academicYear) {
     Object.entries(events).forEach(([dk, evs]) => {
       if (!dk.startsWith(monthKey)) return
       ;(evs || []).filter(e => e.category !== 'rosh-chodesh').forEach(ev => {
-        const key = `${ev.category}::${ev.label}::${ev.time || ''}`
+        const key = `${ev.category}::${ev.label}`
         if (!monthEvs[key]) monthEvs[key] = { ev, dates: [] }
         monthEvs[key].dates.push(dk)
       })
@@ -922,27 +899,14 @@ function drawBottomEventsPanel(doc, categories, y, pageW, margin, sidebarW, layo
         const dateY     = lastNameY + p.dateGap
         const dGroups   = groupConsecutiveDates([...dates].sort())
         const rangeText = formatRangeGroups(dGroups)
-        const sectionGrade = [ev.section, ev.gradeRange].filter(Boolean).join(' | ')
-        const rawTime = ev.regularDismissal
-          ? 'reg. dismissal'
-          : (() => { const t = ev.time || parseCategoryTime(cat?.name); return t ? `${formatTime(t)} dismissal` : '' })()
-        const subLineParts = sectionGrade ? [sectionGrade, rawTime].filter(Boolean) : []
-        const subLineText = subLineParts.join('  |  ')
-        const inlineTimeStr = sectionGrade ? '' : (rawTime ? `  ${rawTime}` : '')
+        const timeStr = ev.regularDismissal
+          ? '  reg. dismissal'
+          : (() => { const t = ev.time || parseCategoryTime(cat?.name); return t ? ` ${formatTime(t)}` : '' })()
         doc.setFontSize(p.dateFontSz)
-        doc.setFont('helvetica', 'normal')
+        doc.setFont('helvetica', timeStr ? 'italic' : 'normal')
         doc.setTextColor(200, 212, 232)   // #C8D4E8
-        doc.text(rangeText, colX + 4, dateY)
-        if (inlineTimeStr) {
-          doc.setFont('helvetica', 'italic')
-          doc.text(inlineTimeStr, colX + 4 + doc.getTextWidth(rangeText), dateY)
-          doc.setFont('helvetica', 'normal')
-        }
-        if (subLineText) {
-          doc.setFontSize(p.dateFontSz - 0.5)
-          doc.setTextColor(160, 180, 210)
-          doc.text(subLineText, colX + 4, dateY + p.dateGap)
-        }
+        doc.text(rangeText + timeStr, colX + 4, dateY)
+        doc.setFont('helvetica', 'normal')
 
         drawY += rowH
       })
@@ -961,7 +925,7 @@ function drawNotesStrip(doc, events, catMap, x, y, w, h, year, month, { modernSt
   days.forEach(date => {
     const dateKey = formatDateKey(date)
     ;(events[dateKey] || []).filter(e => e.category !== 'rosh-chodesh').forEach(ev => {
-      const key = `${ev.category}::${ev.label}::${ev.time || ''}`
+      const key = `${ev.category}::${ev.label}`
       if (!notesEvents[key]) notesEvents[key] = { ev, dates: [] }
       notesEvents[key].dates.push(dateKey)
     })
@@ -988,23 +952,15 @@ function drawNotesStrip(doc, events, catMap, x, y, w, h, year, month, { modernSt
       const dw = doc.getTextWidth(dateStr)
       const remainW = w - 3.5 - dw
       const catTimeStr = parseCategoryTime(cat?.name)
-      const sgModern = [ev.section, ev.gradeRange].filter(Boolean).join(' | ')
-      const rawTimeModern = ev.regularDismissal ? 'reg. dismissal' : (ev.time || catTimeStr ? `${formatTime(ev.time || catTimeStr)} dismissal` : '')
-      const subModern = sgModern ? [sgModern, rawTimeModern].filter(Boolean).join('  |  ') : ''
-      const inlineTimeModern = sgModern ? '' : (rawTimeModern ? `  ${rawTimeModern}` : '')
-      const fullLabel = `${ev.label}${inlineTimeModern}${subModern ? `  ${subModern}` : ''}`
+      const timeStr = ev.regularDismissal ? '  reg. dismissal' : (ev.time || catTimeStr ? `  ${formatTime(ev.time || catTimeStr)}` : '')
+      const fullLabel = `${ev.label}${timeStr}`
       const labelLines = doc.splitTextToSize(fullLabel, remainW)
       const displayLabel = labelLines.length > 1 ? labelLines[0].replace(/\s+\S*$/, '') + '…' : labelLines[0]
       doc.setFont('helvetica', 'bold'); doc.setTextColor(40, 40, 50)
       doc.text(displayLabel, x + 2.5 + dw, lineY, { maxWidth: remainW })
       lineY += lineSpacing + 0.6
     } else {
-      const sectionGrade = [ev.section, ev.gradeRange].filter(Boolean).join(' | ')
-      const catTimeStr = parseCategoryTime(cat?.name)
-      const rawTimeSimple = ev.regularDismissal ? 'reg. dismissal' : (ev.time || catTimeStr ? `${formatTime(ev.time || catTimeStr)} dismissal` : '')
-      const subSimple = sectionGrade ? [sectionGrade, rawTimeSimple].filter(Boolean).join('  |  ') : ''
-      const inlineTimeSimple = sectionGrade ? '' : (rawTimeSimple ? `  ${rawTimeSimple}` : '')
-      const lineText = `${rangeStr} | ${ev.label}${inlineTimeSimple}${subSimple ? `  ${subSimple}` : ''}`
+      const lineText = `${rangeStr} | ${ev.label}`
       const lines = doc.splitTextToSize(lineText, w - 3.5)
       doc.setTextColor(60, 60, 60)
       doc.text(lines, x + 2.5, lineY, { maxWidth: w - 3.5 })
@@ -1080,38 +1036,25 @@ export async function exportPDF(state, { preview = false, pdfStyle = 'classic', 
     ? PAGE_H - (HEADER_H + 2) - MARGIN - dynamicPanelH - CLASSIC_FOOTER_H - BP_FOOTER_H
     : PAGE_H - (HEADER_H + 2) - MARGIN - CLASSIC_FOOTER_H
   const allMonths = getAcademicMonths(settings.academicYear)
-  // Per-row max events → per-row notes heights
+  // Per-row max events → per-row notes heights (uncapped — grows to fit each row's busiest month)
   // New row design: 5mm per event row + 8mm header padding (divider gap)
-  const { perRowNotesH, perRowNotesRowH } = showBottomPanel
-    ? { perRowNotesH: Array(MONTH_ROWS).fill(0), perRowNotesRowH: Array(MONTH_ROWS).fill(5.0) }
-    : (() => {
-        const raw = Array.from({ length: MONTH_ROWS }, (_, row) => {
-          // Row-first layout: row `row` contains months at positions row*COL_COUNT … row*COL_COUNT+COL_COUNT-1
-          const rowMonths = allMonths.filter((_, idx) => Math.floor(idx / COL_COUNT) === row)
-          const counts = rowMonths.map(({ year, month }) => {
-            const mk = `${year}-${String(month + 1).padStart(2, '0')}`
-            const seen = new Set()
-            Object.entries(events).forEach(([dk, evs]) => {
-              if (!dk.startsWith(mk)) return
-              ;(evs || []).filter(e => e.category !== 'rosh-chodesh').forEach(ev => seen.add(`${ev.category}::${ev.label}::${ev.time || ''}`))
-            })
-            return seen.size
+  const perRowNotesH = showBottomPanel
+    ? Array(MONTH_ROWS).fill(0)
+    : Array.from({ length: MONTH_ROWS }, (_, row) => {
+        // Row-first layout: row `row` contains months at positions row*COL_COUNT … row*COL_COUNT+COL_COUNT-1
+        const rowMonths = allMonths.filter((_, idx) => Math.floor(idx / COL_COUNT) === row)
+        const counts = rowMonths.map(({ year, month }) => {
+          const mk = `${year}-${String(month + 1).padStart(2, '0')}`
+          const seen = new Set()
+          Object.entries(events).forEach(([dk, evs]) => {
+            if (!dk.startsWith(mk)) return
+            ;(evs || []).filter(e => e.category !== 'rosh-chodesh').forEach(ev => seen.add(`${ev.category}::${ev.label}`))
           })
-          const maxEv = counts.length > 0 ? Math.max(...counts) : 0
-          return maxEv > 0 ? Math.max(16, maxEv * 5 + 8) : 0
+          return seen.size
         })
-        // Cap total notes height so the grid always fits above the footer
-        const rawTotal = raw.reduce((a, b) => a + b, 0)
-        const maxSafeNotesH = availH - (MONTH_ROWS - 1) * ROW_GAP - MONTH_ROWS * HEADER_OFFSET - MONTH_ROWS * MIN_CELL_H * 6
-        if (rawTotal > maxSafeNotesH && rawTotal > 0) {
-          const scale = maxSafeNotesH / rawTotal
-          const capped = raw.map(h => Math.floor(h * scale))
-          // Scale event row height proportionally so events stay within the smaller strip
-          const rowH = raw.map((h, i) => h > 0 ? Math.max(3.2, 5.0 * capped[i] / h) : 5.0)
-          return { perRowNotesH: capped, perRowNotesRowH: rowH }
-        }
-        return { perRowNotesH: raw, perRowNotesRowH: Array(MONTH_ROWS).fill(5.0) }
-      })()
+        const maxEv = counts.length > 0 ? Math.max(...counts) : 0
+        return maxEv > 0 ? Math.max(16, maxEv * 5 + 8) : 0
+      })
   const totalNotesH = perRowNotesH.reduce((a, b) => a + b, 0)
   // Single CELL_H for all rows — fills all available space exactly (no compact shrink factor;
   // compact appearance is handled inside drawMonth via font scaling)
@@ -1206,9 +1149,8 @@ export async function exportPDF(state, { preview = false, pdfStyle = 'classic', 
     const y = rowStartY[row]
     const monthH = perRowMonthH[row]
     const notesH = perRowNotesH[row]
-    const notesRowH = perRowNotesRowH[row]
     const numWeeks = Math.ceil((getFirstDayOfWeek(year, month) + getDaysInMonth(year, month).length) / 7)
-    drawMonth(doc, { year, month }, events, categories, settings, mx, y, mw, monthH, shabbatLabel, notesH, theme, emojiCache, titleFont, numWeeks, notesRowH)
+    drawMonth(doc, { year, month }, events, categories, settings, mx, y, mw, monthH, shabbatLabel, notesH, theme, emojiCache, titleFont, numWeeks)
   })
 
   // ── Bottom Events Panel ──────────────────────────────
@@ -1449,7 +1391,7 @@ async function exportTraditional(state, ctx) {
           const seen = new Set()
           Object.entries(events).forEach(([dk, evs]) => {
             if (!dk.startsWith(mk)) return
-            ;(evs || []).filter(e => e.category !== 'rosh-chodesh').forEach(ev => seen.add(`${ev.category}::${ev.label}::${ev.time || ''}`))
+            ;(evs || []).filter(e => e.category !== 'rosh-chodesh').forEach(ev => seen.add(`${ev.category}::${ev.label}`))
           })
           return seen.size
         })
@@ -1845,7 +1787,7 @@ async function exportPortraitClassic(state, { preview = false } = {}) {
   const allEventRanges = {}
   Object.entries(events).forEach(([dk, dayEvs]) => {
     ;(dayEvs || []).filter(e => e.category !== 'rosh-chodesh').forEach(ev => {
-      const key = `${ev.category}::${ev.label}::${ev.time || ''}`
+      const key = `${ev.category}::${ev.label}`
       if (!allEventRanges[key]) allEventRanges[key] = []
       allEventRanges[key].push(dk)
     })
@@ -1933,7 +1875,7 @@ async function exportPortraitClassic(state, { preview = false } = {}) {
         if (ev.category === 'no-school' || cname.includes('no school'))
           noSchoolMap[dk] = { label: ev.label }
         if (ev.category === 'early-dismissal' || cname.includes('dismissal'))
-          earlyDismissMap[dk] = { label: ev.label, time: ev.time, color: ev.color || cat?.color || '#D68910', regularDismissal: ev.regularDismissal, section: ev.section, gradeRange: ev.gradeRange }
+          earlyDismissMap[dk] = { label: ev.label, time: ev.time, color: ev.color || cat?.color || '#D68910', regularDismissal: ev.regularDismissal }
       })
     })
 
@@ -1966,8 +1908,10 @@ async function exportPortraitClassic(state, { preview = false } = {}) {
         doc.roundedRect(cx + 0.1, cy + 0.1, cellW - 0.2, cellH - 0.2, 0.4, 0.4, 'F')
         doc.setTextColor(255, 255, 255); doc.setFontSize(5); doc.setFont('helvetica', 'bold')
         doc.text(String(dayNum), cx + 0.7, cy + 2.9)
-        doc.setFontSize(3); doc.setFont('helvetica', 'normal')
-        doc.text(ed.regularDismissal ? 'reg. dismissal' : ed.time ? formatTime(ed.time) + ' dismissal' : 'dismissal', cx + 0.7, cy + cellH - 0.6, { maxWidth: cellW - 1 })
+        if (ed.time || ed.regularDismissal) {
+          doc.setFontSize(3); doc.setFont('helvetica', 'normal')
+          doc.text(ed.regularDismissal ? 'reg. dismissal' : formatTime(ed.time), cx + 0.7, cy + cellH - 0.6, { maxWidth: cellW - 1 })
+        }
       } else if (settings.cellStyle === 'filled' && dayEvs.length > 0) {
         const firstEv = dayEvs[0]
         const cat = catMap[firstEv.category]
@@ -2033,7 +1977,7 @@ async function exportPortraitClassic(state, { preview = false } = {}) {
     days.forEach(date => {
       const dk = formatDateKey(date)
       ;(events[dk] || []).filter(e => e.category !== 'rosh-chodesh').forEach(ev => {
-        const key = `${ev.category}::${ev.label}::${ev.time || ''}`
+        const key = `${ev.category}::${ev.label}`
         const runGroups = allEventRunGroups[key] || [[dk]]
         const groupIdx = runGroups.findIndex(g => g.includes(dk))
         const idx = groupIdx >= 0 ? groupIdx : 0
@@ -2054,7 +1998,8 @@ async function exportPortraitClassic(state, { preview = false } = {}) {
       doc.setFillColor(r, g, b)
       doc.roundedRect(notesX, noteY - 2.1, 2.1, 2.1, 0.25, 0.25, 'F')
       // Label (colored) + time + range (muted)
-      const timeStr = ev.regularDismissal ? '  reg. dismissal' : (ev.time ? `  ${formatTime(ev.time)} dismissal` : '')
+      const isED = ev.category === 'early-dismissal' || (cat?.name?.toLowerCase() || '').includes('dismissal')
+      const timeStr = ev.regularDismissal ? '  reg. dismissal' : (isED && ev.time ? ` ${formatTime(ev.time)}` : '')
       const groups = groupConsecutiveDates([...dates].sort())
       const rangeStr = formatRangeGroups(groups)
       const rangePart = `  –  ${rangeStr}`
@@ -2890,7 +2835,7 @@ function deDarkNotesStrip(doc, events, catMap, x, y, w, h, year, month, colorOve
   days.forEach(date => {
     const dateKey = formatDateKey(date)
     ;(events[dateKey] || []).filter(e => e.category !== 'rosh-chodesh').forEach(ev => {
-      const key = `${ev.category}::${ev.label}::${ev.time || ''}`
+      const key = `${ev.category}::${ev.label}`
       if (!notesEvents[key]) notesEvents[key] = { ev, dates: [] }
       notesEvents[key].dates.push(dateKey)
     })
@@ -3000,7 +2945,7 @@ function deDarkComputePanelH(events, academicYear) {
     Object.entries(events).forEach(([dk, evs]) => {
       if (!dk.startsWith(mk)) return
       ;(evs || []).filter(e => e.category !== 'rosh-chodesh')
-        .forEach(ev => seen.add(`${ev.category}::${ev.label}::${ev.time || ''}`))
+        .forEach(ev => seen.add(`${ev.category}::${ev.label}`))
     })
     return seen.size
   }
@@ -3036,7 +2981,7 @@ function deDarkBottomPanel(doc, events, categories, academicYear, y, panelW, pan
     Object.entries(events).forEach(([dk, evs]) => {
       if (!dk.startsWith(mk)) return
       ;(evs || []).filter(e => e.category !== 'rosh-chodesh').forEach(ev => {
-        const key = `${ev.category}::${ev.label}::${ev.time || ''}`
+        const key = `${ev.category}::${ev.label}`
         if (!seen[key]) seen[key] = { ev, dates: [] }
         seen[key].dates.push(dk)
       })
@@ -3152,7 +3097,7 @@ async function exportDarkElegant(state, { preview, theme, doc, titleFont, shabba
       const seen = new Set()
       Object.entries(events).forEach(([dk, evs]) => {
         if (!dk.startsWith(mk)) return
-        ;(evs || []).filter(e => e.category !== 'rosh-chodesh').forEach(ev => seen.add(`${ev.category}::${ev.label}::${ev.time || ''}`))
+        ;(evs || []).filter(e => e.category !== 'rosh-chodesh').forEach(ev => seen.add(`${ev.category}::${ev.label}`))
       })
       return seen.size
     }))
