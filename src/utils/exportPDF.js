@@ -587,11 +587,16 @@ function drawMonth(doc, { year, month }, events, categories, settings, x, y, w, 
       const contStr = isContinuation ? ' (cont.)' : ''
       const contW = isContinuation ? doc.getTextWidth(contStr) : 0
 
+      // Pre-split sub-line at 7pt normal so height is known and font is explicit at draw time
+      doc.setFontSize(7); doc.setFont('helvetica', 'normal')
+      const subLines = subLineText ? doc.splitTextToSize(subLineText, DATE_X - EVENT_X) : []
+      const SUBLINE_LINE_H = 3.0
+      const SUBLINE_H = subLines.length > 0 ? subLines.length * SUBLINE_LINE_H + 0.6 : 0
+
       doc.setFontSize(8); doc.setFont('helvetica', 'bold')
       const availNameW = Math.max(DATE_X - EVENT_X - inlineTimeW - contW, 12)
       const labelLines = doc.splitTextToSize(cleanLabel, availNameW)
       const LABEL_LINE_H = 3.8  // mm per additional wrapped line
-      const SUBLINE_H = subLineText ? 3.5 : 0
       const actualRowH = ROW_H + (labelLines.length - 1) * LABEL_LINE_H + SUBLINE_H
       if (noteLineY + actualRowH > y + h) return  // skip if full row won't fit in strip
 
@@ -627,11 +632,13 @@ function drawMonth(doc, { year, month }, events, categories, settings, x, y, w, 
         doc.text(contStr, EVENT_X + lastLineW + inlineTimeW, lastLineY)
       }
 
-      // Sub-line: "Kodesh Only | Y-8th  |  12:00pm dismissal" — 7pt below event name
-      if (subLineText) {
+      // Sub-line: "Kodesh Only | Y-8th  |  12:00pm dismissal" — 7pt, muted, below event name
+      if (subLines.length > 0) {
         doc.setFontSize(7); doc.setFont('helvetica', 'normal')
         doc.setTextColor(90, 106, 130)
-        doc.text(subLineText, EVENT_X, lastLineY + SUBLINE_H, { maxWidth: DATE_X - EVENT_X })
+        subLines.forEach((line, li) => {
+          doc.text(line, EVENT_X, lastLineY + LABEL_LINE_H + li * SUBLINE_LINE_H)
+        })
       }
 
       // Hairline separator — 0.25pt #EEF0F3, indented from bar; skip last row
