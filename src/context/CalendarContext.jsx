@@ -58,6 +58,7 @@ const DEFAULT_SETTINGS = {
   firstDayOfSchool: '',     // YYYY-MM-DD
   lastDayOfSchool:  '',     // YYYY-MM-DD
   showSchoolDayNumbers: false,
+  pre1Label: 'Yesod',       // customizable label for Pre-1 grade (default: Yesod)
 }
 
 // ── ID normalizer for default events ────────────────────────────────────

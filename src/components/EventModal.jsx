@@ -18,6 +18,8 @@ export default function EventModal({ dateKey, onClose }) {
   const [newCategory, setNewCategory] = useState(categories.find(c => c.visible)?.id || '')
   const [newTime, setNewTime] = useState('')
   const [newRegularDismissal, setNewRegularDismissal] = useState(false)
+  const [newSection, setNewSection] = useState('')
+  const [newGradeRange, setNewGradeRange] = useState('')
   const [duplicateWarning, setDuplicateWarning] = useState(false)
 
   // ── Inline range add state ──
@@ -67,18 +69,22 @@ export default function EventModal({ dateKey, onClose }) {
   const handleAdd = () => {
     if (!newLabel.trim() || readOnly) return
     if (checkDuplicate(newLabel)) { setDuplicateWarning(true); setTimeout(() => setDuplicateWarning(false), 3000); return }
-    dispatch({ type: 'ADD_EVENT', dateKey, event: { id: 'ev-' + nanoid(), category: newCategory, label: newLabel.trim(), time: newTime || undefined, regularDismissal: newRegularDismissal || undefined } })
+    dispatch({ type: 'ADD_EVENT', dateKey, event: { id: 'ev-' + nanoid(), category: newCategory, label: newLabel.trim(), time: newTime || undefined, regularDismissal: newRegularDismissal || undefined, section: newSection.trim() || undefined, gradeRange: newGradeRange.trim() || undefined } })
     setNewLabel('')
     setNewTime('')
     setNewRegularDismissal(false)
+    setNewSection('')
+    setNewGradeRange('')
   }
 
   const handleAddForce = () => {
     setDuplicateWarning(false)
-    dispatch({ type: 'ADD_EVENT', dateKey, event: { id: 'ev-' + nanoid(), category: newCategory, label: newLabel.trim(), time: newTime || undefined, regularDismissal: newRegularDismissal || undefined } })
+    dispatch({ type: 'ADD_EVENT', dateKey, event: { id: 'ev-' + nanoid(), category: newCategory, label: newLabel.trim(), time: newTime || undefined, regularDismissal: newRegularDismissal || undefined, section: newSection.trim() || undefined, gradeRange: newGradeRange.trim() || undefined } })
     setNewLabel('')
     setNewTime('')
     setNewRegularDismissal(false)
+    setNewSection('')
+    setNewGradeRange('')
   }
 
   const handleDelete = (eventId) => { if (!readOnly) dispatch({ type: 'DELETE_EVENT', dateKey, eventId }) }
@@ -102,6 +108,12 @@ export default function EventModal({ dateKey, onClose }) {
   }
   const handleRegularDismissalChange = (eventId, checked) => {
     if (!readOnly) { dispatch({ type: 'EDIT_EVENT', dateKey, eventId, changes: { regularDismissal: checked || undefined } }); flashSaved(eventId) }
+  }
+  const handleSectionChange = (eventId, section) => {
+    if (!readOnly) { dispatch({ type: 'EDIT_EVENT', dateKey, eventId, changes: { section: section || undefined } }); flashSaved(eventId) }
+  }
+  const handleGradeRangeChange = (eventId, gradeRange) => {
+    if (!readOnly) { dispatch({ type: 'EDIT_EVENT', dateKey, eventId, changes: { gradeRange: gradeRange || undefined } }); flashSaved(eventId) }
   }
 
   const handleRangeSubmit = () => {
@@ -221,6 +233,35 @@ export default function EventModal({ dateKey, onClose }) {
                     )}
                     {ev.regularDismissal && readOnly && <span className="text-[10px] text-gray-400">Reg. Dismissal</span>}
                   </div>
+                  {ev.category === 'early-dismissal' && !readOnly && (
+                    <div className="flex gap-1.5 mt-1">
+                      <input
+                        list={`ed-section-opts-${ev.id}`}
+                        value={ev.section || ''}
+                        onChange={e => handleSectionChange(ev.id, e.target.value)}
+                        placeholder="Section..."
+                        className="flex-1 text-xs border border-gray-200 rounded px-1.5 py-0.5 dark:bg-gray-800 dark:border-gray-600 dark:text-gray-300 outline-none focus:ring-1 focus:ring-blue-400"
+                        title="School section (e.g. Kodesh Only, Boys Only)"
+                      />
+                      <datalist id={`ed-section-opts-${ev.id}`}>
+                        <option value="Kodesh Only" />
+                        <option value="Boys Only" />
+                      </datalist>
+                      <input
+                        type="text"
+                        value={ev.gradeRange || ''}
+                        onChange={e => handleGradeRangeChange(ev.id, e.target.value)}
+                        placeholder="Grades..."
+                        className="w-20 text-xs border border-gray-200 rounded px-1.5 py-0.5 dark:bg-gray-800 dark:border-gray-600 dark:text-gray-300 outline-none focus:ring-1 focus:ring-blue-400"
+                        title="Grade range (e.g. Y-8th, 1-4, Nursery-4th)"
+                      />
+                    </div>
+                  )}
+                  {ev.category === 'early-dismissal' && readOnly && (ev.section || ev.gradeRange) && (
+                    <div className="text-[10px] text-gray-400 mt-0.5">
+                      {[ev.section, ev.gradeRange].filter(Boolean).join(' | ')}
+                    </div>
+                  )}
                 </div>
 
                 {/* Saved flash */}
@@ -314,6 +355,32 @@ export default function EventModal({ dateKey, onClose }) {
                     Regular Dismissal <span className="text-xs text-gray-400">(shows dismissal time on PDF)</span>
                   </span>
                 </label>
+                {newCategory === 'early-dismissal' && (
+                  <div className="flex gap-2">
+                    <div className="flex-1">
+                      <input
+                        list="ed-new-section-options"
+                        value={newSection}
+                        onChange={e => setNewSection(e.target.value)}
+                        placeholder="Section (e.g. Kodesh Only)"
+                        className="w-full text-sm border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-800 dark:text-white outline-none focus:ring-2 focus:ring-blue-400"
+                        title="Which section this early dismissal applies to"
+                      />
+                      <datalist id="ed-new-section-options">
+                        <option value="Kodesh Only" />
+                        <option value="Boys Only" />
+                      </datalist>
+                    </div>
+                    <input
+                      type="text"
+                      value={newGradeRange}
+                      onChange={e => setNewGradeRange(e.target.value)}
+                      placeholder={`Grades (e.g. ${settings.pre1Label || 'Y'}-8th)`}
+                      className="w-32 text-sm border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-800 dark:text-white outline-none focus:ring-2 focus:ring-blue-400"
+                      title="Grade range (e.g. Y-8th, 1-4, Nursery-4th) — displayed exactly as typed on PDF"
+                    />
+                  </div>
+                )}
                 <button
                   onClick={handleAdd}
                   disabled={!newLabel.trim()}

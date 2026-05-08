@@ -129,6 +129,10 @@ export default function SettingsDrawer({ isOpen, onClose, onOpenCategories, onOp
                 <input type="time" value={settings.regularDismissalTime || ''} onChange={e => updateSettings('regularDismissalTime', e.target.value)} readOnly={readOnly} className={inputCls} title="Default dismissal time shown on PDF for events marked 'Regular Dismissal'" />
                 <p className="text-[10px] text-gray-400 mt-0.5">Used on PDF for events marked "Regular Dismissal"</p>
               </Field>
+              <Field label="Pre-1 Grade Label">
+                <input type="text" value={settings.pre1Label ?? 'Yesod'} onChange={e => updateSettings('pre1Label', e.target.value)} readOnly={readOnly} className={inputCls} placeholder="Yesod" title="Your school's name for the Pre-1 grade — used as the default placeholder in early dismissal grade range fields" />
+                <p className="text-[10px] text-gray-400 mt-0.5">Default grade label for Pre-1 (e.g. Yesod, Pre-1, Kindergarten A)</p>
+              </Field>
               <Field label="Other Information">
                 <textarea value={schoolInfo.otherInfo || ''} onChange={e => updateInfo('otherInfo', e.target.value)} readOnly={readOnly} rows={3} className={inputCls + ' resize-none'} placeholder="Any additional info to include on your calendar..." />
               </Field>
