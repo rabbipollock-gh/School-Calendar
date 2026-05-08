@@ -398,10 +398,10 @@ function drawMonth(doc, { year, month }, events, categories, settings, x, y, w, 
       doc.setFontSize(5.5 * s)
       doc.setFont('helvetica', 'bold')
       doc.text(String(dayNum), cx + 0.8, dateNumY)
-      if ((ed.time || ed.regularDismissal) && dateNumY + 3.5 < cy + cellH) {
+      if (dateNumY + 3.5 < cy + cellH) {
         doc.setFontSize(3.2 * s)
         doc.setFont('helvetica', 'normal')
-        doc.text(ed.regularDismissal ? 'reg. dismissal' : formatTime(ed.time) + ' dismissal', cx + 0.8, dateNumY + 3.5, { maxWidth: cellW - 1.2 })
+        doc.text(ed.regularDismissal ? 'reg. dismissal' : ed.time ? formatTime(ed.time) + ' dismissal' : 'dismissal', cx + 0.8, dateNumY + 3.5, { maxWidth: cellW - 1.2 })
       }
     } else if (isFilled && dayEvs.length > 0) {
       // Filled cell mode for other events
@@ -1932,10 +1932,8 @@ async function exportPortraitClassic(state, { preview = false } = {}) {
         doc.roundedRect(cx + 0.1, cy + 0.1, cellW - 0.2, cellH - 0.2, 0.4, 0.4, 'F')
         doc.setTextColor(255, 255, 255); doc.setFontSize(5); doc.setFont('helvetica', 'bold')
         doc.text(String(dayNum), cx + 0.7, cy + 2.9)
-        if (ed.time || ed.regularDismissal) {
-          doc.setFontSize(3); doc.setFont('helvetica', 'normal')
-          doc.text(ed.regularDismissal ? 'reg. dismissal' : formatTime(ed.time) + ' dismissal', cx + 0.7, cy + cellH - 0.6, { maxWidth: cellW - 1 })
-        }
+        doc.setFontSize(3); doc.setFont('helvetica', 'normal')
+        doc.text(ed.regularDismissal ? 'reg. dismissal' : ed.time ? formatTime(ed.time) + ' dismissal' : 'dismissal', cx + 0.7, cy + cellH - 0.6, { maxWidth: cellW - 1 })
       } else if (settings.cellStyle === 'filled' && dayEvs.length > 0) {
         const firstEv = dayEvs[0]
         const cat = catMap[firstEv.category]
