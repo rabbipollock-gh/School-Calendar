@@ -233,7 +233,7 @@ export default function EventModal({ dateKey, onClose }) {
                     )}
                     {ev.regularDismissal && readOnly && <span className="text-[10px] text-gray-400">Reg. Dismissal</span>}
                   </div>
-                  {ev.category === 'early-dismissal' && !readOnly && (
+                  {(ev.category === 'early-dismissal' || ev.time || ev.regularDismissal) && !readOnly && (
                     <div className="flex gap-1.5 mt-1">
                       <input
                         list={`ed-section-opts-${ev.id}`}
@@ -257,7 +257,7 @@ export default function EventModal({ dateKey, onClose }) {
                       />
                     </div>
                   )}
-                  {ev.category === 'early-dismissal' && readOnly && (ev.section || ev.gradeRange) && (
+                  {(ev.category === 'early-dismissal' || ev.time || ev.regularDismissal) && readOnly && (ev.section || ev.gradeRange) && (
                     <div className="text-[10px] text-gray-400 mt-0.5">
                       {[ev.section, ev.gradeRange].filter(Boolean).join(' | ')}
                     </div>
@@ -355,7 +355,7 @@ export default function EventModal({ dateKey, onClose }) {
                     Regular Dismissal <span className="text-xs text-gray-400">(shows dismissal time on PDF)</span>
                   </span>
                 </label>
-                {newCategory === 'early-dismissal' && (
+                {(newCategory === 'early-dismissal' || newTime || newRegularDismissal) && (
                   <div className="flex gap-2">
                     <div className="flex-1">
                       <input
