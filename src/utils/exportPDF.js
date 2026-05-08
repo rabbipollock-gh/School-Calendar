@@ -571,7 +571,7 @@ function drawMonth(doc, { year, month }, events, categories, settings, x, y, w, 
       const shortDateW = doc.getTextWidth(shortDateStr)
       const EVENT_X = TEXT_X + shortDateW + 2.5
 
-      const isED574 = ev.category === 'early-dismissal' || (cat?.name?.toLowerCase() || '').includes('dismissal')
+      const isED574 = ev.category === 'early-dismissal' || ev.category === 'hebrew-only' || (cat?.name?.toLowerCase() || '').includes('dismissal')
       const timeStr = ev.regularDismissal
         ? '  reg. dismissal'
         : (() => { const t = ev.time || parseCategoryTime(cat?.name); return t ? `  ${formatTime(t)}${isED574 ? ' dismissal' : ''}` : '' })()
@@ -907,7 +907,7 @@ function drawBottomEventsPanel(doc, categories, y, pageW, margin, sidebarW, layo
         const dateY     = lastNameY + p.dateGap
         const dGroups   = groupConsecutiveDates([...dates].sort())
         const rangeText = formatRangeGroups(dGroups)
-        const isED = ev.category === 'early-dismissal' || (cat?.name?.toLowerCase() || '').includes('dismissal')
+        const isED = ev.category === 'early-dismissal' || ev.category === 'hebrew-only' || (cat?.name?.toLowerCase() || '').includes('dismissal')
         const timeStr = ev.regularDismissal
           ? '  reg. dismissal'
           : (() => { const t = ev.time || parseCategoryTime(cat?.name); return t ? `  ${formatTime(t)}${isED ? ' dismissal' : ''}` : '' })()
@@ -961,7 +961,7 @@ function drawNotesStrip(doc, events, catMap, x, y, w, h, year, month, { modernSt
       const dw = doc.getTextWidth(dateStr)
       const remainW = w - 3.5 - dw
       const catTimeStr = parseCategoryTime(cat?.name)
-      const isEDNote = ev.category === 'early-dismissal' || (cat?.name?.toLowerCase() || '').includes('dismissal')
+      const isEDNote = ev.category === 'early-dismissal' || ev.category === 'hebrew-only' || (cat?.name?.toLowerCase() || '').includes('dismissal')
       const timeStr = ev.regularDismissal ? '  reg. dismissal' : (ev.time || catTimeStr ? `  ${formatTime(ev.time || catTimeStr)}${isEDNote ? ' dismissal' : ''}` : '')
       const fullLabel = `${ev.label}${timeStr}`
       const labelLines = doc.splitTextToSize(fullLabel, remainW)
@@ -2020,7 +2020,7 @@ async function exportPortraitClassic(state, { preview = false } = {}) {
       doc.setFillColor(r, g, b)
       doc.roundedRect(notesX, noteY - 2.1, 2.1, 2.1, 0.25, 0.25, 'F')
       // Label (colored) + time + range (muted)
-      const isED = ev.category === 'early-dismissal' || (cat?.name?.toLowerCase() || '').includes('dismissal')
+      const isED = ev.category === 'early-dismissal' || ev.category === 'hebrew-only' || (cat?.name?.toLowerCase() || '').includes('dismissal')
       const timeStr = ev.regularDismissal ? '  reg. dismissal' : (isED && ev.time ? `  ${formatTime(ev.time)} dismissal` : '')
       const groups = groupConsecutiveDates([...dates].sort())
       const rangeStr = formatRangeGroups(groups)
