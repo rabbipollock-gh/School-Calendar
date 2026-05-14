@@ -1320,7 +1320,7 @@ export async function exportPDF(state, { preview = false, pdfStyle = 'classic', 
     const hourLines2 = (schoolInfo.hours || '').split('\n').filter(l => l.trim())
     if (hourLines2.length && cy2 < ibY + ibH - 8) {
       const HOURS_ROW_H = isCompactCard ? 5.0 : 4.0
-      const bandPadV    = 1.0
+      const bandPadV    = 1.5
       const bandH       = Math.min(
         bandPadV * 2 + 4.0 + hourLines2.length * HOURS_ROW_H,
         ibY + ibH - 2 - cy2
@@ -1651,7 +1651,7 @@ async function exportTraditional(state, ctx) {
     const hourLines2 = (schoolInfo.hours || '').split('\n').filter(l => l.trim())
     if (hourLines2.length && cy2 < ibY + ibH - 8) {
       const HOURS_ROW_H = isCompactCard ? 5.0 : 4.0
-      const bandPadV    = 1.0
+      const bandPadV    = 1.5
       const bandH       = Math.min(
         bandPadV * 2 + 4.0 + hourLines2.length * HOURS_ROW_H,
         ibY + ibH - 2 - cy2
