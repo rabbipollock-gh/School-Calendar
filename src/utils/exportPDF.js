@@ -1645,7 +1645,7 @@ async function exportTraditional(state, ctx) {
         doc.setTextColor(31, 45, 74); doc.setFontSize(isCompactCard ? 6 : 6.5); doc.setFont('helvetica', 'normal')
         doc.text(cat.name, itemX + TEXT_X_OFF, itemY + SWATCH_H * 0.72, { maxWidth: legColW2 - TEXT_X_OFF - 1 })
       })
-      cy2 += legRowsDrawn * LEG_ROW_H + 2.0
+      cy2 += legRowsDrawn * LEG_ROW_H + 3.5
     }
 
     const hourLines2 = (schoolInfo.hours || '').split('\n').filter(l => l.trim())
