@@ -1279,14 +1279,14 @@ export async function exportPDF(state, { preview = false, pdfStyle = 'classic', 
       doc.text(settings.calendarTitle || schoolInfo.name || 'YAYOE', ibCX, ibY + 9.5, { align: 'center' })
     }
 
-    let cy2 = ibY + IH_H + PAD
+    let cy2 = ibY + IH_H + (isCompactCard ? 2 : 3)
 
     // ── Legend — 2-column grid, 20×14px swatches ───────────────────────────
     const visibleCatsIB = categories.filter(c => c.visible && c.id !== 'rosh-chodesh')
     if (visibleCatsIB.length > 0) {
       const SWATCH_W  = 5.3   // ~20px
       const SWATCH_H  = 3.7   // ~14px
-      const LEG_ROW_H = isCompactCard ? 4.5 : 5.2   // ~10px gap
+      const LEG_ROW_H = isCompactCard ? 4.5 : 4.8   // ~10px gap
       const legCols2  = 2
       const legColW2  = (ibW - PAD * 2) / legCols2
       const TEXT_X_OFF = SWATCH_W + 1.5
@@ -1313,26 +1313,24 @@ export async function exportPDF(state, { preview = false, pdfStyle = 'classic', 
         doc.setTextColor(31, 45, 74); doc.setFontSize(isCompactCard ? 6 : 6.5); doc.setFont('helvetica', 'normal')
         doc.text(cat.name, itemX + TEXT_X_OFF, itemY + SWATCH_H * 0.72, { maxWidth: legColW2 - TEXT_X_OFF - 1 })
       })
-      cy2 += legRowsDrawn * LEG_ROW_H + 2.0
+      cy2 += legRowsDrawn * LEG_ROW_H + 1.5
     }
 
     // ── School Hours — gray shaded band, left-aligned label/time table ──────
     const hourLines2 = (schoolInfo.hours || '').split('\n').filter(l => l.trim())
     if (hourLines2.length && cy2 < ibY + ibH - 8) {
-      const HOURS_ROW_H = isCompactCard ? 5.0 : 4.0
-      const bandPadV    = 2.0
-      const bandH       = Math.min(
-        bandPadV * 2 + 4.0 + hourLines2.length * HOURS_ROW_H,
-        ibY + ibH - 2 - cy2
-      )
-      // Gray background band
+      const HOURS_ROW_H = isCompactCard ? 5.0 : 3.2
+      const bandH       = ibY + ibH - 2 - cy2
+      const contentH    = 3.5 + hourLines2.length * HOURS_ROW_H
+      const topPad      = Math.max(1.5, (bandH - contentH) / 2)
+      // Gray background band fills remaining card height
       doc.setFillColor(240, 243, 247)
       doc.rect(ibX + 1, cy2, ibW - 2, bandH, 'F')
 
-      cy2 += bandPadV
+      cy2 += topPad
 
       doc.setFontSize(isCompactCard ? 4.5 : 5); doc.setFont('helvetica', 'bold'); doc.setTextColor(pr, pg, pb)
-      doc.text('SCHOOL HOURS', ibX + PAD, cy2); cy2 += 4.0
+      doc.text('SCHOOL HOURS', ibX + PAD, cy2); cy2 += 3.5
 
       // Split "Label: time" into two columns; fallback to full-width single line
       const labelColW = 14
@@ -1355,7 +1353,6 @@ export async function exportPDF(state, { preview = false, pdfStyle = 'classic', 
         }
         cy2 += HOURS_ROW_H
       })
-      cy2 += bandPadV
     }
 
     // ── Footer — thin rule + centered contact info ──────────────────────────────
@@ -1613,13 +1610,13 @@ async function exportTraditional(state, ctx) {
       doc.text(settings.calendarTitle || schoolInfo.name || 'YAYOE', ibCX, ibY + 9.5, { align: 'center' })
     }
 
-    let cy2 = ibY + IH_H + PAD
+    let cy2 = ibY + IH_H + (isCompactCard ? 2 : 3)
 
     const visibleCatsIB = categories.filter(c => c.visible && c.id !== 'rosh-chodesh')
     if (visibleCatsIB.length > 0) {
       const SWATCH_W  = 5.3
       const SWATCH_H  = 3.7
-      const LEG_ROW_H = isCompactCard ? 4.5 : 5.2
+      const LEG_ROW_H = isCompactCard ? 4.5 : 4.8
       const legCols2  = 2
       const legColW2  = (ibW - PAD * 2) / legCols2
       const TEXT_X_OFF = SWATCH_W + 1.5
@@ -1645,24 +1642,22 @@ async function exportTraditional(state, ctx) {
         doc.setTextColor(31, 45, 74); doc.setFontSize(isCompactCard ? 6 : 6.5); doc.setFont('helvetica', 'normal')
         doc.text(cat.name, itemX + TEXT_X_OFF, itemY + SWATCH_H * 0.72, { maxWidth: legColW2 - TEXT_X_OFF - 1 })
       })
-      cy2 += legRowsDrawn * LEG_ROW_H + 2.0
+      cy2 += legRowsDrawn * LEG_ROW_H + 1.5
     }
 
     const hourLines2 = (schoolInfo.hours || '').split('\n').filter(l => l.trim())
     if (hourLines2.length && cy2 < ibY + ibH - 8) {
-      const HOURS_ROW_H = isCompactCard ? 5.0 : 4.0
-      const bandPadV    = 2.0
-      const bandH       = Math.min(
-        bandPadV * 2 + 4.0 + hourLines2.length * HOURS_ROW_H,
-        ibY + ibH - 2 - cy2
-      )
+      const HOURS_ROW_H = isCompactCard ? 5.0 : 3.2
+      const bandH       = ibY + ibH - 2 - cy2
+      const contentH    = 3.5 + hourLines2.length * HOURS_ROW_H
+      const topPad      = Math.max(1.5, (bandH - contentH) / 2)
       doc.setFillColor(240, 243, 247)
       doc.rect(ibX + 1, cy2, ibW - 2, bandH, 'F')
 
-      cy2 += bandPadV
+      cy2 += topPad
 
       doc.setFontSize(isCompactCard ? 4.5 : 5); doc.setFont('helvetica', 'bold'); doc.setTextColor(pr, pg, pb)
-      doc.text('SCHOOL HOURS', ibX + PAD, cy2); cy2 += 4.0
+      doc.text('SCHOOL HOURS', ibX + PAD, cy2); cy2 += 3.5
 
       const labelColW = 14
       const timeX = ibX + PAD + labelColW
@@ -1684,7 +1679,6 @@ async function exportTraditional(state, ctx) {
         }
         cy2 += HOURS_ROW_H
       })
-      cy2 += bandPadV
     }
 
     const contactLines2 = !showBottomPanel ? [
