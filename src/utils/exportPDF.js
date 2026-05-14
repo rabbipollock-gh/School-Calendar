@@ -1320,7 +1320,7 @@ export async function exportPDF(state, { preview = false, pdfStyle = 'classic', 
     const hourLines2 = (schoolInfo.hours || '').split('\n').filter(l => l.trim())
     if (hourLines2.length && cy2 < ibY + ibH - 8) {
       const HOURS_ROW_H = isCompactCard ? 5.0 : 4.0
-      const bandPadV    = 1.5
+      const bandPadV    = 2.0
       const bandH       = Math.min(
         bandPadV * 2 + 4.0 + hourLines2.length * HOURS_ROW_H,
         ibY + ibH - 2 - cy2
@@ -1645,13 +1645,13 @@ async function exportTraditional(state, ctx) {
         doc.setTextColor(31, 45, 74); doc.setFontSize(isCompactCard ? 6 : 6.5); doc.setFont('helvetica', 'normal')
         doc.text(cat.name, itemX + TEXT_X_OFF, itemY + SWATCH_H * 0.72, { maxWidth: legColW2 - TEXT_X_OFF - 1 })
       })
-      cy2 += legRowsDrawn * LEG_ROW_H + 3.5
+      cy2 += legRowsDrawn * LEG_ROW_H + 2.0
     }
 
     const hourLines2 = (schoolInfo.hours || '').split('\n').filter(l => l.trim())
     if (hourLines2.length && cy2 < ibY + ibH - 8) {
       const HOURS_ROW_H = isCompactCard ? 5.0 : 4.0
-      const bandPadV    = 1.5
+      const bandPadV    = 2.0
       const bandH       = Math.min(
         bandPadV * 2 + 4.0 + hourLines2.length * HOURS_ROW_H,
         ibY + ibH - 2 - cy2
