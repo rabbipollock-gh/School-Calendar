@@ -173,11 +173,14 @@ function migrateState(state) {
   if (result.schoolInfo) {
     const si = result.schoolInfo
     if (!si.schoolHours || typeof si.schoolHours !== 'object' || !Array.isArray(si.schoolHours.rows)) {
+      const isYayoe = (getSchoolCode() || '').toLowerCase().includes('yayoe')
       result.schoolInfo = {
         ...si,
-        schoolHours: typeof si.hours === 'string' && si.hours.trim()
-          ? migrateSchoolHoursString(si.hours)
-          : EMPTY_SCHOOL_HOURS,
+        schoolHours: isYayoe ? DEFAULT_SCHOOL_HOURS : (
+          typeof si.hours === 'string' && si.hours.trim()
+            ? migrateSchoolHoursString(si.hours)
+            : EMPTY_SCHOOL_HOURS
+        ),
       }
     }
   }
