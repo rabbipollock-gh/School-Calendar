@@ -17,6 +17,19 @@ function getStorageKey() {
 }
 
 // ── Default school info ───────────────────────────────────────────────────
+export const DEFAULT_SCHOOL_HOURS = {
+  rows: [
+    { id: 'sh-1', color: 'green',  label: 'Preschool',   time: '8:15 AM – 3:30 PM',  note: '' },
+    { id: 'sh-2', color: 'navy',   label: 'Yesod – 4th', time: '8:15 AM – 3:45 PM',  note: '' },
+    { id: 'sh-3', color: 'blue',   label: '5th – 8th',   time: '8:15 AM – 4:30 PM',  note: '' },
+    { id: 'sh-4', color: 'gold',   label: 'Friday',      time: '8:15 AM – 1:00 PM',  note: 'All Grades' },
+    { id: 'sh-5', color: 'purple', label: 'Sunday',      time: '9:00 AM – 12:00 PM', note: 'Boys 3–8' },
+  ],
+  footnote: 'No Preschool on Kodesh Only Days',
+}
+
+const EMPTY_SCHOOL_HOURS = { rows: [], footnote: '' }
+
 const DEFAULT_SCHOOL_INFO = {
   name: 'Yeshiva Aharon Yaakov Ohr Eliyahu',
   address: '241 S. Detroit St., Los Angeles, CA 90036',
@@ -27,6 +40,7 @@ const DEFAULT_SCHOOL_INFO = {
   logo: null,
   bannerImage: null,
   hours: 'Boys: 8:30 AM – 4:00 PM\nGirls: 8:30 AM – 3:30 PM\nFriday: 8:30 AM – 1:30 PM',
+  schoolHours: DEFAULT_SCHOOL_HOURS,
   otherInfo: '',
 }
 
@@ -80,7 +94,7 @@ function buildInitialState() {
   const sourceEvents = isYayoe ? YAYOE_EVENTS : DEFAULT_EVENTS
   const events = normalizeEvents(sourceEvents)
   const schoolInfo = isYayoe ? DEFAULT_SCHOOL_INFO : {
-    name: '', address: '', phone: '', fax: '', email: '', website: '', logo: null, bannerImage: null, hours: '', otherInfo: '',
+    name: '', address: '', phone: '', fax: '', email: '', website: '', logo: null, bannerImage: null, hours: '', schoolHours: EMPTY_SCHOOL_HOURS, otherInfo: '',
   }
   return {
     events,
@@ -116,6 +130,19 @@ const CATEGORY_COLOR_UPGRADES = {
   'hebrew-only':     { from: '#D4EAFF', to: '#148F77' },
 }
 
+function migrateSchoolHoursString(hoursStr) {
+  const lines = (hoursStr || '').split('\n').filter(l => l.trim())
+  return {
+    rows: lines.map((line, i) => {
+      const colonIdx = line.indexOf(':')
+      const label = (colonIdx > 0 ? line.slice(0, colonIdx) : line).replace(/\*\*/g, '').trim()
+      const time  = colonIdx > 0 ? line.slice(colonIdx + 1).trim() : ''
+      return { id: `mig-${i}`, color: 'navy', label, time, note: '' }
+    }),
+    footnote: '',
+  }
+}
+
 function migrateState(state) {
   if (!state?.events) return state
   const cleanEvents = {}
@@ -141,6 +168,18 @@ function migrateState(state) {
       }
       return cat
     })
+  }
+  // Migrate schoolHours string → structured object
+  if (result.schoolInfo) {
+    const si = result.schoolInfo
+    if (!si.schoolHours || typeof si.schoolHours !== 'object' || !Array.isArray(si.schoolHours.rows)) {
+      result.schoolInfo = {
+        ...si,
+        schoolHours: typeof si.hours === 'string' && si.hours.trim()
+          ? migrateSchoolHoursString(si.hours)
+          : EMPTY_SCHOOL_HOURS,
+      }
+    }
   }
   return result
 }

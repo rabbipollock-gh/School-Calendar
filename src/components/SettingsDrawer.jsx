@@ -3,6 +3,7 @@ import { useCalendar } from '../context/CalendarContext.jsx'
 import { THEME_MAP } from '../utils/themeUtils.js'
 import { HEBREW_HOLIDAY_GROUPS } from '../data/hebrewCalendar.js'
 import { APP_VERSION } from '../version.js'
+import SchoolHoursEditor from './SchoolHoursEditor.jsx'
 
 // Group themes for display
 const THEME_GROUPS = [
@@ -122,9 +123,11 @@ export default function SettingsDrawer({ isOpen, onClose, onOpenCategories, onOp
                   <input type="text" value={schoolInfo.website || ''} onChange={e => updateInfo('website', e.target.value)} readOnly={readOnly} className={inputCls} placeholder="www.school.org" />
                 </Field>
               </div>
-              <Field label="School Hours">
-                <textarea value={schoolInfo.hours} onChange={e => updateInfo('hours', e.target.value)} readOnly={readOnly} rows={4} className={inputCls + ' resize-none'} />
-              </Field>
+              <SchoolHoursEditor
+                value={schoolInfo.schoolHours}
+                onChange={val => updateInfo('schoolHours', val)}
+                readOnly={readOnly}
+              />
               <Field label="Regular Dismissal Time">
                 <input type="time" value={settings.regularDismissalTime || ''} onChange={e => updateSettings('regularDismissalTime', e.target.value)} readOnly={readOnly} className={inputCls} title="Default dismissal time shown on PDF for events marked 'Regular Dismissal'" />
                 <p className="text-[10px] text-gray-400 mt-0.5">Used on PDF for events marked "Regular Dismissal"</p>
