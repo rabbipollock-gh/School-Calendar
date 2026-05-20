@@ -9,6 +9,31 @@ import { getTheme, hexToRgb } from './themeUtils.js'
 import { recordExport } from './sessionMetrics.js'
 
 const DAYS = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SHA']
+
+// Pill background colors for the structured school-hours layout
+const PDF_PILL_COLORS = {
+  navy:   '#142a5c',
+  green:  '#1a8a6a',
+  blue:   '#1f6dbf',
+  gold:   '#d98b1a',
+  purple: '#7c4ca8',
+}
+
+// Returns the structured schoolHours object, migrating from legacy string if needed.
+function resolveSchoolHours(schoolInfo) {
+  const sh = schoolInfo?.schoolHours
+  if (sh && Array.isArray(sh.rows)) return sh
+  const lines = (schoolInfo?.hours || '').split('\n').filter(l => l.trim())
+  return {
+    rows: lines.map((line, i) => {
+      const colonIdx = line.indexOf(':')
+      const label = (colonIdx > 0 ? line.slice(0, colonIdx) : line).replace(/\*\*/g, '').trim()
+      const time  = colonIdx > 0 ? line.slice(colonIdx + 1).trim() : ''
+      return { id: `legacy-${i}`, color: 'navy', label, time, note: '' }
+    }),
+    footnote: '',
+  }
+}
 const COL_COUNT = 4
 const PAGE_W = 279.4  // US Letter landscape mm
 const PAGE_H = 215.9
@@ -131,7 +156,11 @@ function renderSidebarBlock(doc, blockId, startY, { sbX, sbCx, SIDEBAR_W, ruleW,
 
   switch (blockId) {
     case 'hours': {
-      const hourLines = (schoolInfo.hours || '').split('\n').filter(l => l.trim())
+      const _sh = resolveSchoolHours(schoolInfo)
+      const hourLines = _sh.rows.filter(r => r.label || r.time).map(r => {
+        const parts = [r.label, r.time].filter(Boolean)
+        return parts.length === 2 ? `**${r.label}:** ${r.time}` : (parts[0] || '')
+      })
       if (!hourLines.length) return y
       doc.setTextColor(pr, pg, pb); doc.setFontSize(7); doc.setFont('helvetica', 'bold')
       doc.text('SCHOOL HOURS', sbCx, y, { align: 'center' })
@@ -1020,6 +1049,120 @@ function drawNotesStrip(doc, events, catMap, x, y, w, h, year, month, { modernSt
   }
 }
 
+// Draws the structured school-hours pill layout inside an info card.
+// Returns the new cy2 after all content is drawn.
+function drawSchoolHoursPills(doc, schoolInfo, { ibX, ibW, ibH, ibY, ibCX, PAD, cy2, isCompactCard, pr, pg, pb, ar, ag, ab }) {
+  const sh = resolveSchoolHours(schoolInfo)
+  const pillRows = sh.rows.filter(r => r.label || r.time)
+  if (!pillRows.length && !sh.footnote) return cy2
+
+  const bandH = ibY + ibH - 2 - cy2
+
+  // Dynamically size rows so all pills fit within the available band
+  const EYEBROW_H = 3.5
+  const TOP_PAD   = 3.0
+  const MIN_ROW_H = 3.5   // minimum total row slot (pill + gap)
+  const MAX_ROW_H = 5.6
+  const FOOTNOTE_BUDGET = sh.footnote ? 9 : 0
+  const rowSlots  = pillRows.length
+  const budget    = bandH - TOP_PAD - EYEBROW_H - FOOTNOTE_BUDGET
+  const rowH      = rowSlots > 0 ? Math.max(MIN_ROW_H, Math.min(MAX_ROW_H, budget / rowSlots)) : MAX_ROW_H
+  const PILL_H    = Math.max(2.8, rowH * 0.62)
+  const ROW_GAP   = rowH - PILL_H
+  const PILL_W    = isCompactCard ? 14 : 16
+  const PILL_RX   = PILL_H / 2
+
+  // Gray background fills remainder of card
+  doc.setFillColor(238, 243, 249)
+  doc.rect(ibX + 1, cy2, ibW - 2, bandH, 'F')
+
+  cy2 += TOP_PAD
+
+  // Eyebrow
+  doc.setFontSize(isCompactCard ? 4.5 : 5)
+  doc.setFont('helvetica', 'bold')
+  doc.setTextColor(20, 42, 92)
+  doc.text('SCHOOL HOURS', ibX + PAD, cy2)
+  cy2 += 3.5
+
+  const timeX    = ibX + PAD + PILL_W + 2
+  const timeMaxW = ibW - PAD - PILL_W - 2 - PAD
+
+  pillRows.forEach(row => {
+    if (cy2 + PILL_H > ibY + ibH - 2) return
+
+    const pillY  = cy2
+    const textY  = pillY + PILL_H * 0.67
+
+    // Pill background
+    const pillHex = PDF_PILL_COLORS[row.color] || PDF_PILL_COLORS.navy
+    const [rp, gp, bp] = hexToRgbLocal(pillHex)
+    doc.setFillColor(rp, gp, bp)
+    doc.roundedRect(ibX + PAD, pillY, PILL_W, PILL_H, PILL_RX, PILL_RX, 'F')
+
+    // Pill label — white bold uppercase centered
+    doc.setTextColor(255, 255, 255)
+    doc.setFont('helvetica', 'bold')
+    doc.setFontSize(isCompactCard ? 4.5 : 5)
+    doc.text((row.label || '').toUpperCase(), ibX + PAD + PILL_W / 2, textY, { align: 'center', maxWidth: PILL_W - 2 })
+
+    // Time value
+    doc.setTextColor(27, 36, 64)
+    doc.setFont('helvetica', 'normal')
+    doc.setFontSize(isCompactCard ? 5 : 6)
+    if (row.note) {
+      const displayTime = row.time || ''
+      doc.text(displayTime, timeX, textY, { maxWidth: timeMaxW * 0.62 })
+      // Note in muted smaller text inline after time
+      doc.setFont('helvetica', 'bold')
+      doc.setFontSize(isCompactCard ? 4 : 5)
+      doc.setTextColor(90, 101, 136)
+      const timeW = doc.getTextWidth(displayTime)
+      // Restore font to measure; render note after time width
+      doc.text(row.note, timeX + Math.min(timeW, timeMaxW * 0.62) + 5, textY - 0.2, { maxWidth: timeMaxW - Math.min(timeW, timeMaxW * 0.62) - 5 })
+    } else {
+      doc.text(row.time || '', timeX, textY, { maxWidth: timeMaxW })
+    }
+
+    cy2 += PILL_H + ROW_GAP
+  })
+
+  // Footnote
+  if (sh.footnote && cy2 + 7 < ibY + ibH - 2) {
+    cy2 += 1
+    doc.setDrawColor(214, 221, 233)
+    doc.setLineWidth(0.3)
+    doc.line(ibX + PAD, cy2, ibX + ibW - PAD, cy2)
+    cy2 += 3
+
+    doc.setFont('helvetica', 'bold')
+    doc.setFontSize(isCompactCard ? 5 : 6)
+    // Star in gold, then footnote text in navy — centered together
+    const starStr  = '★ '
+    doc.setTextColor(217, 139, 26)
+    const starW    = doc.getTextWidth(starStr)
+    doc.setTextColor(20, 42, 92)
+    const noteW    = doc.getTextWidth(sh.footnote)
+    const startX   = ibCX - (starW + noteW) / 2
+    doc.setTextColor(217, 139, 26)
+    doc.text(starStr, startX, cy2)
+    doc.setTextColor(20, 42, 92)
+    doc.text(sh.footnote, startX + starW, cy2, { maxWidth: ibW - PAD * 2 - starW })
+    cy2 += 5
+  }
+
+  // Gold decorative underline at base of the band
+  const ulW = (ibW - 2) * 0.9
+  const ulX = ibX + 1 + ((ibW - 2) - ulW) / 2
+  const ulY = ibY + ibH - 3.5
+  if (ulY > cy2 + 1) {
+    doc.setFillColor(217, 139, 26)
+    doc.roundedRect(ulX, ulY, ulW, 0.7, 0.35, 0.35, 'F')
+  }
+
+  return cy2
+}
+
 export async function exportPDF(state, { preview = false, pdfStyle = 'classic', monthIndex = null, eventsPanel = null } = {}) {
   if (!preview) recordExport('PDF', pdfStyle)
   // Allow PDF preview modal to override the eventsPanel setting per-export
@@ -1316,52 +1459,14 @@ export async function exportPDF(state, { preview = false, pdfStyle = 'classic', 
       cy2 += legRowsDrawn * LEG_ROW_H + 1.5
     }
 
-    // ── School Hours — gray shaded band, left-aligned label/time table ──────
-    const hourLines2 = (schoolInfo.hours || '').split('\n').filter(l => l.trim())
-    if (hourLines2.length && cy2 < ibY + ibH - 8) {
-      const HOURS_ROW_H = isCompactCard ? 5.0 : 3.2
-      const bandH       = ibY + ibH - 2 - cy2
-      const contentH    = 3.5 + hourLines2.length * HOURS_ROW_H
-      const topPad      = Math.max(1.5, (bandH - contentH) / 2)
-      // Gray background band fills remaining card height
-      doc.setFillColor(240, 243, 247)
-      doc.rect(ibX + 1, cy2, ibW - 2, bandH, 'F')
-
-      cy2 += topPad
-
-      doc.setFontSize(isCompactCard ? 4.5 : 5); doc.setFont('helvetica', 'bold'); doc.setTextColor(pr, pg, pb)
-      doc.text('SCHOOL HOURS', ibX + PAD, cy2); cy2 += 3.5
-
-      // Split "Label: time" into two columns; fallback to full-width single line
-      const labelColW = 14
-      const timeX = ibX + PAD + labelColW
-      const timeMaxW = ibW - PAD - labelColW - PAD
-      doc.setFontSize(isCompactCard ? 6 : 6.5)
-      hourLines2.forEach(line => {
-        if (cy2 >= ibY + ibH - 2) return
-        const colonIdx = line.indexOf(':')
-        if (colonIdx > 0 && colonIdx < 13 && !line.includes('**')) {
-          const lbl  = line.slice(0, colonIdx + 1)
-          const time = line.slice(colonIdx + 1).trim()
-          doc.setFont('helvetica', 'bold'); doc.setTextColor(pr, pg, pb)
-          doc.text(lbl, ibX + PAD, cy2)
-          doc.setFont('helvetica', 'normal'); doc.setTextColor(50, 60, 80)
-          doc.text(time, timeX, cy2, { maxWidth: timeMaxW })
-        } else {
-          doc.setFont('helvetica', 'normal'); doc.setTextColor(50, 60, 80)
-          renderRichText(doc, line.trim(), ibX + PAD, cy2, { maxWidth: ibW - PAD * 2 })
-        }
-        cy2 += HOURS_ROW_H
-      })
+    // ── School Hours — color pill layout ──────────────────────────────────────
+    if (cy2 < ibY + ibH - 8) {
+      cy2 = drawSchoolHoursPills(doc, schoolInfo, { ibX, ibW, ibH, ibY, ibCX, PAD, cy2, isCompactCard, pr, pg, pb, ar, ag, ab })
     }
 
     // ── Footer — thin rule + centered contact info ──────────────────────────────
     const contactLines2 = !showBottomPanel ? [
       schoolInfo.otherInfo,
-      schoolInfo.address,
-      [schoolInfo.phone ? `Tel: ${schoolInfo.phone}` : '', schoolInfo.fax ? `Fax: ${schoolInfo.fax}` : ''].filter(Boolean).join('   '),
-      schoolInfo.email,
-      schoolInfo.website,
     ].filter(Boolean) : []
     if (contactLines2.length && cy2 < ibY + ibH - 5) {
       doc.setDrawColor(ar, ag, ab); doc.setLineWidth(0.4)
@@ -1645,53 +1750,18 @@ async function exportTraditional(state, ctx) {
       cy2 += legRowsDrawn * LEG_ROW_H + 1.5
     }
 
-    const hourLines2 = (schoolInfo.hours || '').split('\n').filter(l => l.trim())
-    if (hourLines2.length && cy2 < ibY + ibH - 8) {
-      const HOURS_ROW_H = isCompactCard ? 5.0 : 3.2
-      const bandH       = ibY + ibH - 2 - cy2
-      const contentH    = 3.5 + hourLines2.length * HOURS_ROW_H
-      const topPad      = Math.max(1.5, (bandH - contentH) / 2)
-      doc.setFillColor(240, 243, 247)
-      doc.rect(ibX + 1, cy2, ibW - 2, bandH, 'F')
-
-      cy2 += topPad
-
-      doc.setFontSize(isCompactCard ? 4.5 : 5); doc.setFont('helvetica', 'bold'); doc.setTextColor(pr, pg, pb)
-      doc.text('SCHOOL HOURS', ibX + PAD, cy2); cy2 += 3.5
-
-      const labelColW = 14
-      const timeX = ibX + PAD + labelColW
-      const timeMaxW = ibW - PAD - labelColW - PAD
-      doc.setFontSize(isCompactCard ? 6 : 6.5)
-      hourLines2.forEach(line => {
-        if (cy2 >= ibY + ibH - 2) return
-        const colonIdx = line.indexOf(':')
-        if (colonIdx > 0 && colonIdx < 13 && !line.includes('**')) {
-          const lbl  = line.slice(0, colonIdx + 1)
-          const time = line.slice(colonIdx + 1).trim()
-          doc.setFont('helvetica', 'bold'); doc.setTextColor(pr, pg, pb)
-          doc.text(lbl, ibX + PAD, cy2)
-          doc.setFont('helvetica', 'normal'); doc.setTextColor(50, 60, 80)
-          doc.text(time, timeX, cy2, { maxWidth: timeMaxW })
-        } else {
-          doc.setFont('helvetica', 'normal'); doc.setTextColor(50, 60, 80)
-          renderRichText(doc, line.trim(), ibX + PAD, cy2, { maxWidth: ibW - PAD * 2 })
-        }
-        cy2 += HOURS_ROW_H
-      })
+    // ── School Hours — color pill layout ──────────────────────────────────────
+    if (cy2 < ibY + ibH - 8) {
+      cy2 = drawSchoolHoursPills(doc, schoolInfo, { ibX, ibW, ibH, ibY, ibCX, PAD, cy2, isCompactCard, pr, pg, pb, ar, ag, ab })
     }
 
-    const contactLines2 = !showBottomPanel ? [
+    const tradContactLines = !showBottomPanel ? [
       schoolInfo.otherInfo,
-      schoolInfo.address,
-      [schoolInfo.phone ? `Tel: ${schoolInfo.phone}` : '', schoolInfo.fax ? `Fax: ${schoolInfo.fax}` : ''].filter(Boolean).join('   '),
-      schoolInfo.email,
-      schoolInfo.website,
     ].filter(Boolean) : []
-    if (contactLines2.length && cy2 < ibY + ibH - 5) {
+    if (tradContactLines.length && cy2 < ibY + ibH - 5) {
       doc.setDrawColor(ar, ag, ab); doc.setLineWidth(0.4)
       doc.line(ibX + PAD * 2, cy2 + 1.5, ibX + ibW - PAD * 2, cy2 + 1.5); cy2 += 4.5
-      contactLines2.forEach((line, i) => {
+      tradContactLines.forEach((line, i) => {
         if (cy2 >= ibY + ibH - 2) return
         const isFirst = i === 0
         doc.setFontSize(isFirst ? (isCompactCard ? 5 : 5.5) : (isCompactCard ? 4.5 : 5))
@@ -2918,7 +2988,11 @@ function deDarkSidebarBlock(doc, blockId, startY, { sbX, sbCx, SIDEBAR_W, GOLD, 
   let y = startY; const ruleW = SIDEBAR_W * 0.8
   switch (blockId) {
     case 'hours': {
-      const hourLines = (schoolInfo.hours || '').split('\n').filter(l => l.trim())
+      const _sh2 = resolveSchoolHours(schoolInfo)
+      const hourLines = _sh2.rows.filter(r => r.label || r.time).map(r => {
+        const parts = [r.label, r.time].filter(Boolean)
+        return parts.length === 2 ? `**${r.label}:** ${r.time}` : (parts[0] || '')
+      })
       if (!hourLines.length) return y
       doc.setTextColor(ar, ag, ab); doc.setFontSize(7); doc.setFont('helvetica', 'bold')
       doc.text('SCHOOL HOURS', sbCx, y, { align: 'center' })
