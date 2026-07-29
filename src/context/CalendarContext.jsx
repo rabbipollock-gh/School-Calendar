@@ -404,7 +404,7 @@ const CalendarContext = createContext(null)
 
 export function CalendarProvider({ children, readOnly = false }) {
   const sharedState = getSharedState()
-  const { session } = useAuth()
+  const { session, loading: authLoading } = useAuth()
   const userId = session?.user?.id ?? null
   const [collabUnlocked, setCollabUnlocked] = useState(false)
   const [cloudToast, setCloudToast] = useState(null) // null | 'synced' | 'newer'
@@ -548,9 +548,23 @@ export function CalendarProvider({ children, readOnly = false }) {
   }, [state.settings.theme, state.settings.customPrimary, state.settings.customAccent])
 
   // Auto-save to localStorage on every state change (stamp with time for cloud comparison)
+  //
+  // GUARD: do not persist before we know what we're looking at. This effect
+  // runs on MOUNT with the seeded initial state and stamps `_savedAt = now`.
+  // The cloud reconciliation below then compares that fresh timestamp against
+  // the real cloud row and concludes "local is newer", so seeded data
+  // permanently shadows the user's actual calendar — and clearing localStorage
+  // never helps, because this rewrites it milliseconds after the next load.
+  //
+  // So: while auth is resolving, write nothing. Once resolved, a signed-in user
+  // must wait for the cloud read to settle (cloudReadyForSlug); a signed-out
+  // user is local-only and may save immediately.
   useEffect(() => {
-    if (!sharedState) saveToStorage({ ...state, _savedAt: new Date().toISOString() })
-  }, [state, sharedState])
+    if (sharedState) return
+    if (authLoading) return
+    if (userId && cloudReadyForSlug.current !== (getSchoolCode() || 'default')) return
+    saveToStorage({ ...state, _savedAt: new Date().toISOString() })
+  }, [state, sharedState, userId, authLoading])
 
   // Keyboard undo/redo
   useEffect(() => {
