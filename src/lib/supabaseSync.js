@@ -11,7 +11,15 @@ export async function loadFromCloud(userId, slug) {
     .eq('slug', slug)
     .maybeSingle()
 
-  if (error) { logger.error('sync', 'loadFromCloud error', { error: error.message }); return null }
+  // THROW on error — never return null, which the caller reads as "no cloud
+  // calendar exists, upload mine". A failed read (RLS, network, expired token)
+  // must not look identical to an empty one, or we overwrite a real calendar
+  // with whatever local state we happen to hold. null is reserved for "the
+  // row genuinely does not exist".
+  if (error) {
+    logger.error('sync', 'loadFromCloud FAILED', { slug, error: error.message })
+    throw new Error(`loadFromCloud(${slug}): ${error.message}`)
+  }
   if (!data) { logger.info('sync', 'no cloud data found for user/slug', { slug }); return null }
   logger.info('sync', 'loaded cloud data', { slug, updatedAt: data.updated_at })
   return { data: data.data, updatedAt: data.updated_at }
