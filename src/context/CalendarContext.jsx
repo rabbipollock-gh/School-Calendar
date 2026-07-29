@@ -410,6 +410,9 @@ export function CalendarProvider({ children, readOnly = false }) {
   const [cloudToast, setCloudToast] = useState(null) // null | 'synced' | 'newer'
   const [newerCloudState, setNewerCloudState] = useState(null)
   const debouncedSaveRef = useRef(null)
+  /** Slug whose cloud row we have successfully READ. Cloud writes are refused
+   *  for any other slug — never overwrite a calendar we haven't loaded. */
+  const cloudReadyForSlug = useRef(null)
 
   const [state, dispatch] = useReducer(
     reducer,
@@ -438,7 +441,11 @@ export function CalendarProvider({ children, readOnly = false }) {
     if (sharedState || !userId) return
 
     const slug = getSchoolCode() || 'default'
+    // Block cloud writes for this slug until the read below settles — see the
+    // guard in the save effect.
+    cloudReadyForSlug.current = null
     loadFromCloud(userId, slug).then(async cloud => {
+      try {
       // Seed local index from all cloud calendars on every login
       try {
         const allEntries = await loadAllCalendarsFromCloud(userId)
@@ -481,16 +488,33 @@ export function CalendarProvider({ children, readOnly = false }) {
       } else {
         logger.info('sync', 'local is same or newer — no prompt needed')
       }
-    }).catch(err => logger.error('sync', 'cloud load failed', { error: err?.message }))
+      } finally {
+        // The READ succeeded (whatever it found), so writing this slug is now
+        // safe. In `finally` because the branches above return early.
+        cloudReadyForSlug.current = slug
+      }
+    })
+      // Deliberately do NOT unblock here: if we couldn't read the cloud, we
+      // must never overwrite it with whatever local state we happen to hold.
+      .catch(err => logger.error('sync', 'cloud load failed', { error: err?.message }))
   }, [userId]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Cloud sync: save on every state change (debounced 2s) ─────────────────
+  //
+  // GUARD: never write to a slug we haven't READ yet. Without this, opening the
+  // app on an origin with no localStorage (a new domain, another computer, a
+  // fresh profile) starts from the seeded default state and can push that over
+  // a real cloud calendar before the load finishes. That destroyed the live
+  // 2026-27 calendar once — 90 dates + logo replaced by 83 seeded dates.
+  // `cloudReadyForSlug` is set only after the load effect settles for that slug.
   useEffect(() => {
     if (sharedState || !userId) return
+    const slug = getSchoolCode() || 'default'
+    if (cloudReadyForSlug.current !== slug) return
     if (!debouncedSaveRef.current) {
       debouncedSaveRef.current = debounce((s, uid, sl) => saveToCloud(uid, sl, s), 2000)
     }
-    debouncedSaveRef.current(state, userId, getSchoolCode() || 'default')
+    debouncedSaveRef.current(state, userId, slug)
   }, [state, userId, sharedState]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── One-time migration: register existing calendar in index on first load ──
