@@ -29,8 +29,24 @@ const _buffer = []
 // Level ordering for filtering
 const LEVEL_ORDER = { debug: 0, info: 1, warn: 2, error: 3 }
 
+/**
+ * Production debug switch. Set `localStorage['yayoe-debug'] = '1'` and reload to
+ * get full console output on a deployed build — the only practical way to
+ * diagnose a sync problem that only reproduces on a real origin with a real
+ * session. Unset it (or use a private window) to go quiet again.
+ */
+const DEBUG_ENABLED = (() => {
+  try {
+    return typeof localStorage !== 'undefined' && localStorage.getItem('yayoe-debug') === '1'
+  } catch {
+    return false
+  }
+})()
+
+const VERBOSE = import.meta.env.DEV || DEBUG_ENABLED
+
 // In prod, skip debug-level entries from the buffer to reduce noise
-const MIN_LEVEL = import.meta.env.DEV ? 'debug' : 'info'
+const MIN_LEVEL = VERBOSE ? 'debug' : 'info'
 
 function _push(level, category, message, metadata = null) {
   if (LEVEL_ORDER[level] < LEVEL_ORDER[MIN_LEVEL]) return
@@ -47,8 +63,8 @@ function _push(level, category, message, metadata = null) {
   _buffer.push(entry)
   if (_buffer.length > MAX_ENTRIES) _buffer.shift()
 
-  // Forward to console in dev
-  if (import.meta.env.DEV) {
+  // Forward to console in dev, or in prod when the debug switch is on
+  if (VERBOSE) {
     const prefix = `[${entry.category.toUpperCase()}]`
     if (level === 'error') console.error(prefix, message, metadata || '')
     else if (level === 'warn') console.warn(prefix, message, metadata || '')

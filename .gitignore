@@ -33,3 +33,6 @@ Thumbs.db
 # PWA workbox (generated at build time)
 dist/sw.js
 dist/workbox-*.js
+
+# Local Netlify folder
+.netlify

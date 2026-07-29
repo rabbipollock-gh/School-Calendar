@@ -437,8 +437,22 @@ export function CalendarProvider({ children, readOnly = false }) {
 
   // ── Cloud sync: load when userId becomes available ────────────────────────
   useEffect(() => {
-    logger.debug('sync', 'sync effect fired', { userId, hasSharedState: !!sharedState })
-    if (sharedState || !userId) return
+    logger.info('sync', 'sync effect fired', {
+      userId,
+      hasSharedState: !!sharedState,
+      hash: typeof window !== 'undefined' ? window.location.hash : '(n/a)',
+      schoolCode: getSchoolCode(),
+      storageKey: getStorageKey(),
+      localBytes: (() => {
+        try { return (localStorage.getItem(getStorageKey()) || '').length } catch { return -1 }
+      })(),
+    })
+    if (sharedState || !userId) {
+      logger.warn('sync', 'sync SKIPPED — no userId or shared view', {
+        userId, hasSharedState: !!sharedState,
+      })
+      return
+    }
 
     const slug = getSchoolCode() || 'default'
     // Block cloud writes for this slug until the read below settles — see the
