@@ -1,0 +1,37 @@
+# Netlify build for the calendar when it is served under
+# tools.yayoe.org/calendar/ (proxied from the scheduler site — see that repo's
+# netlify.toml). GitHub Pages still builds the same source with the default
+# base '/' for calendar.yayoe.org, so both can run during the transition.
+
+[build]
+  command = "npm run build"
+  publish = "dist"
+
+[build.environment]
+  # Emits asset URLs as /calendar/assets/... so they resolve through the proxy.
+  VITE_BASE = "/calendar/"
+
+# SPA fallback: the app is client-routed, so any unknown path must still return
+# index.html rather than a Netlify 404.
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
+
+# Content-hashed assets are immutable; the HTML shell must never be cached.
+[[headers]]
+  for = "/assets/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
+
+[[headers]]
+  for = "/index.html"
+  [headers.values]
+    Cache-Control = "public, max-age=0, must-revalidate"
+
+# This site is only meant to be reached through tools.yayoe.org/calendar/ —
+# keep its bare *.netlify.app URL out of search results.
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Robots-Tag = "noindex"
